@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>100% Complete Sunset Glow Onboarding</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+
+        * { box-sizing: border-box; }
+
+        :root {
+            --primary: #E2856E;
+            --primary-hover: #C76750;
+            --secondary: #F4B39D;
+            --accent-bg: #FCE1D4;
+            --bg: #FFFAF5;
+            --surface: #ffffff;
+            --text-dark: #543128;
+            --text-muted: #936255;
+            --border: rgba(226, 133, 110, 0.2);
+            --success: #7B9E87;
+        }
+
+        body { font-family: 'Nunito', sans-serif; background-color: #E8E5E1; margin: 0; padding: 40px; display: flex; flex-direction: column; align-items: center; overflow-x: auto; }
+        
+        .header { text-align: center; margin-bottom: 40px; color: var(--text-dark); width: 100%; }
+        
+        /* Layout for all screens to sit side-by-side or wrap */
+        .flow-container { display: flex; flex-wrap: wrap; gap: 40px; justify-content: center; width: 100%; max-width: 2400px; padding-bottom: 50px; }
+        
+        .screen-wrapper { display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        .screen-label { font-weight: 800; color: var(--text-dark); font-size: 14px; background: rgba(255,255,255,0.9); padding: 6px 16px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+
+        /* The Phone Screen */
+        .app-screen { width: 320px; height: 680px; border-radius: 35px; box-shadow: 0 15px 35px rgba(84, 49, 40, 0.15); overflow: hidden; display: flex; flex-direction: column; position: relative; background-color: var(--bg); border: 10px solid var(--surface); }
+
+        /* Internal layout */
+        .content { padding: 24px; display: flex; flex-direction: column; flex: 1; width: 100%; overflow-y: auto; }
+        .content::-webkit-scrollbar { width: 0; }
+        .bottom-action { padding: 20px 24px; background: var(--bg); border-top: 1px solid var(--border); width: 100%; z-index: 10; }
+        .bottom-action-transparent { padding: 20px 24px; background: transparent; width: 100%; z-index: 10; margin-top: auto; }
+
+        /* Typography */
+        h2 { font-size: 24px; color: var(--text-dark); text-align: center; margin-bottom: 10px; line-height: 1.3; font-weight: 800; }
+        h3 { font-size: 18px; color: var(--text-dark); text-align: center; margin-bottom: 10px; font-weight: 800; }
+        p { font-size: 14px; color: var(--text-muted); text-align: center; line-height: 1.5; margin-top: 0; }
+
+        /* Buttons */
+        .btn { background-color: var(--primary); color: #fff; border: none; padding: 16px; border-radius: 20px; font-size: 16px; font-weight: 800; cursor: pointer; width: 100%; transition: all 0.2s; font-family: inherit; }
+        .btn:hover { background-color: var(--primary-hover); transform: translateY(-1px); }
+        .btn-outline { background-color: transparent; color: var(--text-dark); border: 2px solid var(--border); }
+        .btn-text { background: none; color: var(--text-muted); padding: 12px; margin-top: 5px; border: none; font-family: inherit; font-weight: 700; font-size: 15px; cursor: pointer; text-align: center; width: 100%; }
+        .row-btns { display: flex; gap: 15px; width: 100%; margin-top: auto; }
+
+        /* Progress Header (Chunked) */
+        .progress-header { display: flex; align-items: center; padding: 20px 24px 0 24px; gap: 15px; width: 100%; flex-shrink: 0; }
+        .back-btn { font-size: 20px; color: var(--text-dark); cursor: pointer; font-weight: bold; width: 20px;}
+        .progress-container-wrapper { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+        .step-label { font-size: 10px; font-weight: 800; color: var(--text-muted); text-align: center; letter-spacing: 1px;}
+        .progress-bar-container { width: 100%; height: 6px; background-color: var(--border); border-radius: 3px; overflow: hidden; }
+        .progress-bar { height: 100%; background-color: var(--primary); border-radius: 3px; }
+
+        /* Shared UI Components */
+        .hero-img { height: 280px; background: linear-gradient(135deg, var(--secondary), var(--accent-bg)); display: flex; align-items: center; justify-content: center; border-radius: 25px 25px 40px 40px; margin-bottom: 10px; font-size: 70px; width: 100%; flex-shrink: 0; }
+        .input-line { width: 100%; border: none; border-bottom: 2px solid var(--primary); font-size: 24px; font-family: inherit; font-weight: 700; text-align: center; padding: 10px; outline: none; color: var(--text-dark); background: transparent; margin: 40px 0 auto 0; }
+        .card-grid { display: flex; gap: 15px; margin-top: 20px; width: 100%; }
+        .card { flex: 1; border: 2px solid var(--border); border-radius: 20px; padding: 20px; text-align: center; background-color: var(--surface); color: var(--text-muted); font-weight: 700; cursor: pointer; }
+        .card.active { border-color: var(--primary); color: var(--text-dark); background-color: rgba(226, 133, 110, 0.05); }
+        .card-icon { font-size: 40px; margin-bottom: 10px; }
+        .list-btn { background-color: var(--surface); border: 2px solid var(--border); color: var(--text-muted); padding: 16px; border-radius: 16px; font-size: 14px; font-weight: 800; width: 100%; margin-bottom: 12px; display: flex; align-items: center; gap: 15px; cursor: pointer; }
+        .list-btn.active { border-color: var(--primary); color: var(--text-dark); background-color: rgba(226, 133, 110, 0.05); }
+        
+        /* Pickers & Toggles */
+        .picker-container { position: relative; height: 160px; margin: 30px 0; display: flex; justify-content: center; align-items: center; gap: 20px; overflow: hidden; width: 100%; }
+        .picker-container::before, .picker-container::after { content: ''; position: absolute; left: 0; right: 0; height: 60px; z-index: 2; pointer-events: none; }
+        .picker-container::before { top: 0; background: linear-gradient(to bottom, var(--bg) 20%, transparent); }
+        .picker-container::after { bottom: 0; background: linear-gradient(to top, var(--bg) 20%, transparent); }
+        .picker-col { text-align: center; color: var(--text-muted); font-size: 20px; line-height: 40px; font-weight: 600; }
+        .picker-active { color: var(--text-dark); font-size: 28px; font-weight: 800; border-top: 2px solid var(--primary); border-bottom: 2px solid var(--primary); }
+        .unit-toggle { display: flex; background: var(--surface); border: 2px solid var(--border); border-radius: 25px; margin: 10px auto 20px auto; width: fit-content; padding: 4px; }
+        .unit-option { padding: 8px 20px; border-radius: 20px; font-weight: 800; font-size: 14px; color: var(--text-muted); cursor: pointer; }
+        .unit-option.active { background: var(--primary); color: white; box-shadow: 0 4px 10px rgba(226, 133, 110, 0.3); }
+
+        /* Sliders */
+        .slider-wrapper { margin-top: 30px; width: 100%;}
+        .slider-track { height: 8px; background: var(--border); border-radius: 4px; position: relative; margin: 20px 0;}
+        .slider-fill { width: 50%; height: 100%; background: var(--primary); border-radius: 4px;}
+        .slider-thumb { width: 24px; height: 24px; background: var(--text-dark); border-radius: 50%; position: absolute; top: -8px; left: 50%; transform: translateX(-50%); box-shadow: 0 4px 8px rgba(0,0,0,0.1);}
+
+        /* Charts & Visuals */
+        .bar-chart { display: flex; align-items: flex-end; justify-content: center; gap: 8px; height: 120px; margin: 30px 0; border-bottom: 2px solid var(--border); padding-bottom: 10px; }
+        .bar { width: 25px; background-color: var(--secondary); border-radius: 4px 4px 0 0; }
+        .bar.high { background-color: var(--primary); }
+        .chart-labels { display: flex; justify-content: center; gap: 8px; font-size: 12px; color: var(--text-muted); font-weight: bold;}
+        .chart-label { width: 25px; text-align: center; }
+
+        /* Transition Screens */
+        .transition-content { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 30px;}
+        .transition-icon { font-size: 80px; margin-bottom: 20px; animation: bounce 2s infinite ease-in-out; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+        .spinner { width: 80px; height: 80px; border-radius: 50%; border: 6px solid var(--border); border-top-color: var(--primary); margin: auto auto 30px auto; animation: spin 1s linear infinite;}
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* Paywall */
+        .timeline-container { position: relative; padding-left: 35px; margin: 10px 0 20px 0; }
+        .timeline-line { position: absolute; left: 13px; top: 15px; bottom: 15px; width: 4px; background: linear-gradient(to bottom, var(--primary) 65%, var(--border) 65%); z-index: 1; border-radius: 2px; }
+        .timeline-item { position: relative; z-index: 2; display: flex; gap: 15px; margin-bottom: 20px; }
+        .timeline-icon { width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; box-shadow: 0 0 0 4px var(--bg); }
+        .timeline-icon.dark { background: var(--text-dark); }
+        .pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 15px; margin-bottom: 20px;}
+        .pricing-card { border: 2px solid var(--border); border-radius: 16px; padding: 15px; text-align: left; position: relative; cursor: pointer; background: var(--surface); display: flex; align-items: center; justify-content: space-between;}
+        .pricing-card.active { border-color: var(--text-dark); background: rgba(84, 49, 40, 0.03); border-width: 3px; padding: 14px; }
+        .pricing-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--text-dark); color: white; font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 12px; white-space: nowrap; }
+        .pricing-radio { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--border); display:flex; align-items:center; justify-content:center; flex-shrink: 0; }
+        .pricing-card.active .pricing-radio { border-color: var(--text-dark); background: var(--text-dark); color: white; font-size: 14px;}
+
+        /* Exit Intent Modal */
+        .modal-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(84, 49, 40, 0.6); z-index: 100; display: none; align-items: flex-end; backdrop-filter: blur(2px); }
+        .downsell-sheet { background: var(--surface); width: 100%; padding: 30px 24px; border-radius: 30px 30px 0 0; animation: slideUp 0.3s ease-out; display: flex; flex-direction: column; align-items: center; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>The Complete 26-Screen Onboarding Flow</h1>
+        <p>No screens skipped. Includes all transitions, UI logic, and the exit-intent downsell modal on the final screen.</p>
+    </div>
+
+    <div class="flow-container">
+
+        <div class="screen-wrapper">
+            <div class="screen-label">1. Welcome</div>
+            <div class="app-screen">
+                <div class="hero-img">📸</div>
+                <div class="content">
+                    <h2>Calorie tracking made simple</h2>
+                    <p>Just snap a quick photo of your meal and we'll do the rest</p>
+                    <div style="display:flex; justify-content:center; gap:8px; margin: 15px 0;"><div style="width:20px; height:8px; border-radius:4px; background:var(--primary);"></div><div style="width:8px; height:8px; border-radius:50%; background:var(--border);"></div><div style="width:8px; height:8px; border-radius:50%; background:var(--border);"></div></div>
+                </div>
+                <div class="bottom-action-transparent"><button class="btn">Next</button><p style="margin-top:15px; font-size: 13px;">Purchased on the web? <strong style="color:var(--primary);">Sign in</strong></p></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">2. Name</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div><div class="progress-container-wrapper"><div class="step-label">STEP 1: BASICS</div><div class="progress-bar-container"><div class="progress-bar" style="width: 33%;"></div></div></div><div style="width:20px;"></div></div>
+                <div class="content">
+                    <h2 style="margin-top:20px;">How do you prefer to be addressed?</h2>
+                    <input type="text" class="input-line" value="Sam">
+                </div>
+                <div class="bottom-action-transparent"><button class="btn">Continue</button><button class="btn-text">Skip</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">3. Sex</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div><div class="progress-container-wrapper"><div class="step-label">STEP 1: BASICS</div><div class="progress-bar-container"><div class="progress-bar" style="width: 66%;"></div></div></div><div style="width:20px;"></div></div>
+                <div class="content">
+                    <h2>What is your sex?</h2>
+                    <p>Enter your biological sex at birth.</p>
+                    <div class="card-grid"><div class="card"><div class="card-icon">👩</div>Female</div><div class="card active"><div class="card-icon">👨</div>Male</div></div>
+                </div>
+                <div class="bottom-action-transparent"><button class="btn">Continue</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">4. Date of Birth</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div><div class="progress-container-wrapper"><div class="step-label">STEP 1: BASICS</div><div class="progress-bar-container"><div class="progress-bar" style="width: 100%;"></div></div></div><div style="width:20px;"></div></div>
+                <div class="content">
+                    <h2>When were you born?</h2>
+                    <div class="picker-container">
+                        <div class="picker-col"><div>Feb</div><div class="picker-active">Mar</div><div>Apr</div></div>
+                        <div class="picker-col"><div>01</div><div class="picker-active">02</div><div>03</div></div>
+                        <div class="picker-col"><div>1999</div><div class="picker-active">2000</div><div>2001</div></div>
+                    </div>
+                </div>
+                <div class="bottom-action-transparent"><button class="btn">Continue</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">5. Transition 1</div>
+            <div class="app-screen" style="background: var(--primary);">
+                <div class="content transition-content">
+                    <div class="transition-icon">🙌</div>
+                    <h2 style="color: white; font-size: 28px;">Great job, Sam!</h2>
+                    <p style="color: var(--accent-bg); font-size: 16px;">Now, let's talk about your body and goals so we can calculate your perfect plan.</p>
+                </div>
+                <div class="bottom-action-transparent"><button class="btn" style="background: white; color: var(--primary);">Let's go</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">6. Primary Goal</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div><div class="progress-container-wrapper"><div class="step-label">STEP 2: BODY & GOALS</div><div class="progress-bar-container"><div class="progress-bar" style="width: 15%;"></div></div></div><div style="width:20px;"></div></div>
+                <div class="content">
+                    <h2 style="margin-bottom: 30px;">What is your goal?</h2>
+                    <div class="list-btn active">📉 Lose weight</div><div class="list-btn">⚖️ Maintain weight</div><div class="list-btn">📈 Gain weight</div>
+                </div>
+                <div class="bottom-action-transparent"><button class="btn">Continue</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">7. Accomplish</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div><div class="progress-container-wrapper"><div class="step-label">STEP 2: BODY & GOALS</div><div class="progress-bar-container"><div class="progress-bar" style="width: 30%;"></div></div></div><div style="width:20px;"></div></div>
+                <div class="content">
+                    <h2 style="margin-bottom: 20px; text-align: left;">What would you like to accomplish?</h2>
+                    <div class="list-btn"><span style="font-size: 20px;">🍎</span> Eat and live healthier</div><div class="list-btn active"><span style="font-size: 20px;">💪</span> Stay motivated</div><div class="list-btn"><span style="font-size: 20px;">🧘</span> Feel better about my body</div>
+                </div>
+                <div class="bottom-action-transparent"><button class="btn">Continue</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">8. Height</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div><div class="progress-container-wrapper"><div class="step-label">STEP 2: BODY & GOALS</div><div class="progress-bar-container"><div class="progress-bar" style="width: 45%;"></div></div></div><div style="width:20px;"></div></div>
+                <div class="content">
+                    <h2>Height</h2>
+                    <div class="unit-toggle"><div class="unit-option">ft in</div><div class="unit-option active">cm</div></div>
+                    <div class="picker-container"><div class="picker-col" style="width: 100px;"><div>163</div><div class="picker-active">164</div><div>165</div></div><div class="picker-col" style="font-size:16px; margin-top:5px;">cm</div></div>
+                </div>
+                <div class="bottom-action-transparent"><button class="btn">Continue</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">9. Current Weight</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div><div class="progress-container-wrapper"><div class="step-label">STEP 2: BODY & GOALS</div><div class="progress-bar-container"><div class="progress-bar" style="width: 60%;"></div></div></div><div style="width:20px;"></div></div>
+                <div class="content">
+                    <h2>Current Weight</h2>
+                    <div class="unit-toggle"><div class="unit-option">lb</div><div class="unit-option active">kg</div></div>
+                    <div class="picker-container"><div class="picker-col" style="width: 80px;"><div>53</div><div class="picker-active">54</div><div>55</div></div><div class="picker-col" style="width: 40px;"><div>.0</div><div class="picker-active">.0</div><div>.0</div></div></div>
+                </div>
+                <div class="bottom-action-transparent"><button class="btn">Continue</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">10. Goal Weight</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div><div class="progress-container-wrapper"><div class="step-label">STEP 2: BODY & GOALS</div><div class="progress-bar-container"><div class="progress-bar" style="width: 75%;"></div></div></div><div style="width:20px;"></div></div>
+                <div class="content">
+                    <h2>What is your desired weight?</h2>
+                    <div class="unit-toggle"><div class="unit-option">lb</div><div class="unit-option active">kg</div></div>
+                    <div class="picker-container"><div class="picker-col" style="width: 80px;"><div>49</div><div class="picker-active">50</div><div>51</div></div><div class="picker-col" style="width: 40px;"><div>.0</div><div class="picker-active">.0</div><div>.0</div></div></div>
+                </div>
+                <div class="bottom-action-transparent"><button class="btn">Continue</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">11. Realistic Target</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div><div class="progress-container-wrapper"><div class="step-label">STEP 2: BODY & GOALS</div><div class="progress-bar-container"><div class="progress-bar" style="width: 85%;"></div></div></div><div style="width:20px;"></div></div>
+                <div class="content" style="justify-content: center;">
+                    <h2 style="font-size: 32px; line-height: 1.2;">Losing <span style="color:var(--primary)">9.1 kg</span> is a realistic target. It's not hard at all!</h2>
+                    <p style="margin-top: 20px; font-size: 16px;">Because our system forces sustainable metrics, 90% of our users find this change easy to maintain.</p>
+                </div>
+                <div class="bottom-action-transparent"><button class="btn">Continue</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">12. Goal Speed</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div><div class="progress-container-wrapper"><div class="step-label">STEP 2: BODY & GOALS</div><div class="progress-bar-container"><div class="progress-bar" style="width: 100%;"></div></div></div><div style="width:20px;"></div></div>
+                <div class="content">
+                    <h2 style="text-align: left;">How fast do you want to reach your goal?</h2>
+                    <p style="text-align: left;">Lose weight speed per week</p>
+                    <h2 style="color: var(--primary); font-size: 36px; margin: 20px 0;">0.8 kg</h2>
+                    <div class="slider-wrapper">
+                        <div style="display:flex; justify-content:space-between; font-size:24px;"><span>🐢</span><span>🐇</span><span>🐆</span></div>
+                        <div class="slider-track"><div class="slider-fill"></div><div class="slider-thumb"></div></div>
+                        <div style="display:flex; justify-content:space-between; color:var(--text-muted); font-size:12px; font-weight:800;"><span>0.1 kg</span><span>0.8 kg</span><span>1.5 kg</span></div>
+                    </div>
+                    <div style="background: var(--surface); padding: 16px; border-radius: 20px; text-align:center; font-weight:800; color:var(--text-dark); margin-top: 30px; border: 2px solid var(--border);">Slow and Steady</div>
+                </div>
+                <div class="bottom-action-transparent"><button class="btn">Continue</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">13. Transition 2</div>
+            <div class="app-screen" style="background: var(--text-dark);">
+                <div class="content transition-content">
+                    <div class="transition-icon">🕵️</div>
+                    <h2 style="color: white; font-size: 28px;">Almost there.</h2>
+                    <p style="color: var(--secondary); font-size: 16px;">We just need a few details about your lifestyle to customize your weekend settings.</p>
+                </div>
+                <div class="bottom-action-transparent"><button class="btn" style="background: var(--primary); color: white;">Next</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">14. Roadblocks</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div><div class="progress-container-wrapper"><div class="step-label">STEP 3: LIFESTYLE</div><div class="progress-bar-container"><div class="progress-bar" style="width: 15%;"></div></div></div><div style="width:20px;"></div></div>
+                <div class="content">
+                    <h2 style="margin-bottom: 20px; text-align: left;">What's stopping you from reaching your goals?</h2>
+                    <div class="list-btn active">Lack of consistency</div><div class="list-btn">Busy schedule</div><div class="list-btn">Emotional or stress eating</div>
+                </div>
+                <div class="bottom-action-transparent"><button class="btn">Continue</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">15. Weekends</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div><div class="progress-container-wrapper"><div class="step-label">STEP 3: LIFESTYLE</div><div class="progress-bar-container"><div class="progress-bar" style="width: 30%;"></div></div></div><div style="width:20px;"></div></div>
+                <div class="content">
+                    <h2 style="margin-top: 40px;">Do you eat a bit more on weekends?</h2>
+                    <div class="list-btn active" style="margin-top: 30px; justify-content: space-between;">Yes <span style="font-size:20px;">✔️</span></div>
+                    <div class="list-btn" style="justify-content: space-between;">No <span style="font-size:20px;">✖️</span></div>
+                </div>
+                <div class="bottom-action-transparent"><button class="btn">Continue</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">16. Which Days</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div><div class="progress-container-wrapper"><div class="step-label">STEP 3: LIFESTYLE</div><div class="progress-bar-container"><div class="progress-bar" style="width: 45%;"></div></div></div><div style="width:20px;"></div></div>
+                <div class="content">
+                    <h2 style="margin-top: 20px;">On which days would you like to eat more?</h2>
+                    <div class="list-btn active" style="margin-top: 20px;">Saturdays and Sundays</div><div class="list-btn">Fridays, Saturdays and Sundays</div>
+                </div>
+                <div class="bottom-action-transparent"><button class="btn">Continue</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">17. Diet Adjustment</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div><div class="progress-container-wrapper"><div class="step-label">STEP 3: LIFESTYLE</div><div class="progress-bar-container"><div class="progress-bar" style="width: 60%;"></div></div></div><div style="width:20px;"></div></div>
+                <div class="content">
+                    <h2>We'll take that into account!</h2>
+                    <div class="bar-chart">
+                        <div class="bar" style="height: 50%;"></div><div class="bar" style="height: 50%;"></div><div class="bar" style="height: 50%;"></div><div class="bar" style="height: 50%;"></div><div class="bar" style="height: 50%;"></div>
+                        <div class="bar high" style="height: 90%; position:relative;"><span style="position:absolute; top:-25px; left:-5px; font-size:20px;">🍕</span></div>
+                        <div class="bar high" style="height: 90%; position:relative;"><span style="position:absolute; top:-25px; left:0px; font-size:20px;">🍦</span></div>
+                    </div>
+                    <div class="chart-labels"><div class="chart-label">M</div><div class="chart-label">T</div><div class="chart-label">W</div><div class="chart-label">T</div><div class="chart-label">F</div><div class="chart-label" style="color:var(--text-dark)">S</div><div class="chart-label" style="color:var(--text-dark)">S</div></div>
+                    <p style="margin-top: 30px;">Your calorie budget will be slightly higher on weekends. Enjoy guilt-free!</p>
+                </div>
+                <div class="bottom-action-transparent"><button class="btn">Continue</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">18. Burned Calories</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div><div class="progress-container-wrapper"><div class="step-label">STEP 3: LIFESTYLE</div><div class="progress-bar-container"><div class="progress-bar" style="width: 75%;"></div></div></div><div style="width:20px;"></div></div>
+                <div class="content">
+                    <h2 style="text-align: left;">Add calories burned back to your daily goal?</h2>
+                    <div style="background: var(--surface); border-radius: 20px; overflow: hidden; border: 2px solid var(--border); margin: 20px 0;">
+                        <div style="height: 120px; background: #eee; display:flex; align-items:center; justify-content:center; font-size:40px;">🏃‍♂️</div>
+                        <div style="padding: 15px;">
+                            <div style="font-weight:800; color:var(--text-dark);">Today's goal: <span style="color:var(--primary);">1600 Cals</span></div>
+                            <div style="font-size:13px; color:var(--text-muted); margin-top:5px;">+ 200 cals from running</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bottom-action-transparent"><div class="row-btns"><button class="btn btn-outline">No</button><button class="btn">Yes</button></div></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">19. Rollover Calories</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div><div class="progress-container-wrapper"><div class="step-label">STEP 3: LIFESTYLE</div><div class="progress-bar-container"><div class="progress-bar" style="width: 85%;"></div></div></div><div style="width:20px;"></div></div>
+                <div class="content">
+                    <h2 style="text-align: left;">Rollover extra calories to the next day?</h2>
+                    <div style="background:var(--surface); border:2px solid var(--border); border-radius:20px; padding:20px; margin-top:20px; position:relative;">
+                        <div style="font-weight:800; color:var(--text-muted); font-size:12px;">Yesterday</div>
+                        <div style="font-size:24px; font-weight:800; color:var(--text-dark); margin:5px 0;">350 / <span style="font-size:16px; color:var(--text-muted);">500</span></div>
+                        <div style="color:var(--primary); font-weight:800; font-size:12px;">150 left</div>
+                        <div style="position:absolute; bottom:-20px; right:-10px; background:var(--bg); border:2px solid var(--border); padding:15px; border-radius:15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                            <div style="font-weight:800; color:var(--text-muted); font-size:12px;">Today</div>
+                            <div style="font-size:20px; font-weight:800; color:var(--text-dark); margin:5px 0;">350 / <span style="font-size:14px; color:var(--text-muted);">650</span></div>
+                            <div style="color:var(--primary); font-weight:800; font-size:12px;">(+150 added)</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bottom-action-transparent"><div class="row-btns"><button class="btn btn-outline">No</button><button class="btn">Yes</button></div></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">20. Projection</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div><div class="progress-container-wrapper"><div class="step-label">STEP 3: LIFESTYLE</div><div class="progress-bar-container"><div class="progress-bar" style="width: 95%;"></div></div></div><div style="width:20px;"></div></div>
+                <div class="content">
+                    <h2 style="text-align: left;">You have great potential to crush your goal</h2>
+                    <div style="background: var(--surface); border: 2px solid var(--border); border-radius: 20px; margin-top: 20px; overflow: hidden; display:flex; flex-direction:column; align-items:center;">
+                        <div style="font-weight:800; color:var(--text-dark); font-size:14px; padding: 15px 15px 0 15px; width: 100%;">Your weight transition</div>
+                        <div style="width:100%; height:140px; position:relative;">
+                            <svg width="100%" height="100%" viewBox="0 0 200 100" preserveAspectRatio="none" style="padding: 10px 20px 0 20px;">
+                                <defs><linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--primary)" stop-opacity="0.3"/><stop offset="100%" stop-color="var(--primary)" stop-opacity="0"/></linearGradient></defs>
+                                <path d="M 0,20 Q 100,20 200,80" fill="none" stroke="var(--primary)" stroke-width="4" stroke-linecap="round"/>
+                                <path d="M 0,20 Q 100,20 200,80 L 200,100 L 0,100 Z" fill="url(#chartGrad)"/>
+                                <circle cx="0" cy="20" r="5" fill="var(--text-dark)"/><circle cx="0" cy="20" r="10" fill="var(--text-dark)" opacity="0.2"/>
+                                <circle cx="200" cy="80" r="5" fill="var(--primary)"/><circle cx="200" cy="80" r="10" fill="var(--primary)" opacity="0.2"/>
+                            </svg>
+                        </div>
+                        <div style="width:100%; display:flex; justify-content:space-between; padding: 0 20px 15px 20px; font-size:12px; color:var(--text-muted); font-weight:800;"><span>Now</span><span>Goal</span></div>
+                    </div>
+                </div>
+                <div class="bottom-action-transparent"><button class="btn">Continue</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">21. Notifications</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div><div class="progress-container-wrapper"><div class="step-label">STEP 3: LIFESTYLE</div><div class="progress-bar-container"><div class="progress-bar" style="width: 100%;"></div></div></div><div style="width:20px;"></div></div>
+                <div class="content">
+                    <h2>Enable Notifications</h2>
+                    <div style="background:var(--surface); border-radius:15px; padding:15px; box-shadow:0 4px 15px rgba(0,0,0,0.05); margin: 30px 0;">
+                        <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted); margin-bottom:5px;"><strong>App Name</strong> <span>now</span></div>
+                        <div style="font-weight:800; color:var(--text-dark); font-size:14px;">It's lunchtime 🥗</div>
+                        <div style="font-size:13px; color:var(--text-muted); margin-top:3px;">Log your lunch! Remember that consistent actions get results.</div>
+                    </div>
+                    <p>According to our data, users who receive reminders are more likely to achieve goals.</p>
+                </div>
+                <div class="bottom-action-transparent"><button class="btn">Enable Notifications</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">22. Generation (FOMO)</div>
+            <div class="app-screen">
+                <div class="content" style="justify-content: center;">
+                    <div class="spinner"></div>
+                    <h2>Creating your custom blueprint...</h2>
+                    
+                    <p style="color: var(--primary); font-weight: 800; font-size: 13px;">Applying peer-reviewed nutritional frameworks...</p>
+                    
+                    <div style="background: var(--surface); padding: 15px; border-radius: 15px; border: 2px solid var(--border); margin-top: 20px;">
+                        <div style="font-size: 24px; margin-bottom: 5px;">🎯</div>
+                        <div style="font-weight: 800; color: var(--text-dark); font-size: 14px;">If you follow this plan, you will reach your goal weight by:</div>
+                        <div style="color: var(--primary); font-size: 20px; font-weight: 800; margin-top: 5px;">November 12th</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">23. Custom Plan</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div></div>
+                <div class="content">
+                    <div style="text-align: center; font-size: 40px; margin-bottom: 10px;">✨</div>
+                    <h2>Congratulations! Your plan is ready.</h2>
+                    <div style="background:var(--primary); color:#fff; padding:8px 16px; border-radius:20px; font-weight:800; margin: 10px auto; display:flex; width: fit-content; font-size: 14px;">Target: Lose 9.1 kg by Nov</div>
+
+                    <h3 style="color:var(--text-dark); margin-top:30px; font-size:18px; font-weight:800;">Daily Recommendation</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0;">
+                        <div style="background: var(--surface); padding: 12px; border-radius: 16px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--border);"><div style="width: 45px; height: 45px; border-radius: 50%; border: 4px solid var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--text-dark); font-size: 12px;">1671</div><div style="font-weight:800; color:var(--text-dark); font-size:13px;">Calories</div></div>
+                        <div style="background: var(--surface); padding: 12px; border-radius: 16px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--border);"><div style="width: 45px; height: 45px; border-radius: 50%; border: 4px solid #F4B39D; display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--text-dark); font-size: 12px;">157g</div><div style="font-weight:800; color:var(--text-dark); font-size:13px;">Carbs</div></div>
+                        <div style="background: var(--surface); padding: 12px; border-radius: 16px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--border);"><div style="width: 45px; height: 45px; border-radius: 50%; border: 4px solid #C76750; display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--text-dark); font-size: 12px;">156g</div><div style="font-weight:800; color:var(--text-dark); font-size:13px;">Protein</div></div>
+                        <div style="background: var(--surface); padding: 12px; border-radius: 16px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--border);"><div style="width: 45px; height: 45px; border-radius: 50%; border: 4px solid #936255; display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--text-dark); font-size: 12px;">46g</div><div style="font-weight:800; color:var(--text-dark); font-size:13px;">Fats</div></div>
+                    </div>
+                </div>
+                <div class="bottom-action"><button class="btn">Start Journey</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">24. Create Account</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div></div>
+                <div class="content" style="align-items: center; justify-content: center;">
+                    <h2>Create an account</h2>
+                    <p style="margin-bottom: 40px;">Save your plan and start tracking today.</p>
+                    <button class="btn btn-outline" style="display:flex; align-items:center; justify-content:center; gap:10px;"><span style="font-size:20px; font-weight:800;">G</span> Sign in with Google</button>
+                    <button class="btn-text" style="margin-top:20px;">Skip</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">25. Try For Free</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div></div>
+                <div class="content">
+                    <div style="text-align:center; font-size:60px; margin-bottom:10px;">🎁</div>
+                    <h2 style="text-align: left;">We want you to try AppName for free.</h2>
+                    <p style="text-align: left; margin-bottom:25px; font-size:16px;">Here's what you get:</p>
+                    <div style="display:flex; flex-direction:column; gap:20px;">
+                        <div style="display:flex; gap:12px; font-weight:800; color:var(--text-dark); align-items:center;"><span style="color:var(--success); font-size:22px;">✔️</span> Unlimited meal scans</div>
+                        <div style="display:flex; gap:12px; font-weight:800; color:var(--text-dark); align-items:center;"><span style="color:var(--success); font-size:22px;">✔️</span> Custom daily macro targets</div>
+                        <div style="display:flex; gap:12px; font-weight:800; color:var(--text-dark); align-items:center;"><span style="color:var(--success); font-size:22px;">✔️</span> Detailed nutrition breakdowns</div>
+                        <div style="display:flex; gap:12px; font-weight:800; color:var(--text-dark); align-items:center;"><span style="color:var(--success); font-size:22px;">✔️</span> Weekly progress insights</div>
+                    </div>
+                </div>
+                <div class="bottom-action-transparent"><button class="btn">Start your free trial</button></div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">26. Paywall & Downsell</div>
+            <div class="app-screen">
+                <div class="progress-header"><div class="back-btn">←</div> <div onclick="document.getElementById('downsell-modal').style.display='flex'" style="margin-left:auto; font-weight:bold; color:var(--text-muted); cursor:pointer; padding: 5px;">X</div></div>
+                
+                <div class="content">
+                    <h2 style="font-size: 26px; text-align:center; margin-bottom: 20px;">Start your 3-day FREE trial to continue.</h2>
+                    
+                    <div class="timeline-container">
+                        <div class="timeline-line"></div>
+                        <div class="timeline-item"><div class="timeline-icon">🔓</div><div><div style="font-weight:800; color:var(--text-dark); font-size:15px;">Today</div><div style="font-size:13px; color:var(--text-muted);">Unlock all the app's features.</div></div></div>
+                        <div class="timeline-item"><div class="timeline-icon">🔔</div><div><div style="font-weight:800; color:var(--text-dark); font-size:15px;">In 2 Days - Reminder</div><div style="font-size:13px; color:var(--text-muted);">We'll send you a reminder.</div></div></div>
+                        <div class="timeline-item"><div class="timeline-icon dark">👑</div><div><div style="font-weight:800; color:var(--text-dark); font-size:15px;">In 3 Days - Billing Starts</div><div style="font-size:13px; color:var(--text-muted);">You'll be charged unless you cancel.</div></div></div>
+                    </div>
+
+                    <div class="pricing-grid">
+                        <div class="pricing-card"><div style="display:flex; flex-direction:column; justify-content:center; gap: 5px;"><div style="font-weight:800; color:var(--text-dark); font-size:14px;">Monthly</div><div style="font-weight:800; color:var(--text-dark); font-size:14px;">JOD7.10<span style="font-size:11px; font-weight:600;">/mo</span></div></div><div class="pricing-radio"></div></div>
+                        <div class="pricing-card active"><div class="pricing-badge">3 DAYS FREE</div><div style="display:flex; flex-direction:column; justify-content:center; gap: 5px;"><div style="font-weight:800; color:var(--text-dark); font-size:14px;">Yearly</div><div style="font-weight:800; color:var(--text-dark); font-size:14px;">JOD1.77<span style="font-size:11px; font-weight:600;">/mo</span></div></div><div class="pricing-radio">✔</div></div>
+                    </div>
+                </div>
+
+                <div class="bottom-action-transparent">
+                    <button class="btn" style="background-color: #000; color: #fff;">Start My 3-Day Free Trial</button>
+                    <p style="font-size:11px; margin-top:15px; color:var(--text-muted);">Cancel anytime from the App Store.</p>
+                </div>
+
+                <div id="downsell-modal" class="modal-overlay">
+                    <div class="downsell-sheet">
+                        <h2 style="font-size: 28px; margin-bottom: 5px;">Wait! 🛑</h2>
+                        <h3 style="font-size: 16px; color: var(--text-muted); margin-bottom: 20px;">Don't leave your custom plan behind.</h3>
+                        <div style="text-align: center; margin-bottom: 15px;">Claim this one-time offer to get your first full year for <strong style="color:var(--primary); text-decoration: underline;">60% off</strong>.</div>
+                        <div style="background: rgba(226, 133, 110, 0.1); color: var(--primary); font-weight: 800; padding: 8px 16px; border-radius: 20px; font-size: 18px; margin: 15px 0; border: 1px solid var(--primary);">Offer expires in: 14:59</div>
+                        <div style="width: 100%; border: 2px dashed var(--primary); border-radius: 16px; padding: 15px; text-align: center; margin-bottom: 20px; background: rgba(226, 133, 110, 0.05);">
+                            <div style="text-decoration: line-through; color: var(--text-muted); font-size: 14px;">Normally JOD 21.30 / year</div>
+                            <div style="font-size: 24px; font-weight: 800; color: var(--text-dark);">Only JOD 8.50</div>
+                            <div style="font-size: 12px; font-weight: 700; color: var(--primary);">That's JOD 0.70 / month!</div>
+                        </div>
+                        <button class="btn">Claim 60% Off Now</button>
+                        <button class="btn-text" onclick="document.getElementById('downsell-modal').style.display='none'" style="margin-top: 10px;">No thanks, I'll lose my plan</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Core Interfaces - Sunset Glow</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+
+        * { box-sizing: border-box; }
+
+        :root {
+            /* Sunset Glow Palette */
+            --primary: #E2856E;
+            --primary-hover: #C76750;
+            --secondary: #F4B39D;
+            --accent-bg: #FCE1D4;
+            --bg: #FFFAF5;
+            --surface: #ffffff;
+            --text-dark: #543128;
+            --text-muted: #936255;
+            --border: rgba(226, 133, 110, 0.2);
+            --success: #7B9E87;
+            --warning: #E0B05C;
+            --calorie-alert: #D65A4F;
+            --info: #4AA0E0;
+            --overlay: rgba(84, 49, 40, 0.6); /* Dark matching the text color */
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #E8E5E1;
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .page-header { text-align: center; margin-bottom: 40px; color: var(--text-dark); }
+        .flow-container { display: flex; flex-wrap: wrap; gap: 40px; justify-content: center; max-width: 1800px; }
+        .screen-wrapper { display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        .screen-label { font-weight: 800; color: var(--text-dark); font-size: 15px; background: rgba(255,255,255,0.8); padding: 8px 18px; border-radius: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+
+        /* --- Global App Screen --- */
+        .app-screen {
+            width: 320px; height: 680px; border-radius: 35px; box-shadow: 0 20px 40px rgba(84, 49, 40, 0.15);
+            overflow: hidden; display: flex; flex-direction: column; position: relative;
+            background-color: var(--bg); background-image: linear-gradient(180deg, var(--accent-bg) 0%, var(--bg) 25%);
+            border: 8px solid var(--surface);
+        }
+
+        .content { flex: 1; overflow-y: auto; padding: 20px; padding-bottom: 110px; }
+        .content::-webkit-scrollbar { width: 0; }
+        
+        /* Global Typography & Icons */
+        h2 { font-size: 24px; color: var(--text-dark); text-align: center; margin-bottom: 10px; line-height: 1.3; font-weight: 800; }
+        h3 { font-size: 18px; font-weight: 800; color: var(--text-dark); margin: 0; }
+        p { font-size: 13px; color: var(--text-muted); font-weight: 700; margin: 0; }
+        svg.icon { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+        /* ========================================= */
+        /* === HOME & SHARED DASHBOARD CSS === */
+        /* ========================================= */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; margin-top: 5px; }
+        .logo { display: flex; align-items: center; gap: 8px; font-size: 19px; font-weight: 800; color: var(--text-dark); }
+        .streak-pill { background: var(--surface); padding: 6px 14px; border-radius: 20px; display: flex; align-items: center; gap: 6px; font-weight: 800; color: var(--text-dark); box-shadow: 0 4px 10px rgba(0,0,0,0.03); border: 1px solid var(--border); font-size: 13px; }
+
+        /* Home Specifics */
+        .calendar { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 12px; }
+        .calendar::-webkit-scrollbar { display: none; }
+        .day-col { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 45px; }
+        .day-name { font-size: 12px; font-weight: 800; color: var(--text-muted); }
+        .day-circle { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; color: var(--text-muted); border: 2px dashed var(--border); }
+        .day-col.active .day-name { color: var(--text-dark); }
+        .day-col.active .day-circle { background-color: var(--primary); color: white; border: none; box-shadow: 0 4px 10px rgba(226, 133, 110, 0.4); transform: scale(1.05); }
+
+        .main-card { background: var(--surface); border-radius: 22px; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 8px 20px rgba(84, 49, 40, 0.05); border: 1px solid var(--border); margin-bottom: 12px; }
+        .calorie-info h2 { font-size: 32px; font-weight: 800; color: var(--text-dark); margin: 0; line-height: 1; text-align: left; }
+        .calorie-info p { font-size: 12px; color: var(--text-muted); font-weight: 700; margin: 3px 0 0 0; text-align: left; }
+        .calorie-info p span { color: var(--text-dark); }
+        .donut-large { width: 65px; height: 65px; border-radius: 50%; background: conic-gradient(var(--calorie-alert) 70%, var(--bg) 0); display: flex; align-items: center; justify-content: center; }
+        .donut-large-inner { width: 50px; height: 50px; border-radius: 50%; background: var(--surface); display: flex; align-items: center; justify-content: center; }
+
+        .macros-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 25px; }
+        .macro-card { background: var(--surface); border-radius: 20px; padding: 16px 12px 18px 12px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 125px; text-align: center; box-shadow: 0 6px 15px rgba(84, 49, 40, 0.04); border: 1px solid var(--border); }
+        .macro-text-block { min-height: 40px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 10px; }
+        .macro-card h3 { font-size: 18px; font-weight: 800; color: var(--text-dark); margin: 0; text-align: center;}
+        .macro-card p { font-size: 11px; color: var(--text-muted); font-weight: 700; margin: 2px 0 0 0; line-height: 1.2; text-align: center;}
+        .donut-small { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-top: auto; }
+        .donut-small-inner { width: 34px; height: 34px; border-radius: 50%; background: var(--surface); display: flex; align-items: center; justify-content: center; }
+        .protein-donut { background: conic-gradient(#C76750 65%, var(--bg) 0); }
+        .carbs-donut { background: conic-gradient(#E89D88 80%, var(--bg) 0); }
+        .fats-donut { background: conic-gradient(var(--success) 40%, var(--bg) 0); }
+
+        .dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 30px; }
+        .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
+        .dot.active { background: var(--text-dark); }
+
+        .section-title { font-size: 17px; font-weight: 800; color: var(--text-dark); margin: 0 0 15px 0; text-align: left; }
+        .recent-card { background: var(--surface); border-radius: 20px; padding: 15px; display: flex; align-items: center; gap: 15px; box-shadow: 0 6px 15px rgba(84, 49, 40, 0.04); border: 1px solid var(--border); }
+        .food-icon-container { width: 50px; height: 50px; background: var(--bg); border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+        .skeleton-lines { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+        .line-1 { height: 10px; background: var(--border); border-radius: 5px; width: 70%; }
+        .line-2 { height: 10px; background: var(--border); border-radius: 5px; width: 40%; }
+
+        /* ========================================= */
+        /* === PROGRESS DASHBOARD SPECIFIC CSS === */
+        /* ========================================= */
+        .top-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; margin-top: 10px; }
+        .prog-card { background: var(--surface); border-radius: 20px; padding: 16px; box-shadow: 0 6px 15px rgba(84, 49, 40, 0.04); border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .weight-value { font-size: 24px; font-weight: 800; color: var(--text-dark); margin: 5px 0; }
+        .weight-progress-bg { width: 100%; height: 6px; background: var(--bg); border-radius: 3px; margin: 8px 0; overflow: hidden; }
+        .weight-progress-fill { width: 30%; height: 100%; background: var(--primary); border-radius: 3px; }
+        .weight-footer { background: var(--bg); width: calc(100% + 32px); margin: 10px -16px -16px -16px; padding: 10px; border-radius: 0 0 20px 20px; border-top: 1px solid var(--border); font-size: 11px; font-weight: 700; color: var(--text-muted); }
+        .streak-icon { width: 40px; height: 40px; color: var(--warning); margin-bottom: 5px; }
+        .streak-title { font-size: 14px; font-weight: 800; color: var(--warning); margin-bottom: 10px; }
+        .streak-days { display: flex; gap: 4px; justify-content: center; width: 100%; }
+        .streak-day { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 8px; color: var(--text-muted); font-weight: 800;}
+        .streak-dot { width: 8px; height: 8px; background: var(--border); border-radius: 50%; }
+        .streak-dot.active { background: var(--warning); }
+        .tabs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 15px; padding-bottom: 5px; }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab { padding: 8px 16px; border-radius: 20px; background: var(--surface); color: var(--text-muted); font-size: 12px; font-weight: 800; white-space: nowrap; border: 1px solid var(--border); }
+        .tab.active { background: var(--text-dark); color: white; border-color: var(--text-dark); }
+        .chart-card { background: var(--surface); border-radius: 20px; padding: 20px; box-shadow: 0 6px 15px rgba(84, 49, 40, 0.04); border: 1px solid var(--border); margin-bottom: 25px; }
+        .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .chart-header h3 { text-align: left; }
+        .flag-pill { background: rgba(84, 49, 40, 0.05); padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 800; color: var(--text-dark); display: flex; align-items: center; gap: 4px; }
+        .line-chart-area { position: relative; height: 140px; width: 100%; margin-top: 10px; }
+        .y-axis { position: absolute; left: 0; top: 0; height: 100%; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; color: var(--text-muted); font-weight: 700; width: 25px;}
+        .grid-lines { position: absolute; left: 30px; right: 0; top: 5px; height: 100%; display: flex; flex-direction: column; justify-content: space-between; }
+        .grid-line { width: 100%; border-bottom: 1px dashed var(--border); }
+        .svg-chart { position: absolute; left: 30px; right: 0; top: 0; height: 100%; width: calc(100% - 30px); }
+        .photo-card { display: flex; gap: 15px; align-items: center; }
+        .photo-placeholder { width: 60px; height: 75px; background: rgba(226, 133, 110, 0.05); border: 2px dashed var(--border); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--primary); }
+        .photo-info { flex: 1; }
+        .photo-info p { text-align: left; }
+        .btn-upload { background: var(--surface); border: 1px solid var(--border); padding: 8px 12px; border-radius: 15px; font-size: 12px; font-weight: 800; color: var(--text-dark); margin-top: 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .cal-value { font-size: 32px; font-weight: 800; color: var(--text-dark); line-height: 1; margin-bottom: 15px; text-align: left; }
+        .cal-value span { font-size: 14px; color: var(--text-muted); }
+        .x-axis { display: flex; justify-content: space-between; margin-left: 30px; margin-top: 5px; font-size: 10px; color: var(--text-muted); font-weight: 700; }
+        .macro-legend { display: flex; justify-content: center; gap: 15px; margin-top: 20px; font-size: 11px; font-weight: 800; color: var(--text-dark); }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .legend-dot { width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+        .encouragement-pill { background: rgba(123, 158, 135, 0.15); color: #4A6B54; font-weight: 800; font-size: 11px; padding: 10px; border-radius: 12px; text-align: center; margin-top: 20px; }
+        .bmi-header { display: flex; align-items: flex-end; gap: 10px; margin-bottom: 15px; }
+        .bmi-value { font-size: 28px; font-weight: 800; color: var(--text-dark); line-height: 1; }
+        .bmi-badge { background: var(--calorie-alert); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 800; text-transform: uppercase;}
+        .bmi-bar-container { position: relative; height: 25px; margin: 20px 0 15px 0; }
+        .bmi-bar { width: 100%; height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--info) 0%, var(--success) 35%, var(--warning) 65%, var(--calorie-alert) 100%); position: absolute; top: 8px; }
+        .bmi-indicator { position: absolute; top: 0; left: 80%; width: 2px; height: 24px; background: var(--text-dark); border-radius: 1px; }
+        .bmi-legend { display: flex; justify-content: space-between; font-size: 9px; font-weight: 800; color: var(--text-muted); }
+        .bmi-legend-item { display: flex; align-items: center; gap: 3px; }
+        .b-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+        /* ========================================= */
+        /* === PROFILE DASHBOARD SPECIFIC CSS === */
+        /* ========================================= */
+        .profile-header-top { text-align: center; font-size: 18px; font-weight: 800; color: var(--text-dark); margin-top: 10px; margin-bottom: 25px;}
+        .user-info-card { display: flex; align-items: center; gap: 15px; background: var(--surface); padding: 20px; border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 6px 15px rgba(84, 49, 40, 0.04); margin-bottom: 25px;}
+        .avatar { width: 65px; height: 65px; border-radius: 50%; background: var(--accent-bg); display: flex; align-items: center; justify-content: center; font-size: 28px; border: 2px solid var(--primary); color: var(--primary);}
+        .user-details h2 { font-size: 20px; margin: 0; text-align: left;}
+        .user-details p { font-size: 12px; color: var(--text-muted); text-align: left; margin-top: 2px;}
+        .btn-edit { background: rgba(226, 133, 110, 0.1); color: var(--primary); padding: 6px 12px; border-radius: 12px; font-size: 11px; font-weight: 800; border: none; margin-top: 8px; cursor: pointer;}
+        
+        .settings-group-title { font-size: 14px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; margin-left: 5px; text-align: left;}
+        .settings-card { background: var(--surface); border-radius: 20px; border: 1px solid var(--border); overflow: hidden; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(84, 49, 40, 0.02);}
+        .setting-item { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s;}
+        .setting-item:last-child { border-bottom: none; }
+        .setting-item:hover { background: rgba(84, 49, 40, 0.02); }
+        .setting-left { display: flex; align-items: center; gap: 15px; }
+        .setting-icon { width: 36px; height: 36px; border-radius: 12px; background: var(--bg); display: flex; align-items: center; justify-content: center; color: var(--primary); }
+        .setting-name { font-size: 15px; font-weight: 800; color: var(--text-dark); }
+        .setting-badge { background: var(--text-dark); color: white; padding: 4px 8px; border-radius: 8px; font-size: 10px; font-weight: 800; margin-left: 10px;}
+        .chevron { color: var(--text-muted); width: 18px; height: 18px; opacity: 0.5; }
+
+        .btn-logout { background: transparent; color: var(--calorie-alert); border: 2px solid var(--border); padding: 16px; border-radius: 20px; font-size: 15px; font-weight: 800; width: 100%; margin-bottom: 20px; cursor: pointer;}
+
+        /* ========================================= */
+        /* === ACTION POPUP (+) OVERLAY CSS === */
+        /* ========================================= */
+        .overlay-bg { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--overlay); backdrop-filter: blur(3px); z-index: 20; display: flex; flex-direction: column; justify-content: flex-end; padding-bottom: 120px; padding-left: 20px; padding-right: 20px;}
+        
+        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        
+        .action-btn { background: var(--surface); border-radius: 20px; padding: 25px 15px; display: flex; flex-direction: column; align-items: center; gap: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); cursor: pointer; transition: transform 0.2s; }
+        .action-btn:hover { transform: translateY(-3px); }
+        .action-btn-icon { width: 32px; height: 32px; color: var(--text-dark); }
+        .action-btn-text { font-size: 14px; font-weight: 800; color: var(--text-dark); text-align: center;}
+
+        /* ========================================= */
+        /* === CUSTOM BOTTOM NAVIGATION === */
+        /* ========================================= */
+        .bottom-nav-container { position: absolute; bottom: 0; left: 0; right: 0; height: 90px; z-index: 10; }
+        /* When popup is active, nav needs higher z-index to stay above overlay */
+        .bottom-nav-container.on-top { z-index: 30; } 
+        
+        .nav-bg { position: absolute; bottom: -5px; left: 0; width: 100%; height: 100px; filter: drop-shadow(0 -10px 15px rgba(84, 49, 40, 0.08)); z-index: 1; }
+        .nav-items { position: absolute; bottom: 0; left: 0; width: 75%; height: 70px; display: flex; justify-content: space-around; align-items: center; z-index: 2; padding: 0 10px; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-muted); font-weight: 800; font-size: 10px; cursor: pointer; text-decoration: none; }
+        .nav-item.active { color: var(--primary); }
+        .nav-icon-container { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
+        
+        /* Floating Action Button */
+        .fab { position: absolute; bottom: 35px; right: 25px; width: 65px; height: 65px; border-radius: 50%; background: var(--text-dark); color: white; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 300; box-shadow: 0 10px 20px rgba(84, 49, 40, 0.2); z-index: 3; cursor: pointer; transition: transform 0.2s, background 0.2s; }
+        .fab:hover { transform: scale(1.05); }
+        
+        /* FAB active state for popup screen */
+        .fab.active-close { background: var(--surface); color: var(--text-dark); transform: rotate(45deg); border: 2px solid var(--border); box-shadow: none; }
+
+    </style>
+</head>
+<body>
+
+    <div class="page-header">
+        <h1>App Core Interfaces</h1>
+        <p>Home, Progress, Profile, and Quick Action Popup</p>
+    </div>
+
+    <div class="flow-container">
+
+        <div class="screen-wrapper">
+            <div class="screen-label">1. Home Dashboard</div>
+            <div class="app-screen">
+                <div class="content">
+                    <div class="header">
+                        <div class="logo">
+                            <div class="nav-icon-container" style="color: var(--primary); margin-right: -2px;"><svg class="icon" viewBox="0 0 24 24"><path d="M12 21.6C16.8 21.6 20.4 18 20.4 13.2C20.4 9.6 18 6 15.6 3.6L12 1.2L8.4 3.6C6 6 3.6 9.6 3.6 13.2C3.6 18 7.2 21.6 12 21.6Z"/></svg></div>
+                            Cal AI
+                        </div>
+                        <div class="streak-pill"><div style="width: 14px; height: 14px; color: var(--calorie-alert);"><svg class="icon" style="stroke-width: 3;" viewBox="0 0 24 24"><path d="M12 2c0 0-3 3.5-3 5.5s1.5 3.5 3 3.5s3-1.5 3-3.5S12 2z"></path><path d="M12 22c4.418 0 8-3.582 8-8c0-2.209-1-4.109-2.5-5.5C16 11 14 13 12 13s-4-2-5.5-4.5C5 9.891 4 11.791 4 14c0 4.418 3.582 8 8 8z"></path></svg></div>0</div>
+                    </div>
+
+                    <div class="calendar">
+                        <div class="day-col"><span class="day-name">Fri</span><div class="day-circle">20</div></div>
+                        <div class="day-col"><span class="day-name">Sat</span><div class="day-circle">21</div></div>
+                        <div class="day-col"><span class="day-name">Sun</span><div class="day-circle">22</div></div>
+                        <div class="day-col"><span class="day-name">Mon</span><div class="day-circle">23</div></div>
+                        <div class="day-col"><span class="day-name">Tue</span><div class="day-circle">24</div></div>
+                        <div class="day-col active"><span class="day-name">Wed</span><div class="day-circle">25</div></div>
+                        <div class="day-col"><span class="day-name">Thu</span><div class="day-circle" style="border: 2px solid var(--border); background: var(--surface);">26</div></div>
+                    </div>
+
+                    <div class="main-card">
+                        <div class="calorie-info"><h2>1350</h2><p>Calories <span>left</span></p></div>
+                        <div class="donut-large"><div class="donut-large-inner"><div style="width: 24px; height: 24px; color: var(--calorie-alert);"><svg class="icon" style="stroke-width: 2;" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg></div></div></div>
+                    </div>
+
+                    <div class="macros-grid">
+                        <div class="macro-card"><div class="macro-text-block"><h3>156g</h3><p>Protein <span>left</span></p></div><div class="donut-small protein-donut"><div class="donut-small-inner"><div style="width: 16px; height: 16px; color: #C76750;"><svg class="icon" viewBox="0 0 24 24"><path d="M16 4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4z"/><path d="M20 8v8a2 2 0 0 1-2 2h-2V6h2a2 2 0 0 1 2 2z"/></svg></div></div></div></div>
+                        <div class="macro-card"><div class="macro-text-block"><h3>157g</h3><p>Carbs <span>left</span></p></div><div class="donut-small carbs-donut"><div class="donut-small-inner"><div style="width: 16px; height: 16px; color: #E89D88;"><svg class="icon" viewBox="0 0 24 24"><path d="M4 22L12 2l8 20"/><path d="M8 12h8"/><path d="M6 16h12"/><path d="M10 8h4"/></svg></div></div></div></div>
+                        <div class="macro-card"><div class="macro-text-block"><h3>46g</h3><p>Fats <span>left</span></p></div><div class="donut-small fats-donut"><div class="donut-small-inner"><div style="width: 16px; height: 16px; color: var(--success)"><svg class="icon" viewBox="0 0 24 24"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3-4-4-5.5c-1 1.5-2 3.9-4 5.5S5 13 5 15a7 7 0 0 0 7 7z"/></svg></div></div></div></div>
+                    </div>
+
+                    <div class="dots"><div class="dot active"></div><div class="dot"></div><div class="dot"></div></div>
+
+                    <h3 class="section-title">Recently uploaded</h3>
+                    <div class="recent-card">
+                        <div class="food-icon-container"><div style="width: 24px; height: 24px; color: var(--text-muted);"><svg class="icon" viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-9 9v1a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-1a9 9 0 0 0-9-9Z"/><path d="M3.5 14h17"/><path d="M7 14v4a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-4"/></svg></div></div>
+                        <div class="skeleton-lines"><div class="line-1"></div><div class="line-2"></div></div>
+                    </div>
+                </div>
+
+                <div class="bottom-nav-container">
+                    <svg class="nav-bg" viewBox="0 0 320 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><path d="M 0,30 C 0,15 15,0 30,0 L 195,0 C 215,0 215,55 257.5,55 C 300,55 300,0 320,0 L 320,100 L 0,100 Z" fill="var(--surface)" /></svg>
+                    <div class="nav-items">
+                        <a href="#" class="nav-item active"><div class="nav-icon-container"><svg class="icon" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>Home</a>
+                        <a href="#" class="nav-item"><div class="nav-icon-container"><svg class="icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>Progress</a>
+                        <a href="#" class="nav-item"><div class="nav-icon-container"><svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>Profile</a>
+                    </div>
+                    <div class="fab"><div style="width: 28px; height: 28px; color: white;"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">2. Progress Dashboard</div>
+            <div class="app-screen">
+                <div class="content">
+                    <div class="top-cards">
+                        <div class="prog-card" style="padding-bottom: 0;"><p>My Weight</p><div class="weight-value">82 kg</div><div class="weight-progress-bg"><div class="weight-progress-fill"></div></div><p style="font-size: 11px;">Goal <span style="color: var(--text-dark);">72.9 kg</span></p><div class="weight-footer">Next weigh-in: 7d</div></div>
+                        <div class="prog-card"><div class="streak-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2c0 0-3 3.5-3 5.5s1.5 3.5 3 3.5s3-1.5 3-3.5S12 2z"></path><path d="M12 22c4.418 0 8-3.582 8-8c0-2.209-1-4.109-2.5-5.5C16 11 14 13 12 13s-4-2-5.5-4.5C5 9.891 4 11.791 4 14c0 4.418 3.582 8 8 8z"></path></svg></div><div class="streak-title">Day streak</div><div class="streak-days"><div class="streak-day"><span>S</span><div class="streak-dot"></div></div><div class="streak-day"><span>M</span><div class="streak-dot"></div></div><div class="streak-day"><span>T</span><div class="streak-dot"></div></div><div class="streak-day"><span>W</span><div class="streak-dot"></div></div><div class="streak-day"><span>T</span><div class="streak-dot"></div></div><div class="streak-day"><span>F</span><div class="streak-dot"></div></div><div class="streak-day"><span>S</span><div class="streak-dot"></div></div></div></div>
+                    </div>
+
+                    <div class="tabs"><div class="tab active">90 Days</div><div class="tab">6 Months</div><div class="tab">1 Year</div><div class="tab">All time</div></div>
+
+                    <div class="chart-card">
+                        <div class="chart-header"><h3>Goal Progress</h3><div class="flag-pill"><div style="width: 12px; height: 12px;"><svg class="icon" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg></div> 0% of goal ✎</div></div>
+                        <div class="line-chart-area"><div class="y-axis"><span>82.5</span><span>82.3</span><span>82.0</span><span>81.8</span><span>81.5</span></div><div class="grid-lines"><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div></div><svg class="svg-chart" viewBox="0 0 200 100" preserveAspectRatio="none"><path d="M 0,50 L 200,50" stroke="var(--text-dark)" stroke-width="2" fill="none" /></svg></div>
+                    </div>
+
+                    <div class="chart-card">
+                        <h3 style="margin-bottom: 15px; text-align: left;">Progress Photos</h3>
+                        <div class="photo-card"><div class="photo-placeholder"><div style="width: 24px; height: 24px;"><svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div></div><div class="photo-info"><p>Want to add a photo to track your progress?</p><div class="btn-upload"><span>+</span> Upload a Photo</div></div></div>
+                    </div>
+
+                    <div class="tabs"><div class="tab active">This Week</div><div class="tab">Last Week</div><div class="tab">2 wks. ago</div><div class="tab">3 wks. ago</div></div>
+
+                    <div class="chart-card">
+                        <h3 style="text-align: left; margin-bottom: 5px;">Total calories</h3><div class="cal-value">0.0 <span>cals</span></div>
+                        <div class="line-chart-area"><div class="y-axis"><span>0</span><span>0</span><span>0</span><span>0</span><span>0</span></div><div class="grid-lines"><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div></div></div>
+                        <div class="x-axis"><span>Sat</span><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span></div>
+                        <div class="macro-legend"><div class="legend-item"><div class="legend-dot" style="background: #C76750;"></div> Protein</div><div class="legend-item"><div class="legend-dot" style="background: #E89D88;"></div> Carbs</div><div class="legend-item"><div class="legend-dot" style="background: var(--info);"></div> Fats</div></div>
+                        <div class="encouragement-pill">Getting started is the hardest part. You're ready for this!</div>
+                    </div>
+
+                    <div class="chart-card">
+                        <h3 style="text-align: left; margin-bottom: 10px;">Your BMI</h3>
+                        <div class="bmi-header"><div class="bmi-value">30.49</div><p style="margin-bottom: 4px;">Your weight is</p><div class="bmi-badge">Obese</div></div>
+                        <div class="bmi-bar-container"><div class="bmi-bar"></div><div class="bmi-indicator"></div></div>
+                        <div class="bmi-legend"><div class="bmi-legend-item"><div class="b-dot" style="background: var(--info);"></div> Underweight</div><div class="bmi-legend-item"><div class="b-dot" style="background: var(--success);"></div> Healthy</div><div class="bmi-legend-item"><div class="b-dot" style="background: var(--warning);"></div> Overweight</div><div class="bmi-legend-item"><div class="b-dot" style="background: var(--calorie-alert);"></div> Obese</div></div>
+                    </div>
+                </div>
+
+                <div class="bottom-nav-container">
+                    <svg class="nav-bg" viewBox="0 0 320 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><path d="M 0,30 C 0,15 15,0 30,0 L 195,0 C 215,0 215,55 257.5,55 C 300,55 300,0 320,0 L 320,100 L 0,100 Z" fill="var(--surface)" /></svg>
+                    <div class="nav-items">
+                        <a href="#" class="nav-item"><div class="nav-icon-container"><svg class="icon" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>Home</a>
+                        <a href="#" class="nav-item active"><div class="nav-icon-container"><svg class="icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>Progress</a>
+                        <a href="#" class="nav-item"><div class="nav-icon-container"><svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>Profile</a>
+                    </div>
+                    <div class="fab"><div style="width: 28px; height: 28px; color: white;"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">3. Profile Dashboard</div>
+            <div class="app-screen">
+                <div class="content">
+                    
+                    <div class="profile-header-top">Profile</div>
+
+                    <div class="user-info-card">
+                        <div class="avatar">
+                            <div style="width: 30px; height: 30px;"><svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+                        </div>
+                        <div class="user-details">
+                            <h2>Sam</h2>
+                            <p>sam@example.com</p>
+                            <button class="btn-edit">Edit Profile</button>
+                        </div>
+                    </div>
+
+                    <div class="settings-group-title">Account</div>
+                    <div class="settings-card">
+                        <div class="setting-item">
+                            <div class="setting-left">
+                                <div class="setting-icon"><svg class="icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+                                <div class="setting-name">Subscription <span class="setting-badge">FREE</span></div>
+                            </div>
+                            <div class="chevron"><svg class="icon" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-left">
+                                <div class="setting-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+                                <div class="setting-name">My Goals</div>
+                            </div>
+                            <div class="chevron"><svg class="icon" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group-title">Preferences</div>
+                    <div class="settings-card">
+                        <div class="setting-item">
+                            <div class="setting-left">
+                                <div class="setting-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+                                <div class="setting-name">Reminders</div>
+                            </div>
+                            <div class="chevron"><svg class="icon" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-left">
+                                <div class="setting-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg></div>
+                                <div class="setting-name">Units & Formatting</div>
+                            </div>
+                            <div class="chevron"><svg class="icon" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group-title">Support</div>
+                    <div class="settings-card">
+                        <div class="setting-item">
+                            <div class="setting-left">
+                                <div class="setting-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+                                <div class="setting-name">Help Center</div>
+                            </div>
+                            <div class="chevron"><svg class="icon" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+                        </div>
+                    </div>
+
+                    <button class="btn-logout">Sign Out</button>
+
+                </div>
+
+                <div class="bottom-nav-container">
+                    <svg class="nav-bg" viewBox="0 0 320 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><path d="M 0,30 C 0,15 15,0 30,0 L 195,0 C 215,0 215,55 257.5,55 C 300,55 300,0 320,0 L 320,100 L 0,100 Z" fill="var(--surface)" /></svg>
+                    <div class="nav-items">
+                        <a href="#" class="nav-item"><div class="nav-icon-container"><svg class="icon" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>Home</a>
+                        <a href="#" class="nav-item"><div class="nav-icon-container"><svg class="icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>Progress</a>
+                        <a href="#" class="nav-item active"><div class="nav-icon-container"><svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>Profile</a>
+                    </div>
+                    <div class="fab"><div style="width: 28px; height: 28px; color: white;"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="screen-label">4. Quick Add Overlay</div>
+            <div class="app-screen" style="background-image: none;">
+                
+                <div class="content" style="filter: blur(2px);">
+                    <div class="header"><div class="logo">Cal AI</div><div class="streak-pill">0</div></div>
+                    <div class="main-card"><div class="calorie-info"><h2>1350</h2><p>Calories <span>left</span></p></div><div class="donut-large"><div class="donut-large-inner"></div></div></div>
+                </div>
+
+                <div class="overlay-bg">
+                    <div class="action-grid">
+                        
+                        <div class="action-btn">
+                            <div class="action-btn-icon">
+                                <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            </div>
+                            <div class="action-btn-text">Food database</div>
+                        </div>
+                        
+                        <div class="action-btn">
+                            <div class="action-btn-icon">
+                                <svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 14c-1.5-1.5-3-3-3-3l-2.5 2.5a2.12 2.12 0 0 1-3 0 2.12 2.12 0 0 1 0-3L11 7a2.83 2.83 0 0 0-4-4C5.5 4.5 4 6 4 6"/></svg>
+                            </div>
+                            <div class="action-btn-text">Log exercise</div>
+                        </div>
+
+                        <div class="action-btn">
+                            <div class="action-btn-icon">
+                                <svg class="icon" viewBox="0 0 24 24">
+                                    <path d="M4 7V4h3"/><path d="M4 17v3h3"/><path d="M20 7V4h-3"/><path d="M20 17v3h-3"/>
+                                    <path d="M12 20a5 5 0 0 0 5-5c0-4.5-5-5-5-5s-5 .5-5 5a5 5 0 0 0 5 5z"/><path d="M12 10V7"/>
+                                </svg>
+                            </div>
+                            <div class="action-btn-text">Scan food</div>
+                        </div>
+
+                        <div class="action-btn">
+                            <div class="action-btn-icon">
+                                <svg class="icon" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                            </div>
+                            <div class="action-btn-text">Saved Foods</div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="bottom-nav-container on-top">
+                    <svg class="nav-bg" viewBox="0 0 320 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><path d="M 0,30 C 0,15 15,0 30,0 L 195,0 C 215,0 215,55 257.5,55 C 300,55 300,0 320,0 L 320,100 L 0,100 Z" fill="var(--surface)" /></svg>
+                    <div class="nav-items">
+                        <a href="#" class="nav-item active"><div class="nav-icon-container"><svg class="icon" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>Home</a>
+                        <a href="#" class="nav-item"><div class="nav-icon-container"><svg class="icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>Progress</a>
+                        <a href="#" class="nav-item"><div class="nav-icon-container"><svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>Profile</a>
+                    </div>
+                    
+                    <div class="fab active-close">
+                        <div style="width: 28px; height: 28px;">
+                            <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>
