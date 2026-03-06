@@ -89,7 +89,7 @@ export function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
             entering={SlideInDown.springify().damping(18)}
             style={styles.actionGrid}>
             {ACTION_ITEMS.map((item) => (
-              <TouchableOpacity key={item.label} style={styles.actionBtn} activeOpacity={0.8}>
+              <TouchableOpacity key={item.label} style={styles.actionBtn} activeOpacity={0.8} accessibilityLabel={item.label} accessibilityRole="button">
                 <View style={styles.actionBtnIcon}>
                   <Svg width={32} height={32} viewBox="0 0 24 24" fill="none">
                     <Path
@@ -136,7 +136,10 @@ export function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
                   }
                 }}
                 style={styles.navItem}
-                activeOpacity={0.7}>
+                activeOpacity={0.7}
+                accessibilityLabel={`${label} tab`}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isFocused }}>
                 <View style={styles.navIconContainer}>
                   <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
                     <Path
@@ -175,7 +178,7 @@ export function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
         </View>
 
         <Animated.View style={[styles.fab, fabAnimatedStyle, showOverlay && styles.fabActive]}>
-          <TouchableOpacity onPress={toggleOverlay} activeOpacity={0.8} style={styles.fabInner}>
+          <TouchableOpacity onPress={toggleOverlay} activeOpacity={0.8} style={styles.fabInner} accessibilityLabel={showOverlay ? 'Close menu' : 'Add item'} accessibilityRole="button" accessibilityHint="Opens menu with food logging options">
             <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
               <Line
                 x1={12} y1={5} x2={12} y2={19}
@@ -282,7 +285,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(84, 49, 40, 0.6)',
+    backgroundColor: Theme.colors.overlay,
     zIndex: 20,
     justifyContent: 'flex-end',
     paddingBottom: 120,

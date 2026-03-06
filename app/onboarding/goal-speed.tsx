@@ -1,69 +1,131 @@
-import { useState, useCallback } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { useState, useEffect, memo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Theme } from '@/constants/theme';
-import { ProgressHeader } from '@/components/onboarding/ProgressHeader';
-import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
-import { useOnboardingStore } from '@/store/onboarding-store';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  useAnimatedGestureHandler,
-  runOnJS,
+  withRepeat,
+  withSequence,
+  withTiming,
+  Easing,
+  FadeIn,
+  interpolate,
 } from 'react-native-reanimated';
-import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import { Theme } from '@/constants/theme';
+import { ProgressHeader } from '@/components/onboarding/ProgressHeader';
+import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
+import { UnitToggle } from '@/components/onboarding/UnitToggle';
+import { useOnboardingStore } from '@/store/onboarding-store';
 
-const MIN_SPEED = 0.1;
-const MAX_SPEED = 1.5;
-const TRACK_WIDTH = 280;
-
-function getLabel(speed: number): string {
-  if (speed <= 0.4) return 'Slow and Steady';
-  if (speed <= 0.8) return 'Moderate';
-  if (speed <= 1.2) return 'Fast';
-  return 'Very Fast';
+interface SpeedOption {
+  speed: number;
+  lbSpeed: string;
+  icon: string;
+  label: string;
+  desc: string;
+  warning?: string;
 }
 
-function getEmoji(speed: number): string {
-  if (speed <= 0.4) return '🐢';
-  if (speed <= 0.8) return '🐇';
-  return '🐆';
-}
+const LOSE_OPTIONS: SpeedOption[] = [
+  {
+    speed: 0.5, lbSpeed: '1.1', icon: '🚶',
+    label: 'Slow & Steady',
+    desc: 'Sustainable and easy to maintain. Best for long-term results.',
+  },
+  {
+    speed: 1.0, lbSpeed: '2.2', icon: '🏃',
+    label: 'Recommended',
+    desc: 'The sweet spot between speed and comfort. Most popular choice.',
+  },
+  {
+    speed: 1.5, lbSpeed: '3.3', icon: '⚡',
+    label: 'Aggressive',
+    desc: 'Fast results, but you may feel tired and experience loose skin.',
+    warning: 'You may feel fatigued and experience muscle loss or loose skin.',
+  },
+];
+
+const GAIN_OPTIONS: SpeedOption[] = [
+  {
+    speed: 0.25, lbSpeed: '0.55', icon: '🌱',
+    label: 'Lean Gain',
+    desc: 'Maximizes muscle-to-fat ratio. Best for staying lean while building muscle.',
+  },
+  {
+    speed: 0.5, lbSpeed: '1.1', icon: '💪',
+    label: 'Recommended',
+    desc: 'Ideal for beginners with high muscle growth potential. The sweet spot for most people.',
+  },
+  {
+    speed: 0.75, lbSpeed: '1.65', icon: '🔥',
+    label: 'Aggressive',
+    desc: 'Faster results, but expect more fat gain alongside muscle.',
+    warning: 'Higher fat gain expected. Best for underweight individuals or experienced lifters.',
+  },
+];
+
+const SpeedIcon = memo(function SpeedIcon({ icon, active }: { icon: string; active: boolean }) {
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    if (active) {
+      progress.value = 0;
+      progress.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 800, easing: Easing.out(Easing.cubic) }),
+          withTiming(0.6, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+        ),
+        -1,
+        true,
+      );
+    } else {
+      progress.value = withTiming(0, { duration: 200 });
+    }
+  }, [active]);
+
+  const iconStyle = useAnimatedStyle(() => {
+    const scale = interpolate(progress.value, [0, 0.6, 1], [1, 1.05, 1.2]);
+    return {
+      transform: [{ scale }],
+    };
+  });
+
+  const glowStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(progress.value, [0, 0.6, 1], [0, 0.15, 0.3]);
+    const scale = interpolate(progress.value, [0, 0.6, 1], [0.8, 1, 1.3]);
+    return {
+      opacity,
+      transform: [{ scale }],
+    };
+  });
+
+  return (
+    <View style={styles.iconContainer}>
+      <Animated.View style={[styles.iconGlow, glowStyle]} />
+      <Animated.Text style={[styles.speedIcon, iconStyle]}>
+        {icon}
+      </Animated.Text>
+    </View>
+  );
+});
 
 export default function GoalSpeedScreen() {
   const router = useRouter();
   const updatePayload = useOnboardingStore((s) => s.updatePayload);
-  const weightUnit = useOnboardingStore((s) => s.payload.weightUnit) || 'kg';
+  const storedUnit = useOnboardingStore((s) => s.payload.weightUnit) || 'kg';
+  const goal = useOnboardingStore((s) => s.payload.goal);
+  const isGaining = goal === 'gain';
+  const options = isGaining ? GAIN_OPTIONS : LOSE_OPTIONS;
 
-  const [speed, setSpeed] = useState(0.8);
-  const thumbX = useSharedValue(
-    ((0.8 - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)) * TRACK_WIDTH
-  );
+  const [selectedIndex, setSelectedIndex] = useState(1);
+  const [unit, setUnit] = useState(storedUnit);
 
-  const updateSpeed = useCallback((x: number) => {
-    const clamped = Math.max(0, Math.min(x, TRACK_WIDTH));
-    const value = MIN_SPEED + (clamped / TRACK_WIDTH) * (MAX_SPEED - MIN_SPEED);
-    setSpeed(Math.round(value * 10) / 10);
-  }, []);
-
-  const gesture = Gesture.Pan()
-    .onUpdate((e) => {
-      const newX = Math.max(0, Math.min(e.x, TRACK_WIDTH));
-      thumbX.value = newX;
-      runOnJS(updateSpeed)(newX);
-    });
-
-  const thumbStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: thumbX.value - 12 }],
-  }));
-
-  const fillStyle = useAnimatedStyle(() => ({
-    width: thumbX.value,
-  }));
+  const selected = options[selectedIndex];
+  const displaySpeed = unit === 'lb' ? selected.lbSpeed : selected.speed.toFixed(1);
 
   const handleContinue = () => {
-    updatePayload({ weeklyGoalSpeed: speed });
+    updatePayload({ weeklyGoalSpeed: selected.speed });
     router.push('/onboarding/transition2');
   };
 
@@ -72,35 +134,51 @@ export default function GoalSpeedScreen() {
       <ProgressHeader step={2} progress={100} />
       <View style={styles.content}>
         <Text style={styles.title}>How fast do you want to reach your goal?</Text>
-        <Text style={styles.subtitle}>Lose weight speed per week</Text>
+        <Text style={styles.subtitle}>{isGaining ? 'Gain' : 'Lose'} weight speed per week</Text>
+        <UnitToggle
+          options={['lb', 'kg']}
+          selected={unit}
+          onSelect={(v) => setUnit(v)}
+        />
         <Text style={styles.speedValue}>
-          {speed.toFixed(1)} {weightUnit}
+          {displaySpeed} {unit}/week
         </Text>
 
-        <View style={styles.sliderWrapper}>
-          <View style={styles.emojiRow}>
-            <Text style={styles.emoji}>🐢</Text>
-            <Text style={styles.emoji}>🐇</Text>
-            <Text style={styles.emoji}>🐆</Text>
-          </View>
-
-          <GestureDetector gesture={gesture}>
-            <View style={styles.sliderTrack}>
-              <Animated.View style={[styles.sliderFill, fillStyle]} />
-              <Animated.View style={[styles.sliderThumb, thumbStyle]} />
-            </View>
-          </GestureDetector>
-
-          <View style={styles.labelRow}>
-            <Text style={styles.rangeLabel}>0.1 {weightUnit}</Text>
-            <Text style={styles.rangeLabel}>0.8 {weightUnit}</Text>
-            <Text style={styles.rangeLabel}>1.5 {weightUnit}</Text>
-          </View>
+        <View style={styles.optionsContainer}>
+          {options.map((opt, i) => (
+            <TouchableOpacity
+              key={opt.speed}
+              style={[styles.optionCard, selectedIndex === i && styles.optionCardActive]}
+              onPress={() => setSelectedIndex(i)}
+              activeOpacity={0.7}
+              accessibilityLabel={`${opt.label}, ${unit === 'lb' ? opt.lbSpeed : opt.speed.toFixed(1)} ${unit} per week`}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: selectedIndex === i }}
+            >
+              <View style={styles.optionTop}>
+                <SpeedIcon icon={opt.icon} active={selectedIndex === i} />
+                <View style={styles.optionTextWrap}>
+                  <Text style={[styles.optionLabel, selectedIndex === i && styles.optionLabelActive]}>
+                    {opt.label}
+                  </Text>
+                  <Text style={styles.optionSpeed}>
+                    {unit === 'lb' ? opt.lbSpeed : opt.speed.toFixed(1)} {unit}/week
+                  </Text>
+                </View>
+                <View style={[styles.radio, selectedIndex === i && styles.radioActive]}>
+                  {selectedIndex === i && <View style={styles.radioDot} />}
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        <View style={styles.paceCard}>
-          <Text style={styles.paceText}>{getLabel(speed)}</Text>
-        </View>
+        <Animated.View key={selectedIndex} entering={FadeIn.duration(250)} style={styles.descCard}>
+          <Text style={styles.descText}>{selected.desc}</Text>
+          {selected.warning && (
+            <Text style={styles.warningText}>⚠️ {selected.warning}</Text>
+          )}
+        </Animated.View>
       </View>
       <View style={styles.bottomAction}>
         <OnboardingButton title="Continue" onPress={handleContinue} />
@@ -134,74 +212,96 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   speedValue: {
-    fontSize: 36,
+    fontSize: 32,
     fontFamily: Theme.fonts.extraBold,
     color: Theme.colors.primary,
     textAlign: 'center',
-    marginVertical: 20,
+    marginVertical: 16,
   },
-  sliderWrapper: {
-    marginTop: 10,
+  optionsContainer: {
+    gap: 12,
+  },
+  optionCard: {
+    backgroundColor: Theme.colors.surface,
+    borderWidth: 2,
+    borderColor: Theme.colors.border,
+    borderRadius: 16,
+    padding: 16,
+  },
+  optionCardActive: {
+    borderColor: Theme.colors.primary,
+    backgroundColor: Theme.colors.primaryActive,
+  },
+  optionTop: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 14,
   },
-  emojiRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: TRACK_WIDTH,
-    marginBottom: 10,
+  iconContainer: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  emoji: {
-    fontSize: 24,
-  },
-  sliderTrack: {
-    width: TRACK_WIDTH,
-    height: 8,
-    backgroundColor: Theme.colors.border,
-    borderRadius: 4,
-    position: 'relative',
-  },
-  sliderFill: {
-    height: '100%',
-    backgroundColor: Theme.colors.primary,
-    borderRadius: 4,
-  },
-  sliderThumb: {
-    width: 24,
-    height: 24,
-    backgroundColor: Theme.colors.textDark,
-    borderRadius: 12,
+  iconGlow: {
     position: 'absolute',
-    top: -8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Theme.colors.primary,
   },
-  labelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: TRACK_WIDTH,
-    marginTop: 10,
+  speedIcon: {
+    fontSize: 26,
   },
-  rangeLabel: {
-    fontSize: 12,
+  optionTextWrap: {
+    flex: 1,
+  },
+  optionLabel: {
+    fontSize: 16,
     fontFamily: Theme.fonts.extraBold,
     color: Theme.colors.textMuted,
   },
-  paceCard: {
-    backgroundColor: Theme.colors.surface,
-    padding: 16,
-    borderRadius: 20,
-    alignItems: 'center',
-    marginTop: 30,
-    borderWidth: 2,
-    borderColor: Theme.colors.border,
-  },
-  paceText: {
-    fontFamily: Theme.fonts.extraBold,
+  optionLabelActive: {
     color: Theme.colors.textDark,
-    fontSize: 16,
+  },
+  optionSpeed: {
+    fontSize: 13,
+    fontFamily: Theme.fonts.semiBold,
+    color: Theme.colors.textMuted,
+    marginTop: 2,
+  },
+  radio: {
+    width: 22, height: 22, borderRadius: 11,
+    borderWidth: 2, borderColor: Theme.colors.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  radioActive: {
+    borderColor: Theme.colors.primary,
+  },
+  radioDot: {
+    width: 12, height: 12, borderRadius: 6,
+    backgroundColor: Theme.colors.primary,
+  },
+  descCard: {
+    backgroundColor: Theme.colors.surface,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 16,
+  },
+  descText: {
+    fontSize: 14,
+    fontFamily: Theme.fonts.regular,
+    color: Theme.colors.textDark,
+    lineHeight: 21,
+  },
+  warningText: {
+    fontSize: 13,
+    fontFamily: Theme.fonts.semiBold,
+    color: Theme.colors.calorieAlert,
+    marginTop: 8,
+    lineHeight: 19,
   },
   bottomAction: {
     paddingHorizontal: 24,

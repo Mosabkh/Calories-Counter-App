@@ -15,7 +15,10 @@ export function UnitToggle({ options, selected, onSelect }: UnitToggleProps) {
           key={option}
           onPress={() => onSelect(option)}
           style={[styles.option, selected === option && styles.active]}
-          activeOpacity={0.7}>
+          activeOpacity={0.7}
+          accessibilityLabel={option}
+          accessibilityRole="radio"
+          accessibilityState={{ selected: selected === option }}>
           <Text style={[styles.text, selected === option && styles.activeText]}>
             {option}
           </Text>

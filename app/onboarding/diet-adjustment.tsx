@@ -12,7 +12,8 @@ const EMOJIS = ['🍕', '🍦', '🍔', '🌮', '🍩', '🍰', '🧁'];
 
 export default function DietAdjustmentScreen() {
   const router = useRouter();
-  const weekendDays = useOnboardingStore((s) => s.payload.weekendDays) || [];
+  const goal = useOnboardingStore((s) => s.payload.goal);
+  const weekendDays = useOnboardingStore((s) => s.payload.weekendDays) ?? [];
 
   const isHighDay = (index: number) => weekendDays.includes(DAY_NAMES[index]);
 
@@ -61,7 +62,9 @@ export default function DietAdjustmentScreen() {
         </View>
 
         <Text style={styles.subtitle}>
-          Your calorie budget will be slightly higher on {dayText}. The remaining days will have a smaller calorie target to keep you on track. Enjoy guilt-free!
+          {goal === 'gain'
+            ? `Your calorie surplus will be slightly higher on ${dayText} to help you hit your intake goals. The remaining days will have a steady target to keep your gains on track.`
+            : `Your calorie budget will be slightly higher on ${dayText}. The remaining days will have a smaller calorie target to keep you on track. Enjoy guilt-free!`}
         </Text>
       </View>
       <View style={styles.bottomAction}>

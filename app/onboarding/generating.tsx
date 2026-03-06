@@ -15,8 +15,9 @@ import { getTargetDate } from '@/utils/target-date';
 
 export default function GeneratingScreen() {
   const router = useRouter();
-  const { currentWeight, targetWeight, weeklyGoalSpeed } = useOnboardingStore((s) => s.payload);
-  const targetDate = getTargetDate(currentWeight || 0, targetWeight || 0, weeklyGoalSpeed || 0.5);
+  const { currentWeight, targetWeight, weeklyGoalSpeed, goal } = useOnboardingStore((s) => s.payload);
+  const isMaintain = goal === 'maintain';
+  const targetDate = isMaintain ? '' : getTargetDate(currentWeight || 0, targetWeight || 0, weeklyGoalSpeed || 0.5);
   const rotation = useSharedValue(0);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const navigatedRef = useRef(false);
@@ -55,8 +56,8 @@ export default function GeneratingScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={styles.backTouchable} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Text style={styles.backBtn}>{'<'}</Text>
+        <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={styles.backTouchable} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Go back" accessibilityRole="button">
+          <Text style={styles.backBtn} accessible={false}>{'<'}</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.content}>
@@ -65,16 +66,25 @@ export default function GeneratingScreen() {
         <Text style={styles.applying}>
           Applying peer-reviewed nutritional frameworks...
         </Text>
-        <View style={styles.card}>
-          <Text style={styles.cardIcon}>🎯</Text>
-          <Text style={styles.cardText}>
-            If you follow this plan, you will reach your goal weight by:
-          </Text>
-          <Text style={styles.cardDate}>{targetDate}</Text>
-        </View>
+        {isMaintain ? (
+          <View style={styles.card}>
+            <Text style={styles.cardIcon}>🎯</Text>
+            <Text style={styles.cardText}>
+              Your personalized maintenance plan is being created to keep you at your best.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.card}>
+            <Text style={styles.cardIcon}>🎯</Text>
+            <Text style={styles.cardText}>
+              If you follow this plan, you will reach your goal weight by:
+            </Text>
+            <Text style={styles.cardDate}>{targetDate}</Text>
+          </View>
+        )}
       </View>
       <View style={styles.bottomAction}>
-        <TouchableOpacity onPress={navigateNext} activeOpacity={0.7}>
+        <TouchableOpacity onPress={navigateNext} activeOpacity={0.7} accessibilityLabel="Skip loading" accessibilityRole="button">
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
       </View>
@@ -110,14 +120,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   card: {
-    backgroundColor: Theme.colors.surface, padding: 15, borderRadius: 15,
+    backgroundColor: Theme.colors.surface, padding: 20, borderRadius: 15,
     borderWidth: 2, borderColor: Theme.colors.border, marginTop: 20,
-    alignItems: 'center',
+    alignItems: 'center', width: '100%',
   },
   cardIcon: { fontSize: 24, marginBottom: 5 },
   cardText: {
     fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark, fontSize: 14,
-    textAlign: 'center',
+    textAlign: 'center', lineHeight: 21,
   },
   cardDate: {
     color: Theme.colors.primary, fontSize: 20, fontFamily: Theme.fonts.extraBold,

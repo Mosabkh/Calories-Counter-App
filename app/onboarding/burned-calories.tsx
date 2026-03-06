@@ -9,6 +9,7 @@ import { useOnboardingStore } from '@/store/onboarding-store';
 export default function BurnedCaloriesScreen() {
   const router = useRouter();
   const updatePayload = useOnboardingStore((s) => s.updatePayload);
+  const goal = useOnboardingStore((s) => s.payload.goal);
 
   const handleChoice = (addBurned: boolean) => {
     updatePayload({ addBurnedCalories: addBurned });
@@ -19,7 +20,11 @@ export default function BurnedCaloriesScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <ProgressHeader step={3} progress={75} />
       <View style={styles.content}>
-        <Text style={styles.title}>Add calories burned back to your daily goal?</Text>
+        <Text style={styles.title}>
+          {goal === 'gain'
+            ? 'Add calories burned to your daily intake goal?'
+            : 'Add calories burned back to your daily goal?'}
+        </Text>
         <View style={styles.card}>
           <View style={styles.cardImage}>
             <Text style={{ fontSize: 40 }}>🏃‍♂️</Text>
@@ -63,7 +68,7 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: Theme.colors.border, marginTop: 20,
   },
   cardImage: {
-    height: 120, backgroundColor: '#EEEEEE', alignItems: 'center', justifyContent: 'center',
+    height: 120, backgroundColor: Theme.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center',
   },
   cardBody: { padding: 15 },
   cardTitle: {

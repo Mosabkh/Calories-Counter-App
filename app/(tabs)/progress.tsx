@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Path, Line, Circle, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import Svg, { Path, Line, Circle } from 'react-native-svg';
 import { Theme } from '@/constants/theme';
 
 const TIME_TABS = ['90 Days', '6 Months', '1 Year', 'All time'];
@@ -16,8 +16,8 @@ const BMI_LEGEND = [
 ];
 
 const MACRO_LEGEND = [
-  { label: 'Protein', color: '#C76750' },
-  { label: 'Carbs', color: '#E89D88' },
+  { label: 'Protein', color: Theme.colors.protein },
+  { label: 'Carbs', color: Theme.colors.carbs },
   { label: 'Fats', color: Theme.colors.infoBlue },
 ];
 
@@ -27,18 +27,18 @@ export default function ProgressScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Top Cards */}
         <View style={styles.topCards}>
           {/* Weight Card */}
-          <View style={[styles.progCard, { paddingBottom: 0 }]}>
+          <View style={[styles.progCard, styles.progCardNoPadBottom]}>
             <Text style={styles.cardLabel}>My Weight</Text>
             <Text style={styles.weightValue}>82 kg</Text>
             <View style={styles.weightProgressBg}>
               <View style={styles.weightProgressFill} />
             </View>
             <Text style={styles.goalText}>
-              Goal <Text style={{ color: Theme.colors.textDark }}>72.9 kg</Text>
+              Goal <Text style={styles.goalValueText}>72.9 kg</Text>
             </Text>
             <View style={styles.weightFooter}>
               <Text style={styles.footerText}>Next weigh-in: 7d</Text>
@@ -64,9 +64,9 @@ export default function ProgressScreen() {
         </View>
 
         {/* Time Tabs */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={{ gap: 8 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={styles.tabsContent}>
           {TIME_TABS.map((t, i) => (
-            <TouchableOpacity key={t} onPress={() => setTimeTab(i)} style={[styles.tab, i === timeTab && styles.tabActive]}>
+            <TouchableOpacity key={t} onPress={() => setTimeTab(i)} style={[styles.tab, i === timeTab && styles.tabActive]} accessibilityRole="tab" accessibilityState={{ selected: i === timeTab }}>
               <Text style={[styles.tabText, i === timeTab && styles.tabTextActive]}>{t}</Text>
             </TouchableOpacity>
           ))}
@@ -103,7 +103,7 @@ export default function ProgressScreen() {
 
         {/* Progress Photos */}
         <View style={styles.chartCard}>
-          <Text style={[styles.chartTitle, { marginBottom: 15 }]}>Progress Photos</Text>
+          <Text style={[styles.chartTitle, styles.chartTitleMb15]}>Progress Photos</Text>
           <View style={styles.photoCard}>
             <View style={styles.photoPlaceholder}>
               <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
@@ -111,9 +111,9 @@ export default function ProgressScreen() {
                 <Circle cx={12} cy={7} r={4} stroke={Theme.colors.primary} strokeWidth={2.5} />
               </Svg>
             </View>
-            <View style={{ flex: 1 }}>
+            <View style={styles.photoTextContainer}>
               <Text style={styles.photoText}>Want to add a photo to track your progress?</Text>
-              <TouchableOpacity style={styles.btnUpload}>
+              <TouchableOpacity style={styles.btnUpload} accessibilityLabel="Upload a photo" accessibilityRole="button">
                 <Text style={styles.btnUploadText}>+ Upload a Photo</Text>
               </TouchableOpacity>
             </View>
@@ -121,9 +121,9 @@ export default function ProgressScreen() {
         </View>
 
         {/* Week Tabs */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={{ gap: 8 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={styles.tabsContent}>
           {WEEK_TABS.map((t, i) => (
-            <TouchableOpacity key={t} onPress={() => setWeekTab(i)} style={[styles.tab, i === weekTab && styles.tabActive]}>
+            <TouchableOpacity key={t} onPress={() => setWeekTab(i)} style={[styles.tab, i === weekTab && styles.tabActive]} accessibilityRole="tab" accessibilityState={{ selected: i === weekTab }}>
               <Text style={[styles.tabText, i === weekTab && styles.tabTextActive]}>{t}</Text>
             </TouchableOpacity>
           ))}
@@ -131,7 +131,7 @@ export default function ProgressScreen() {
 
         {/* Total Calories Chart */}
         <View style={styles.chartCard}>
-          <Text style={[styles.chartTitle, { marginBottom: 5 }]}>Total calories</Text>
+          <Text style={[styles.chartTitle, styles.chartTitleMb5]}>Total calories</Text>
           <Text style={styles.calValue}>0.0 <Text style={styles.calUnit}>cals</Text></Text>
           <View style={styles.lineChartArea}>
             <View style={styles.yAxis}>
@@ -167,7 +167,7 @@ export default function ProgressScreen() {
 
         {/* BMI Card */}
         <View style={styles.chartCard}>
-          <Text style={[styles.chartTitle, { marginBottom: 10 }]}>Your BMI</Text>
+          <Text style={[styles.chartTitle, styles.chartTitleMb10]}>Your BMI</Text>
           <View style={styles.bmiHeader}>
             <Text style={styles.bmiValue}>30.49</Text>
             <Text style={styles.bmiLabel}>Your weight is</Text>
@@ -196,6 +196,7 @@ export default function ProgressScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Theme.colors.accentBackground },
   container: { flex: 1, backgroundColor: Theme.colors.background, paddingHorizontal: 20 },
+  scrollContent: { paddingBottom: 120 },
 
   // Top cards
   topCards: { flexDirection: 'row', gap: 12, marginBottom: 20, marginTop: 10 },
@@ -205,6 +206,7 @@ const styles = StyleSheet.create({
     shadowColor: Theme.colors.textDark, shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.04, shadowRadius: 15, elevation: 2,
   },
+  progCardNoPadBottom: { paddingBottom: 0 },
   cardLabel: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
   weightValue: { fontSize: 24, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark, marginVertical: 5 },
   weightProgressBg: {
@@ -213,6 +215,7 @@ const styles = StyleSheet.create({
   },
   weightProgressFill: { width: '30%', height: '100%', backgroundColor: Theme.colors.primary, borderRadius: 3 },
   goalText: { fontSize: 11, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
+  goalValueText: { color: Theme.colors.textDark },
   weightFooter: {
     width: '132%', marginTop: 10, marginBottom: -16, paddingVertical: 10,
     borderTopWidth: 1, borderTopColor: Theme.colors.border, backgroundColor: Theme.colors.background,
@@ -228,6 +231,7 @@ const styles = StyleSheet.create({
 
   // Tabs
   tabsScroll: { marginBottom: 15, paddingBottom: 5 },
+  tabsContent: { gap: 8 },
   tab: {
     paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
     backgroundColor: Theme.colors.surface, borderWidth: 1, borderColor: Theme.colors.border,
@@ -245,8 +249,11 @@ const styles = StyleSheet.create({
   },
   chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   chartTitle: { fontSize: 18, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark, textAlign: 'left' },
+  chartTitleMb5: { marginBottom: 5 },
+  chartTitleMb10: { marginBottom: 10 },
+  chartTitleMb15: { marginBottom: 15 },
   flagPill: {
-    backgroundColor: 'rgba(84, 49, 40, 0.05)', paddingHorizontal: 10, paddingVertical: 4,
+    backgroundColor: Theme.colors.flagPillBg, paddingHorizontal: 10, paddingVertical: 4,
     borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 4,
   },
   flagPillText: { fontSize: 11, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
@@ -265,10 +272,11 @@ const styles = StyleSheet.create({
   // Photo
   photoCard: { flexDirection: 'row', gap: 15, alignItems: 'center' },
   photoPlaceholder: {
-    width: 60, height: 75, backgroundColor: 'rgba(226, 133, 110, 0.05)',
+    width: 60, height: 75, backgroundColor: Theme.colors.primaryActive,
     borderWidth: 2, borderStyle: 'dashed', borderColor: Theme.colors.border, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center',
   },
+  photoTextContainer: { flex: 1 },
   photoText: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
   btnUpload: {
     backgroundColor: Theme.colors.surface, borderWidth: 1, borderColor: Theme.colors.border,
@@ -288,10 +296,10 @@ const styles = StyleSheet.create({
   legendDot: { width: 14, height: 14, borderRadius: 7 },
   legendText: { fontSize: 11, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
   encouragementPill: {
-    backgroundColor: 'rgba(123, 158, 135, 0.15)', padding: 10, borderRadius: 12, marginTop: 20,
+    backgroundColor: Theme.colors.encouragementBg, padding: 10, borderRadius: 12, marginTop: 20,
   },
   encouragementText: {
-    fontSize: 11, fontFamily: Theme.fonts.extraBold, color: '#4A6B54', textAlign: 'center',
+    fontSize: 11, fontFamily: Theme.fonts.extraBold, color: Theme.colors.encouragementText, textAlign: 'center',
   },
 
   // BMI

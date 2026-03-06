@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: 'rgba(60, 60, 67, 0.2)',
+    backgroundColor: Theme.colors.separator,
     zIndex: 10,
   },
   bottomAction: {

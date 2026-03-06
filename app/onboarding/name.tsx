@@ -30,6 +30,7 @@ export default function NameScreen() {
           placeholder="Your name"
           placeholderTextColor={Theme.colors.border}
           autoFocus
+          accessibilityLabel="Enter your name"
         />
       </View>
       <View style={styles.bottomAction}>

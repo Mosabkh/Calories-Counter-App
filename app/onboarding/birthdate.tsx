@@ -21,10 +21,13 @@ export default function BirthdateScreen() {
   const [yearIndex, setYearIndex] = useState(10); // 2000
 
   const handleContinue = () => {
+    const clampedMonth = Math.max(0, Math.min(monthIndex, MONTHS.length - 1));
+    const clampedDay = Math.max(0, Math.min(dayIndex, DAYS.length - 1));
+    const clampedYear = Math.max(0, Math.min(yearIndex, YEARS.length - 1));
     updatePayload({
-      birthMonth: MONTHS[monthIndex],
-      birthDay: DAYS[dayIndex],
-      birthYear: YEARS[yearIndex],
+      birthMonth: MONTHS[clampedMonth],
+      birthDay: DAYS[clampedDay],
+      birthYear: YEARS[clampedYear],
     });
     router.push('/onboarding/transition1');
   };
@@ -77,7 +80,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: 'rgba(60, 60, 67, 0.2)',
+    backgroundColor: Theme.colors.separator,
     zIndex: 10,
   },
   bottomAction: {

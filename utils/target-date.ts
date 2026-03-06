@@ -17,7 +17,10 @@ export function getTargetDate(
   const diff = Math.abs(currentWeight - targetWeight);
   const speed = weeklySpeed > 0 ? weeklySpeed : 0.5;
   const weeks = Math.ceil(diff / speed);
+  const now = new Date();
   const target = new Date();
   target.setDate(target.getDate() + weeks * 7);
-  return `${MONTHS[target.getMonth()]} ${ordinal(target.getDate())}`;
+  const showYear = weeks > 26 || target.getFullYear() !== now.getFullYear();
+  const dateStr = `${MONTHS[target.getMonth()]} ${ordinal(target.getDate())}`;
+  return showYear ? `${dateStr}, ${target.getFullYear()}` : dateStr;
 }

@@ -27,7 +27,7 @@ No test runner is configured.
 ### State Management
 
 - Zustand store at `store/onboarding-store.ts` — holds all onboarding data (`OnboardingPayload`) and completion state. Not persisted (resets on app restart).
-- Notable store fields: `weekendDays` is `string[]` (array of day names), `weeklyGoalSpeed` is a number (kg/week).
+- Notable store fields: `weekendDays` is `string[]` (array of day names), `weeklyGoalSpeed` is a number (kg/week), `activityLevel` is `ActivityLevel` (sedentary/light/moderate/active/very_active).
 
 ### Theming & Styling
 
@@ -43,10 +43,19 @@ No test runner is configured.
 - Reusable onboarding components in `components/onboarding/` (ProgressHeader, OnboardingButton, ListButton, CardOption, UnitToggle, ScrollPicker)
 - Shared utilities in `utils/`:
   - `target-date.ts` — calculates estimated goal date from weight difference and weekly speed
+  - `calories.ts` — Mifflin-St Jeor BMR, TDEE, daily calorie target, macro split, age calculation. Scientific references: Mifflin et al. (1990), ACSM, ISSN.
 
 ### ScrollPicker Component
 
 The `ScrollPicker` uses scroll-offset-based selection (`Math.round(contentOffset.y / ITEM_HEIGHT)`). Do NOT use `onViewableItemsChanged` — it unreliably detects the center item. Apple-style design: thin separator lines, opacity fade, bold for selected. For multi-picker screens, use `hideLines` prop and render shared separator lines in the parent `pickerRow`. Exports `PICKER_ITEM_HEIGHT`, `PICKER_VISIBLE_ITEMS`, `PICKER_CENTER` for parent layout.
+
+### Goal-dependent Onboarding Flow
+
+The onboarding path adapts based on `goal` (lose/gain/maintain):
+- **Maintain**: skips `goal-weight`, `realistic-target`, `goal-speed`, `projection` — goes straight from `current-weight` → `transition2`. Target weight = current weight.
+- **Gain**: `goal-weight` picker starts at currentWeight+1 (min), `realistic-target` says "Gaining", `goal-speed` says "Gain weight speed", `roadblocks` shows gain-specific options.
+- **Lose**: default path, picker capped at currentWeight-1 (max).
+- Screen text (accomplish, roadblocks, weekends, diet-adjustment, burned-calories, projection, custom-plan, generating) adapts per goal.
 
 ### Navigation Patterns
 

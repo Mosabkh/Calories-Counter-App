@@ -10,9 +10,12 @@ export default function RolloverCaloriesScreen() {
   const router = useRouter();
   const updatePayload = useOnboardingStore((s) => s.updatePayload);
 
+  const goal = useOnboardingStore((s) => s.payload.goal);
+
   const handleChoice = (rollover: boolean) => {
     updatePayload({ rolloverCalories: rollover });
-    router.push('/onboarding/projection');
+    // Maintain: skip projection chart (no weight change to project)
+    router.push(goal === 'maintain' ? '/onboarding/notifications' : '/onboarding/projection');
   };
 
   return (

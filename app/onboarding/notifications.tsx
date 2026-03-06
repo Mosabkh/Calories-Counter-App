@@ -12,8 +12,12 @@ export default function NotificationsScreen() {
   const updatePayload = useOnboardingStore((s) => s.updatePayload);
 
   const handleEnable = async () => {
-    const { status } = await requestPermissionsAsync();
-    updatePayload({ enableNotifications: status === 'granted' });
+    try {
+      const { status } = await requestPermissionsAsync();
+      updatePayload({ enableNotifications: status === 'granted' });
+    } catch {
+      updatePayload({ enableNotifications: false });
+    }
     router.push('/onboarding/generating');
   };
 

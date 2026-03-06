@@ -13,8 +13,11 @@ export function CardOption({ icon, label, active, onPress }: CardOptionProps) {
     <TouchableOpacity
       onPress={onPress}
       style={[styles.card, active && styles.active]}
-      activeOpacity={0.7}>
-      <Text style={styles.icon}>{icon}</Text>
+      activeOpacity={0.7}
+      accessibilityLabel={label}
+      accessibilityRole="radio"
+      accessibilityState={{ selected: !!active }}>
+      <Text style={styles.icon} accessible={false}>{icon}</Text>
       <Text style={[styles.label, active && styles.labelActive]}>{label}</Text>
     </TouchableOpacity>
   );
@@ -32,7 +35,7 @@ const styles = StyleSheet.create({
   },
   active: {
     borderColor: Theme.colors.primary,
-    backgroundColor: 'rgba(226, 133, 110, 0.05)',
+    backgroundColor: Theme.colors.primaryActive,
   },
   icon: {
     fontSize: 40,

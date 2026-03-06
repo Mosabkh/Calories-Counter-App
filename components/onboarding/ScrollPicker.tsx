@@ -18,6 +18,7 @@ interface ScrollPickerProps {
   width?: number;
   suffix?: string;
   hideLines?: boolean;
+  accessibilityLabel?: string;
 }
 
 export function ScrollPicker({
@@ -27,6 +28,7 @@ export function ScrollPicker({
   width = 80,
   suffix,
   hideLines,
+  accessibilityLabel,
 }: ScrollPickerProps) {
   const flatListRef = useRef<FlatList>(null);
   const hasScrolled = useRef(false);
@@ -88,9 +90,17 @@ export function ScrollPicker({
   };
 
   const listHeight = ITEM_HEIGHT * VISIBLE_ITEMS;
+  const contentPadding = { paddingVertical: ITEM_HEIGHT * CENTER };
+  const listStyle = { height: listHeight };
 
   return (
-    <View style={styles.outerWrap}>
+    <View
+      style={styles.outerWrap}
+      accessible={true}
+      accessibilityRole="adjustable"
+      accessibilityLabel={accessibilityLabel ? `${accessibilityLabel}: ${items[selectedIndex]}` : `${items[selectedIndex]}`}
+      accessibilityHint="Swipe up or down to change value"
+    >
       <View style={[styles.container, { width, height: listHeight }]}>
         {!hideLines && (
           <>
@@ -112,15 +122,13 @@ export function ScrollPicker({
           scrollEventThrottle={16}
           onMomentumScrollEnd={handleScrollEnd}
           onScrollEndDrag={handleScrollEnd}
-          contentContainerStyle={{
-            paddingVertical: ITEM_HEIGHT * CENTER,
-          }}
+          contentContainerStyle={contentPadding}
           getItemLayout={(_, index) => ({
             length: ITEM_HEIGHT,
             offset: ITEM_HEIGHT * index,
             index,
           })}
-          style={{ height: listHeight }}
+          style={listStyle}
         />
       </View>
       {suffix && (
@@ -143,7 +151,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: 'rgba(60, 60, 67, 0.2)',
+    backgroundColor: Theme.colors.separator,
     zIndex: 10,
   },
   item: {

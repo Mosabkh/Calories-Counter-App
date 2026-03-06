@@ -14,8 +14,11 @@ export function ListButton({ label, icon, active, onPress, rightContent }: ListB
     <TouchableOpacity
       onPress={onPress}
       style={[styles.container, active && styles.active]}
-      activeOpacity={0.7}>
-      {icon && <Text style={styles.icon}>{icon}</Text>}
+      activeOpacity={0.7}
+      accessibilityLabel={label}
+      accessibilityRole="radio"
+      accessibilityState={{ selected: !!active }}>
+      {icon && <Text style={styles.icon} accessible={false}>{icon}</Text>}
       <Text style={[styles.label, active && styles.labelActive]}>{label}</Text>
       {rightContent && <View style={styles.right}>{rightContent}</View>}
     </TouchableOpacity>
@@ -27,7 +30,7 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.surface,
     borderWidth: 2,
     borderColor: Theme.colors.border,
-    borderRadius: 16,
+    borderRadius: Theme.borderRadius.card,
     padding: 16,
     marginBottom: 12,
     flexDirection: 'row',
@@ -36,7 +39,7 @@ const styles = StyleSheet.create({
   },
   active: {
     borderColor: Theme.colors.primary,
-    backgroundColor: 'rgba(226, 133, 110, 0.05)',
+    backgroundColor: Theme.colors.primaryActive,
   },
   icon: {
     fontSize: 20,

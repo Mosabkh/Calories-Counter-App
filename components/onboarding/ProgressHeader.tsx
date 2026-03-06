@@ -18,8 +18,8 @@ export function ProgressHeader({ step, progress }: ProgressHeaderProps) {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-        <Text style={styles.backText}>{'<'}</Text>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Go back" accessibilityRole="button">
+        <Text style={styles.backText} accessible={false}>{'<'}</Text>
       </TouchableOpacity>
       <View style={styles.progressWrapper}>
         <Text style={styles.stepLabel}>{STEP_LABELS[step]}</Text>
@@ -66,12 +66,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 6,
     backgroundColor: Theme.colors.border,
-    borderRadius: 3,
+    borderRadius: 4,
     overflow: 'hidden',
   },
   bar: {
     height: '100%',
     backgroundColor: Theme.colors.primary,
-    borderRadius: 3,
+    borderRadius: 4,
   },
 });

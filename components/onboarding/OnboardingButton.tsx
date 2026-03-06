@@ -26,7 +26,9 @@ export function OnboardingButton({
         variant === 'text' && styles.text,
         style,
       ]}
-      activeOpacity={0.8}>
+      activeOpacity={0.8}
+      accessibilityLabel={title}
+      accessibilityRole="button">
       <Text
         style={[
           styles.baseText,

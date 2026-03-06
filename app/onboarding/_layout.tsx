@@ -12,9 +12,10 @@ export default function OnboardingLayout() {
       {/* Transition 1 (Screen 5) */}
       <Stack.Screen name="transition1" options={{ animation: 'fade' }} />
 
-      {/* Step 2: Body & Goals (Screens 6-12) */}
+      {/* Step 2: Body & Goals (Screens 6-13) */}
       <Stack.Screen name="goal" />
       <Stack.Screen name="accomplish" />
+      <Stack.Screen name="activity-level" />
       <Stack.Screen name="height" />
       <Stack.Screen name="current-weight" />
       <Stack.Screen name="goal-weight" />

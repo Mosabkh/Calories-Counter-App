@@ -12,19 +12,21 @@ export default function RealisticTargetScreen() {
 
   const diff = Math.abs((currentWeight || 0) - (targetWeight || 0));
   const unit = weightUnit || 'kg';
-  const isLosing = goal === 'lose';
+  const isGaining = goal === 'gain';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ProgressHeader step={2} progress={85} />
       <View style={styles.content}>
         <Text style={styles.title}>
-          {isLosing ? 'Losing' : 'Gaining'}{' '}
+          {isGaining ? 'Gaining' : 'Losing'}{' '}
           <Text style={styles.highlight}>{diff.toFixed(1)} {unit}</Text>{' '}
           is a realistic target. It's not hard at all!
         </Text>
         <Text style={styles.subtitle}>
-          Because our system forces sustainable metrics, 90% of our users find this change easy to maintain.
+          {isGaining
+            ? 'Our system uses a gradual surplus approach so you gain lean mass, not just fat. 90% of our users find this pace sustainable.'
+            : 'Because our system forces sustainable metrics, 90% of our users find this change easy to maintain.'}
         </Text>
       </View>
       <View style={styles.bottomAction}>
@@ -48,7 +50,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontFamily: Theme.fonts.extraBold,
     color: Theme.colors.textDark,
     textAlign: 'center',

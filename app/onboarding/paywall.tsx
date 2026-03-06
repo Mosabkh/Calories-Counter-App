@@ -1,19 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-native';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Pressable, AppState } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withSpring,
-  Easing,
   FadeIn,
   SlideInDown,
 } from 'react-native-reanimated';
 import { Theme } from '@/constants/theme';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
 import { useOnboardingStore } from '@/store/onboarding-store';
+
+const TIMER_DURATION = 15 * 60; // 15 minutes in seconds
 
 const TIMELINE = [
   { icon: '🔓', title: 'Today', desc: "Unlock all the app's features.", dark: false },
@@ -26,15 +23,37 @@ export default function PaywallScreen() {
   const completeOnboarding = useOnboardingStore((s) => s.completeOnboarding);
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
   const [showModal, setShowModal] = useState(false);
-  const [countdown, setCountdown] = useState(14 * 60 + 59);
+  const [countdown, setCountdown] = useState(TIMER_DURATION);
+  const timerStartRef = useRef<number | null>(null);
 
+  const getRemaining = useCallback(() => {
+    if (!timerStartRef.current) return TIMER_DURATION;
+    const elapsed = Math.floor((Date.now() - timerStartRef.current) / 1000);
+    return Math.max(0, TIMER_DURATION - elapsed);
+  }, []);
+
+  // Start timer when modal opens
   useEffect(() => {
     if (!showModal) return;
+    if (!timerStartRef.current) {
+      timerStartRef.current = Date.now();
+    }
+    setCountdown(getRemaining());
     const interval = setInterval(() => {
-      setCountdown((c) => (c > 0 ? c - 1 : 0));
+      setCountdown(getRemaining());
     }, 1000);
     return () => clearInterval(interval);
-  }, [showModal]);
+  }, [showModal, getRemaining]);
+
+  // Recalculate on app foreground (handles background/suspend)
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && showModal && timerStartRef.current) {
+        setCountdown(getRemaining());
+      }
+    });
+    return () => sub.remove();
+  }, [showModal, getRemaining]);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
@@ -63,12 +82,10 @@ export default function PaywallScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backTouchable} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Text style={styles.backBtn}>{'<'}</Text>
-        </TouchableOpacity>
-        <View style={{ flex: 1 }} />
-        <TouchableOpacity onPress={handleClose}>
-          <Text style={styles.closeBtn}>X</Text>
+        <View style={styles.headerSpacer} />
+        <View style={styles.headerFlex} />
+        <TouchableOpacity onPress={handleClose} accessibilityLabel="Close" accessibilityRole="button" hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Text style={styles.closeBtn} accessible={false}>X</Text>
         </TouchableOpacity>
       </View>
 
@@ -80,7 +97,7 @@ export default function PaywallScreen() {
           {TIMELINE.map((item, i) => (
             <View key={i} style={styles.timelineItem}>
               <View style={[styles.timelineIcon, item.dark && styles.timelineIconDark]}>
-                <Text style={{ fontSize: 14 }}>{item.icon}</Text>
+                <Text style={styles.timelineIconText}>{item.icon}</Text>
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.timelineTitle}>{item.title}</Text>
@@ -94,7 +111,10 @@ export default function PaywallScreen() {
           <TouchableOpacity
             style={[styles.pricingCard, selectedPlan === 'monthly' && styles.pricingCardActive]}
             onPress={() => setSelectedPlan('monthly')}
-            activeOpacity={0.7}>
+            activeOpacity={0.7}
+            accessibilityLabel="Monthly plan, JOD 7.10 per month"
+            accessibilityRole="radio"
+            accessibilityState={{ selected: selectedPlan === 'monthly' }}>
             <View>
               <Text style={styles.pricingName}>Monthly</Text>
               <Text style={styles.pricingPrice}>JOD7.10<Text style={styles.pricingPer}>/mo</Text></Text>
@@ -107,7 +127,10 @@ export default function PaywallScreen() {
           <TouchableOpacity
             style={[styles.pricingCard, selectedPlan === 'yearly' && styles.pricingCardActive]}
             onPress={() => setSelectedPlan('yearly')}
-            activeOpacity={0.7}>
+            activeOpacity={0.7}
+            accessibilityLabel="Yearly plan, JOD 1.77 per month, 3 days free trial"
+            accessibilityRole="radio"
+            accessibilityState={{ selected: selectedPlan === 'yearly' }}>
             <View style={styles.pricingBadge}>
               <Text style={styles.pricingBadgeText}>3 DAYS FREE</Text>
             </View>
@@ -126,8 +149,8 @@ export default function PaywallScreen() {
         <OnboardingButton
           title="Start My 3-Day Free Trial"
           onPress={handleSubscribe}
-          style={{ backgroundColor: '#000000' }}
-          textStyle={{ color: '#FFFFFF' }}
+          style={styles.subscribeBtn}
+          textStyle={styles.subscribeBtnText}
         />
         <Text style={styles.cancelText}>Cancel anytime from the App Store.</Text>
       </View>
@@ -136,7 +159,7 @@ export default function PaywallScreen() {
         <Animated.View
           entering={FadeIn.duration(200)}
           style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={handleDismissModal} />
+          <Pressable style={styles.modalBackdrop} onPress={handleDismissModal} accessibilityLabel="Dismiss offer" accessibilityRole="button" />
           <Animated.View entering={SlideInDown.springify().damping(28).stiffness(200)} style={styles.downsellSheet}>
             <Text style={styles.modalTitle}>Wait! 🛑</Text>
             <Text style={styles.modalSubtitle}>Don't leave your custom plan behind.</Text>
@@ -157,7 +180,7 @@ export default function PaywallScreen() {
               title="No thanks, I'll lose my plan"
               variant="text"
               onPress={handleSkipToApp}
-              style={{ marginTop: 10 }}
+              style={styles.noThanksBtn}
             />
           </Animated.View>
         </Animated.View>
@@ -171,6 +194,8 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 20,
   },
+  headerSpacer: { width: 44 },
+  headerFlex: { flex: 1 },
   backTouchable: {
     width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
   },
@@ -183,8 +208,8 @@ const styles = StyleSheet.create({
   },
   content: { flex: 1, paddingHorizontal: 24 },
   title: {
-    fontSize: 26, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
-    textAlign: 'center', marginVertical: 20, lineHeight: 34,
+    fontSize: 24, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
+    textAlign: 'center', marginVertical: 20, lineHeight: 32,
   },
   timeline: { position: 'relative', paddingLeft: 35, marginBottom: 20 },
   timelineLine: {
@@ -199,6 +224,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   timelineIconDark: { backgroundColor: Theme.colors.textDark },
+  timelineIconText: { fontSize: 14 },
   timelineTitle: {
     fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark, fontSize: 15,
   },
@@ -235,10 +261,13 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   radioActive: {
-    borderColor: Theme.colors.textDark, backgroundColor: Theme.colors.textDark,
+    borderColor: Theme.colors.primary, backgroundColor: Theme.colors.primary,
   },
-  radioCheck: { color: '#FFFFFF', fontSize: 14 },
+  radioCheck: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' as const },
   bottomAction: { paddingHorizontal: 24, paddingBottom: 36 },
+  subscribeBtn: { backgroundColor: '#000000' },
+  subscribeBtnText: { color: '#FFFFFF' },
+  noThanksBtn: { marginTop: 10 },
   cancelText: {
     fontSize: 11, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted,
     textAlign: 'center', marginTop: 15,
@@ -251,7 +280,7 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(84, 49, 40, 0.6)',
+    backgroundColor: Theme.colors.overlay,
   },
   downsellSheet: {
     backgroundColor: Theme.colors.surface, width: '100%', padding: 30, paddingHorizontal: 24,
@@ -270,21 +299,21 @@ const styles = StyleSheet.create({
     color: Theme.colors.textDark, marginBottom: 15,
   },
   modalDiscount: {
-    color: Theme.colors.primary, fontFamily: Theme.fonts.extraBold,
+    color: Theme.colors.urgentRed, fontFamily: Theme.fonts.extraBold,
     textDecorationLine: 'underline',
   },
   timerBadge: {
     backgroundColor: 'rgba(220, 38, 38, 0.08)', borderWidth: 1,
-    borderColor: '#DC2626', paddingHorizontal: 16, paddingVertical: 8,
+    borderColor: Theme.colors.urgentRed, paddingHorizontal: 16, paddingVertical: 8,
     borderRadius: 20, marginVertical: 15,
   },
   timerText: {
-    color: '#DC2626', fontFamily: Theme.fonts.extraBold, fontSize: 18,
+    color: Theme.colors.urgentRed, fontFamily: Theme.fonts.extraBold, fontSize: 18,
   },
   offerCard: {
     width: '100%', borderWidth: 2, borderStyle: 'dashed', borderColor: Theme.colors.primary,
     borderRadius: 16, padding: 15, alignItems: 'center', marginBottom: 20,
-    backgroundColor: 'rgba(226, 133, 110, 0.05)',
+    backgroundColor: Theme.colors.primaryActive,
   },
   offerOriginal: {
     textDecorationLine: 'line-through', color: Theme.colors.textMuted, fontSize: 14,

@@ -1,7 +1,8 @@
+import { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Path, Circle, Defs, LinearGradient, Stop, Line, Text as SvgText, Rect } from 'react-native-svg';
+import Svg, { Path, Circle, Defs, LinearGradient, Stop, Line, Text as SvgText } from 'react-native-svg';
 import { Theme } from '@/constants/theme';
 import { ProgressHeader } from '@/components/onboarding/ProgressHeader';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
@@ -19,55 +20,61 @@ const PLOT_H = CHART_H - PAD_T - PAD_B;
 
 export default function ProjectionScreen() {
   const router = useRouter();
-  const { currentWeight, targetWeight, weightUnit, weeklyGoalSpeed } = useOnboardingStore((s) => s.payload);
+  const { currentWeight, targetWeight, weightUnit, weeklyGoalSpeed, goal } = useOnboardingStore((s) => s.payload);
 
   const cw = currentWeight || 80;
-  const tw = targetWeight || 65;
+  const tw = targetWeight || (goal === 'gain' ? 90 : 65);
   const unit = weightUnit || 'kg';
   const speed = weeklyGoalSpeed || 0.5;
   const diff = Math.abs(cw - tw);
-  const weeks = Math.ceil(diff / speed);
   const targetDate = getTargetDate(cw, tw, speed);
-  const isLosing = cw > tw;
+  const isLosing = goal === 'lose';
+  const isGaining = goal === 'gain';
 
-  // Generate smooth curve points
-  const points: { x: number; y: number }[] = [];
-  const steps = 8;
-  const yMin = Math.min(cw, tw);
-  const yMax = Math.max(cw, tw);
-  const range = yMax - yMin || 1;
+  const chart = useMemo(() => {
+    const steps = 8;
+    const yMin = Math.min(cw, tw) - 2;
+    const yMax = Math.max(cw, tw) + 2;
+    const range = yMax - yMin || 1;
+    const weightToY = (w: number) => PAD_T + (1 - (w - yMin) / range) * PLOT_H;
 
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const x = PAD_L + t * PLOT_W;
-    // Ease-out curve for natural weight change
-    const progress = 1 - Math.pow(1 - t, 2.2);
-    const weight = isLosing ? cw - progress * diff : cw + progress * diff;
-    const yNorm = (weight - yMin) / range;
-    const y = PAD_T + (isLosing ? (1 - yNorm) * PLOT_H : yNorm * PLOT_H);
-    points.push({ x, y });
-  }
+    const points: { x: number; y: number }[] = [];
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const x = PAD_L + t * PLOT_W;
+      const progress = 1 - Math.pow(1 - t, 2.2);
+      const weight = isGaining ? cw + progress * diff : cw - progress * diff;
+      points.push({ x, y: weightToY(weight) });
+    }
 
-  const linePath = points.map((p, i) => {
-    if (i === 0) return `M ${p.x},${p.y}`;
-    const prev = points[i - 1];
-    const cpx = (prev.x + p.x) / 2;
-    return `C ${cpx},${prev.y} ${cpx},${p.y} ${p.x},${p.y}`;
-  }).join(' ');
+    const linePath = points.map((p, i) => {
+      if (i === 0) return `M ${p.x},${p.y}`;
+      const prev = points[i - 1];
+      const cpx = (prev.x + p.x) / 2;
+      return `C ${cpx},${prev.y} ${cpx},${p.y} ${p.x},${p.y}`;
+    }).join(' ');
 
-  const fillPath = `${linePath} L ${points[points.length - 1].x},${PAD_T + PLOT_H} L ${points[0].x},${PAD_T + PLOT_H} Z`;
+    const fillPath = `${linePath} L ${points[points.length - 1].x},${PAD_T + PLOT_H} L ${points[0].x},${PAD_T + PLOT_H} Z`;
 
-  const startPt = points[0];
-  const endPt = points[points.length - 1];
+    const yLabels = isGaining
+      ? [tw, Math.round((cw + tw) / 2), cw]
+      : [cw, Math.round((cw + tw) / 2), tw];
 
-  // Y-axis labels
-  const yLabels = [cw, Math.round((cw + tw) / 2), tw];
+    return { points, linePath, fillPath, yLabels, weightToY, startPt: points[0], endPt: points[points.length - 1] };
+  }, [cw, tw, diff, isGaining]);
+
+  const { linePath, fillPath, startPt, endPt, yLabels } = chart;
+  const weightToY = chart.weightToY;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ProgressHeader step={3} progress={95} />
       <View style={styles.content}>
-        <Text style={styles.title}>You have great potential to crush your goal</Text>
+        <Text style={styles.title}>
+          {goal === 'gain'
+            ? 'Your weight gain projection looks great'
+            : 'You have great potential to crush your goal'}
+        </Text>
 
         <View style={styles.chartCard}>
           <Text style={styles.chartTitle}>Your weight projection</Text>
@@ -96,8 +103,7 @@ export default function ProjectionScreen() {
 
               {/* Horizontal grid lines */}
               {yLabels.map((label, i) => {
-                const yNorm = (label - yMin) / range;
-                const y = PAD_T + (isLosing ? (1 - yNorm) * PLOT_H : yNorm * PLOT_H);
+                const y = weightToY(label);
                 return (
                   <Line
                     key={i}
@@ -114,8 +120,7 @@ export default function ProjectionScreen() {
 
               {/* Y-axis labels */}
               {yLabels.map((label, i) => {
-                const yNorm = (label - yMin) / range;
-                const y = PAD_T + (isLosing ? (1 - yNorm) * PLOT_H : yNorm * PLOT_H);
+                const y = weightToY(label);
                 return (
                   <SvgText
                     key={`l${i}`}

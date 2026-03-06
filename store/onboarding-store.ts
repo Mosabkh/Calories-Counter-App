@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { ActivityLevel } from '@/utils/calories';
 
 export interface OnboardingPayload {
   // Step 1: Basics
@@ -11,6 +12,7 @@ export interface OnboardingPayload {
   // Step 2: Body & Goals
   goal?: 'lose' | 'maintain' | 'gain';
   accomplish?: string;
+  activityLevel?: ActivityLevel;
   height?: number;
   heightUnit?: 'cm' | 'ft';
   currentWeight?: number;

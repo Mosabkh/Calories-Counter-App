@@ -11,6 +11,7 @@ import { useOnboardingStore } from '@/store/onboarding-store';
 export default function WeekendsScreen() {
   const router = useRouter();
   const updatePayload = useOnboardingStore((s) => s.updatePayload);
+  const goal = useOnboardingStore((s) => s.payload.goal);
   const [eatsMore, setEatsMore] = useState<boolean | undefined>();
 
   const handleContinue = () => {
@@ -19,11 +20,15 @@ export default function WeekendsScreen() {
     router.push(eatsMore ? '/onboarding/which-days' : '/onboarding/burned-calories');
   };
 
+  const title = goal === 'gain'
+    ? 'Do you find it harder to eat enough on certain days?'
+    : 'Do you eat a bit more on weekends or other week days?';
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ProgressHeader step={3} progress={30} />
       <View style={styles.content}>
-        <Text style={styles.title}>Do you eat a bit more on weekends or other week days?</Text>
+        <Text style={styles.title}>{title}</Text>
         <ListButton
           label="Yes"
           active={eatsMore === true}

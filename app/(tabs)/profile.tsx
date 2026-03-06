@@ -11,9 +11,9 @@ interface SettingItemProps {
   extraPaths?: string[];
 }
 
-function SettingItem({ iconPath, label, badge, extraPaths }: SettingItemProps) {
+function SettingItem({ iconPath, label, badge, extraPaths }: SettingItemProps): React.ReactNode {
   return (
-    <TouchableOpacity style={styles.settingItem} activeOpacity={0.6}>
+    <TouchableOpacity style={styles.settingItem} activeOpacity={0.6} accessibilityLabel={label} accessibilityRole="button">
       <View style={styles.settingLeft}>
         <View style={styles.settingIcon}>
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
@@ -42,7 +42,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Text style={styles.pageTitle}>Profile</Text>
 
         {/* User Info Card */}
@@ -56,7 +56,7 @@ export default function ProfileScreen() {
           <View>
             <Text style={styles.userName}>{name}</Text>
             <Text style={styles.userEmail}>{name.toLowerCase()}@example.com</Text>
-            <TouchableOpacity style={styles.btnEdit}>
+            <TouchableOpacity style={styles.btnEdit} accessibilityLabel="Edit Profile" accessibilityRole="button">
               <Text style={styles.btnEditText}>Edit Profile</Text>
             </TouchableOpacity>
           </View>
@@ -103,7 +103,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Sign Out */}
-        <TouchableOpacity style={styles.btnLogout}>
+        <TouchableOpacity style={styles.btnLogout} accessibilityLabel="Sign Out" accessibilityRole="button">
           <Text style={styles.btnLogoutText}>Sign Out</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -114,6 +114,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Theme.colors.accentBackground },
   container: { flex: 1, backgroundColor: Theme.colors.background, paddingHorizontal: 20 },
+  scrollContent: { paddingBottom: 120 },
   pageTitle: {
     fontSize: 18, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
     textAlign: 'center', marginTop: 10, marginBottom: 25,
@@ -133,7 +134,7 @@ const styles = StyleSheet.create({
   userName: { fontSize: 20, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
   userEmail: { fontSize: 12, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted, marginTop: 2 },
   btnEdit: {
-    backgroundColor: 'rgba(226, 133, 110, 0.1)', paddingHorizontal: 12, paddingVertical: 6,
+    backgroundColor: Theme.colors.primaryActive, paddingHorizontal: 12, paddingVertical: 6,
     borderRadius: 12, marginTop: 8, alignSelf: 'flex-start',
   },
   btnEditText: { fontSize: 11, fontFamily: Theme.fonts.extraBold, color: Theme.colors.primary },

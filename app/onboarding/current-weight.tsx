@@ -16,6 +16,7 @@ const DECIMAL_VALUES = ['.0', '.1', '.2', '.3', '.4', '.5', '.6', '.7', '.8', '.
 export default function CurrentWeightScreen() {
   const router = useRouter();
   const updatePayload = useOnboardingStore((s) => s.updatePayload);
+  const goal = useOnboardingStore((s) => s.payload.goal);
   const storedUnit = useOnboardingStore((s) => s.payload.weightUnit) || 'kg';
 
   const [unit, setUnit] = useState<string>(storedUnit);
@@ -27,12 +28,20 @@ export default function CurrentWeightScreen() {
     const isKg = unit === 'kg';
     const wholeValues = isKg ? KG_VALUES : LB_VALUES;
     const wholeIndex = isKg ? kgIndex : lbIndex;
+    const clampedIndex = Math.max(0, Math.min(wholeIndex, wholeValues.length - 1));
+    const weight = wholeValues[clampedIndex];
     updatePayload({
-      currentWeight: wholeValues[wholeIndex],
+      currentWeight: weight,
       weightDecimal: decimalIndex,
       weightUnit: unit as 'kg' | 'lb',
     });
-    router.push('/onboarding/goal-weight');
+    if (goal === 'maintain') {
+      // For maintain, target weight = current weight, skip goal-weight/realistic-target/goal-speed
+      updatePayload({ targetWeight: weight, targetWeightDecimal: decimalIndex, weeklyGoalSpeed: 0 });
+      router.push('/onboarding/transition2');
+    } else {
+      router.push('/onboarding/goal-weight');
+    }
   };
 
   return (
@@ -87,7 +96,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: 'rgba(60, 60, 67, 0.2)',
+    backgroundColor: Theme.colors.separator,
     zIndex: 10,
   },
   bottomAction: {

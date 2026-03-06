@@ -7,45 +7,35 @@ import { ProgressHeader } from '@/components/onboarding/ProgressHeader';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
 import { ListButton } from '@/components/onboarding/ListButton';
 import { useOnboardingStore } from '@/store/onboarding-store';
+import type { ActivityLevel } from '@/utils/calories';
 
-const LOSE_OPTIONS = [
-  { key: 'healthy', icon: '🍎', label: 'Eat and live healthier' },
-  { key: 'motivated', icon: '💪', label: 'Stay motivated' },
-  { key: 'body', icon: '🧘', label: 'Feel better about my body' },
+const OPTIONS: { key: ActivityLevel; icon: string; label: string; desc: string }[] = [
+  { key: 'sedentary', icon: '🪑', label: 'Sedentary', desc: 'Little or no exercise' },
+  { key: 'light', icon: '🚶', label: 'Lightly active', desc: 'Light exercise 1-3 days/week' },
+  { key: 'moderate', icon: '🏃', label: 'Moderately active', desc: 'Moderate exercise 3-5 days/week' },
+  { key: 'active', icon: '💪', label: 'Very active', desc: 'Hard exercise 6-7 days/week' },
+  { key: 'very_active', icon: '🏋️', label: 'Extra active', desc: 'Very hard exercise or physical job' },
 ];
 
-const GAIN_OPTIONS = [
-  { key: 'muscle', icon: '💪', label: 'Build muscle and strength' },
-  { key: 'healthy', icon: '🍎', label: 'Eat healthier and gain properly' },
-  { key: 'confidence', icon: '🧘', label: 'Feel more confident' },
-];
-
-const MAINTAIN_OPTIONS = [
-  { key: 'healthy', icon: '🍎', label: 'Eat and live healthier' },
-  { key: 'track', icon: '📊', label: 'Stay on track with my nutrition' },
-  { key: 'body', icon: '🧘', label: 'Feel better about my body' },
-];
-
-export default function AccomplishScreen() {
+export default function ActivityLevelScreen() {
   const router = useRouter();
   const updatePayload = useOnboardingStore((s) => s.updatePayload);
-  const goal = useOnboardingStore((s) => s.payload.goal);
-  const storedAccomplish = useOnboardingStore((s) => s.payload.accomplish);
-  const [selected, setSelected] = useState(storedAccomplish);
-  const options = goal === 'gain' ? GAIN_OPTIONS : goal === 'maintain' ? MAINTAIN_OPTIONS : LOSE_OPTIONS;
+  const stored = useOnboardingStore((s) => s.payload.activityLevel);
+  const [selected, setSelected] = useState<ActivityLevel | undefined>(stored);
 
   const handleContinue = () => {
     if (!selected) return;
-    updatePayload({ accomplish: selected });
-    router.push('/onboarding/activity-level');
+    updatePayload({ activityLevel: selected });
+    router.push('/onboarding/height');
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ProgressHeader step={2} progress={30} />
+      <ProgressHeader step={2} progress={35} />
       <View style={styles.content}>
-        <Text style={styles.title}>What would you like to accomplish?</Text>
-        {options.map((opt) => (
+        <Text style={styles.title}>How active are you?</Text>
+        <Text style={styles.subtitle}>This helps us calculate your daily energy needs accurately.</Text>
+        {OPTIONS.map((opt) => (
           <ListButton
             key={opt.key}
             icon={opt.icon}
@@ -77,8 +67,14 @@ const styles = StyleSheet.create({
     color: Theme.colors.textDark,
     textAlign: 'left',
     marginTop: 20,
-    marginBottom: 20,
+    marginBottom: 6,
     lineHeight: 32,
+  },
+  subtitle: {
+    fontSize: 14,
+    fontFamily: Theme.fonts.regular,
+    color: Theme.colors.textMuted,
+    marginBottom: 20,
   },
   bottomAction: {
     paddingHorizontal: 24,

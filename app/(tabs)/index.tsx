@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path, Line } from 'react-native-svg';
@@ -13,7 +14,7 @@ const DAYS = [
   { name: 'Thu', num: 26 },
 ];
 
-function DonutChart({
+const DonutChart = memo(function DonutChart({
   size,
   strokeWidth,
   progress,
@@ -25,14 +26,14 @@ function DonutChart({
   progress: number;
   color: string;
   children?: React.ReactNode;
-}) {
+}): React.ReactNode {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference * (1 - progress);
 
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={size} height={size} style={{ position: 'absolute' }}>
+    <View style={[styles.donutContainer, { width: size, height: size }]}>
+      <Svg width={size} height={size} style={styles.donutSvg}>
         <Circle
           cx={size / 2}
           cy={size / 2}
@@ -58,12 +59,12 @@ function DonutChart({
       {children}
     </View>
   );
-}
+});
 
 export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.logo}>
@@ -88,7 +89,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Calendar Strip */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.calendar} contentContainerStyle={{ gap: 12 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.calendar} contentContainerStyle={styles.calendarContent}>
           {DAYS.map((day) => (
             <View key={day.num} style={styles.dayCol}>
               <Text style={[styles.dayName, day.active && styles.dayNameActive]}>{day.name}</Text>
@@ -119,30 +120,30 @@ export default function HomeScreen() {
           <View style={styles.macroCard}>
             <View style={styles.macroTextBlock}>
               <Text style={styles.macroValue}>156g</Text>
-              <Text style={styles.macroLabel}>Protein <Text style={{ color: Theme.colors.textDark }}>left</Text></Text>
+              <Text style={styles.macroLabel}>Protein <Text style={styles.macroLabelBold}>left</Text></Text>
             </View>
-            <DonutChart size={44} strokeWidth={5} progress={0.65} color="#C76750">
+            <DonutChart size={44} strokeWidth={5} progress={0.65} color={Theme.colors.protein}>
               <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                <Path d="M16 4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4z" stroke="#C76750" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M16 4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4z" stroke={Theme.colors.protein} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </DonutChart>
           </View>
           <View style={styles.macroCard}>
             <View style={styles.macroTextBlock}>
               <Text style={styles.macroValue}>157g</Text>
-              <Text style={styles.macroLabel}>Carbs <Text style={{ color: Theme.colors.textDark }}>left</Text></Text>
+              <Text style={styles.macroLabel}>Carbs <Text style={styles.macroLabelBold}>left</Text></Text>
             </View>
-            <DonutChart size={44} strokeWidth={5} progress={0.8} color="#E89D88">
+            <DonutChart size={44} strokeWidth={5} progress={0.8} color={Theme.colors.carbs}>
               <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                <Path d="M4 22L12 2l8 20" stroke="#E89D88" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-                <Line x1={8} y1={12} x2={16} y2={12} stroke="#E89D88" strokeWidth={2.5} strokeLinecap="round" />
+                <Path d="M4 22L12 2l8 20" stroke={Theme.colors.carbs} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                <Line x1={8} y1={12} x2={16} y2={12} stroke={Theme.colors.carbs} strokeWidth={2.5} strokeLinecap="round" />
               </Svg>
             </DonutChart>
           </View>
           <View style={styles.macroCard}>
             <View style={styles.macroTextBlock}>
               <Text style={styles.macroValue}>46g</Text>
-              <Text style={styles.macroLabel}>Fats <Text style={{ color: Theme.colors.textDark }}>left</Text></Text>
+              <Text style={styles.macroLabel}>Fats <Text style={styles.macroLabelBold}>left</Text></Text>
             </View>
             <DonutChart size={44} strokeWidth={5} progress={0.4} color={Theme.colors.success}>
               <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
@@ -189,6 +190,7 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.background,
     paddingHorizontal: 20,
   },
+  scrollContent: { paddingBottom: 120 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -230,6 +232,7 @@ const styles = StyleSheet.create({
 
   // Calendar
   calendar: { marginBottom: 12 },
+  calendarContent: { gap: 12 },
   dayCol: { alignItems: 'center', gap: 8, minWidth: 45 },
   dayName: { fontSize: 12, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textMuted },
   dayNameActive: { color: Theme.colors.textDark },
@@ -283,6 +286,9 @@ const styles = StyleSheet.create({
     fontSize: 11, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted,
     textAlign: 'center', marginTop: 2, lineHeight: 14,
   },
+  macroLabelBold: { color: Theme.colors.textDark },
+  donutContainer: { alignItems: 'center', justifyContent: 'center' },
+  donutSvg: { position: 'absolute' as const },
 
   // Dots
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 30 },

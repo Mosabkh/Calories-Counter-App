@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -41,11 +41,11 @@ export default function WhichDaysScreen() {
     setShowCustom(true);
   };
 
-  const toggleDay = (day: string) => {
+  const toggleDay = useCallback((day: string) => {
     setCustomDays((prev) =>
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
     );
-  };
+  }, []);
 
   const handleContinue = () => {
     const days = getSelectedDays();
@@ -82,6 +82,9 @@ export default function WhichDaysScreen() {
                 style={[styles.dayChip, customDays.includes(day) && styles.dayChipActive]}
                 onPress={() => toggleDay(day)}
                 activeOpacity={0.7}
+                accessibilityLabel={day}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: customDays.includes(day) }}
               >
                 <Text style={[styles.dayChipText, customDays.includes(day) && styles.dayChipTextActive]}>
                   {DAY_SHORT[i]}
@@ -122,7 +125,7 @@ const styles = StyleSheet.create({
   },
   dayChipActive: {
     borderColor: Theme.colors.primary,
-    backgroundColor: 'rgba(226, 133, 110, 0.1)',
+    backgroundColor: Theme.colors.primaryActive,
   },
   dayChipText: {
     fontSize: 14,

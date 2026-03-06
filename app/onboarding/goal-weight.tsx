@@ -26,17 +26,27 @@ export default function GoalWeightScreen() {
   const [decimalIndex, setDecimalIndex] = useState(0);
 
   const kgValues = useMemo(() => {
-    const max = goal === 'lose' && currentWeight ? currentWeight - 1 : KG_MAX;
-    const clamped = Math.max(KG_MIN, Math.min(max, KG_MAX));
-    return Array.from({ length: clamped - KG_MIN + 1 }, (_, i) => i + KG_MIN);
+    if (goal === 'lose' && currentWeight) {
+      const max = Math.max(KG_MIN, Math.min(currentWeight - 1, KG_MAX));
+      return Array.from({ length: max - KG_MIN + 1 }, (_, i) => i + KG_MIN);
+    }
+    if (goal === 'gain' && currentWeight) {
+      const min = Math.max(KG_MIN, Math.min(currentWeight + 1, KG_MAX));
+      return Array.from({ length: KG_MAX - min + 1 }, (_, i) => i + min);
+    }
+    return Array.from({ length: KG_MAX - KG_MIN + 1 }, (_, i) => i + KG_MIN);
   }, [goal, currentWeight]);
 
   const lbValues = useMemo(() => {
-    const max = goal === 'lose' && currentWeight
-      ? Math.round(currentWeight * 2.205) - 1
-      : LB_MAX;
-    const clamped = Math.max(LB_MIN, Math.min(max, LB_MAX));
-    return Array.from({ length: clamped - LB_MIN + 1 }, (_, i) => i + LB_MIN);
+    if (goal === 'lose' && currentWeight) {
+      const max = Math.max(LB_MIN, Math.min(Math.round(currentWeight * 2.20462) - 1, LB_MAX));
+      return Array.from({ length: max - LB_MIN + 1 }, (_, i) => i + LB_MIN);
+    }
+    if (goal === 'gain' && currentWeight) {
+      const min = Math.max(LB_MIN, Math.min(Math.round(currentWeight * 2.20462) + 1, LB_MAX));
+      return Array.from({ length: LB_MAX - min + 1 }, (_, i) => i + min);
+    }
+    return Array.from({ length: LB_MAX - LB_MIN + 1 }, (_, i) => i + LB_MIN);
   }, [goal, currentWeight]);
 
   const defaultKgIdx = Math.min(20, kgValues.length - 1);
@@ -49,8 +59,9 @@ export default function GoalWeightScreen() {
     const isKg = unit === 'kg';
     const wholeValues = isKg ? kgValues : lbValues;
     const wholeIndex = isKg ? kgIndex : lbIndex;
+    const clampedIndex = Math.max(0, Math.min(wholeIndex, wholeValues.length - 1));
     updatePayload({
-      targetWeight: wholeValues[wholeIndex],
+      targetWeight: wholeValues[clampedIndex],
       targetWeightDecimal: decimalIndex,
     });
     router.push('/onboarding/realistic-target');
@@ -60,7 +71,7 @@ export default function GoalWeightScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <ProgressHeader step={2} progress={75} />
       <View style={styles.content}>
-        <Text style={styles.title}>What is your desired weight?</Text>
+        <Text style={styles.title}>{goal === 'gain' ? 'What is your target weight?' : 'What is your desired weight?'}</Text>
         <UnitToggle
           options={['lb', 'kg']}
           selected={unit}
@@ -108,7 +119,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: 'rgba(60, 60, 67, 0.2)',
+    backgroundColor: Theme.colors.separator,
     zIndex: 10,
   },
   bottomAction: {
