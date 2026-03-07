@@ -58,7 +58,7 @@ export function calculateDailyCalories(
   const minCal = gender === 'male' ? 1500 : 1200;
   const maxGainSurplus = 500; // Cap surplus at 500 kcal/day for healthy gains
 
-  if (goal === 'maintain') return tdee;
+  if (goal === 'maintain') return Math.max(minCal, tdee);
 
   // 1 kg body fat ≈ 7700 kcal → daily delta = speed × 7700 / 7
   const dailyDelta = Math.round((weeklySpeedKg * 7700) / 7);

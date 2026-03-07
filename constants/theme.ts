@@ -2,6 +2,7 @@ export const Theme = {
   colors: {
     background: '#FFFAF5',
     surface: '#FFFFFF',
+    navBar: '#FFF7F0',
     surfaceAlt: '#F5F0EB',
     primary: '#E2856E',
     primaryHover: '#C76750',
@@ -25,6 +26,7 @@ export const Theme = {
     encouragementText: '#4A6B54',
     protein: '#C76750',
     carbs: '#E89D88',
+    warningLight: 'rgba(224, 176, 92, 0.15)',
   },
   fonts: {
     regular: 'Nunito_400Regular',

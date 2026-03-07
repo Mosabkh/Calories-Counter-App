@@ -1,7 +1,18 @@
-import { useMemo, memo } from 'react';
+import { useMemo, useEffect, memo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path, Line } from 'react-native-svg';
+import Animated, {
+  useSharedValue,
+  useAnimatedProps,
+  useAnimatedStyle,
+  withTiming,
+  withSequence,
+  withDelay,
+  interpolateColor,
+  Easing,
+  FadeInUp,
+} from 'react-native-reanimated';
 import { Theme } from '@/constants/theme';
 import { useOnboardingStore } from '@/store/onboarding-store';
 import type { ActivityLevel } from '@/utils/calories';
@@ -12,6 +23,9 @@ import {
   calculateMacros,
   calculateAge,
 } from '@/utils/calories';
+import { getTargetDate } from '@/utils/target-date';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const DAY_HIT_SLOP = { top: 2, bottom: 2, left: 2, right: 2 } as const;
 
@@ -47,7 +61,19 @@ const DonutChart = memo(function DonutChart({
 }): React.ReactElement {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference * (1 - progress);
+  const animatedProgress = useSharedValue(0);
+
+  useEffect(() => {
+    // Intro pulse: briefly fill then settle to actual progress
+    animatedProgress.value = withSequence(
+      withTiming(Math.max(progress, 0.15), { duration: 600, easing: Easing.out(Easing.cubic) }),
+      withTiming(progress, { duration: 400, easing: Easing.inOut(Easing.cubic) }),
+    );
+  }, [progress, animatedProgress]);
+
+  const animatedProps = useAnimatedProps(() => ({
+    strokeDashoffset: circumference * (1 - animatedProgress.value),
+  }));
 
   return (
     <View style={[styles.donutContainer, { width: size, height: size }]}>
@@ -60,7 +86,7 @@ const DonutChart = memo(function DonutChart({
           strokeWidth={strokeWidth}
           fill="none"
         />
-        <Circle
+        <AnimatedCircle
           cx={size / 2}
           cy={size / 2}
           r={radius}
@@ -68,7 +94,7 @@ const DonutChart = memo(function DonutChart({
           strokeWidth={strokeWidth}
           fill="none"
           strokeDasharray={`${circumference}`}
-          strokeDashoffset={strokeDashoffset}
+          animatedProps={animatedProps}
           strokeLinecap="round"
           rotation={-90}
           origin={`${size / 2}, ${size / 2}`}
@@ -82,7 +108,7 @@ const DonutChart = memo(function DonutChart({
 export default function HomeScreen() {
   const {
     name, currentWeight, weightUnit, gender, birthYear, birthMonth, birthDay,
-    height: storedHeight, activityLevel, goal, weeklyGoalSpeed,
+    height: storedHeight, activityLevel, goal, weeklyGoalSpeed, targetWeight,
   } = useOnboardingStore((s) => s.payload);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -106,6 +132,32 @@ export default function HomeScreen() {
     const macros = calculateMacros(dailyCal, weightKg, activity);
     return macros;
   }, [currentWeight, weightUnit, storedHeight, birthYear, birthMonth, birthDay, gender, activityLevel, goal, weeklyGoalSpeed]);
+
+  const goalDateLabel = useMemo(() => {
+    if (goal === 'maintain' || !targetWeight || !currentWeight || targetWeight === currentWeight) return null;
+    const speed = weeklyGoalSpeed ?? 0.5;
+    const cw = currentWeight;
+    const tw = targetWeight;
+    const unit = weightUnit || 'kg';
+    const dateStr = getTargetDate(cw, tw, speed);
+    return { weight: `${tw} ${unit}`, date: dateStr };
+  }, [goal, targetWeight, currentWeight, weeklyGoalSpeed, weightUnit]);
+
+  // Goal prediction bar highlight animation
+  const highlightAnim = useSharedValue(0);
+  useEffect(() => {
+    if (goalDateLabel) {
+      // 1000ms donut pulse + 500ms pause = 1500ms delay
+      highlightAnim.value = withDelay(1500, withTiming(1, { duration: 1200, easing: Easing.out(Easing.cubic) }));
+    }
+  }, [goalDateLabel, highlightAnim]);
+
+  const goalTextStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(highlightAnim.value, [0, 1], [Theme.colors.primary, Theme.colors.textMuted]),
+  }));
+  const goalBoldTextStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(highlightAnim.value, [0, 1], [Theme.colors.calorieAlert, Theme.colors.textDark]),
+  }));
 
   const greeting = name ? `Hi, ${name}` : 'Hi there';
 
@@ -202,6 +254,19 @@ export default function HomeScreen() {
             </DonutChart>
           </View>
         </View>
+
+        {/* Goal Prediction */}
+        {goalDateLabel && (
+          <Animated.View entering={FadeInUp.delay(1500).duration(500)} style={styles.goalPredictionBar} accessible={true} accessibilityLabel={`You will reach ${goalDateLabel.weight} by ${goalDateLabel.date}`}>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
+              <Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" stroke={Theme.colors.calorieAlert} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+              <Line x1={4} y1={22} x2={4} y2={15} stroke={Theme.colors.calorieAlert} strokeWidth={2.5} strokeLinecap="round" />
+            </Svg>
+            <Animated.Text style={[styles.goalPredictionText, goalTextStyle]}>
+              You{"'"}ll reach <Animated.Text style={[styles.goalPredictionBold, goalBoldTextStyle]}>{goalDateLabel.weight}</Animated.Text> by <Animated.Text style={[styles.goalPredictionBold, goalBoldTextStyle]}>{goalDateLabel.date}</Animated.Text>
+            </Animated.Text>
+          </Animated.View>
+        )}
 
         {/* Recently Uploaded — Empty State */}
         <Text style={styles.sectionTitle} accessibilityRole="header">Recently uploaded</Text>
@@ -335,6 +400,19 @@ const styles = StyleSheet.create({
   macroLabelBold: { color: Theme.colors.textDark },
   donutContainer: { alignItems: 'center', justifyContent: 'center' },
   donutSvg: { position: 'absolute' as const },
+
+  // Goal Prediction
+  goalPredictionBar: {
+    backgroundColor: Theme.colors.surface, borderRadius: Theme.borderRadius.card, paddingVertical: 14,
+    paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20,
+    borderWidth: 2, borderColor: Theme.colors.border,
+    shadowColor: Theme.colors.textDark, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03, shadowRadius: 10, elevation: 1,
+  },
+  goalPredictionText: {
+    flex: 1, fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted, lineHeight: 18,
+  },
+  goalPredictionBold: { fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
 
   // Recently uploaded — empty state
   sectionTitle: {

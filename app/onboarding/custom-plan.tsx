@@ -84,8 +84,14 @@ export default function CustomPlanScreen() {
     : 'High days';
   const normalDayCount = 7 - highDayCount;
 
-  // BMI bar positioning: map BMI 15-40 to 0%-100%
-  const bmiPercent = Math.max(0, Math.min(100, ((plan.bmi - 15) / 25) * 100));
+  // BMI bar: Underweight flex:14 (0-14%), Healthy flex:26 (14-40%), Overweight flex:20 (40-60%), Obese flex:40 (60-100%)
+  const bmiPercent = plan.bmi < 18.5
+    ? Math.max(0, ((plan.bmi - 10) / 8.5) * 14)
+    : plan.bmi < 25
+      ? 14 + ((plan.bmi - 18.5) / 6.5) * 26
+      : plan.bmi < 30
+        ? 40 + ((plan.bmi - 25) / 5) * 20
+        : Math.min(100, 60 + ((plan.bmi - 30) / 10) * 40);
   const bmiColor = plan.bmi < 18.5
     ? Theme.colors.infoBlue
     : plan.bmi < 25
@@ -122,7 +128,7 @@ export default function CustomPlanScreen() {
               <View style={[styles.bmiSegment, { flex: 14, backgroundColor: Theme.colors.infoBlue }]} />
               <View style={[styles.bmiSegment, { flex: 26, backgroundColor: Theme.colors.success }]} />
               <View style={[styles.bmiSegment, { flex: 20, backgroundColor: Theme.colors.warning }]} />
-              <View style={[styles.bmiSegment, { flex: 40, backgroundColor: Theme.colors.urgentRed }]} />
+              <View style={[styles.bmiSegment, { flex: 40, backgroundColor: Theme.colors.calorieAlert }]} />
             </View>
             <View style={[styles.bmiMarker, { left: `${bmiPercent}%` }]}>
               <View style={[styles.bmiMarkerDot, { backgroundColor: bmiColor }]} />

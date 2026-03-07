@@ -6,7 +6,7 @@ import { Theme } from '@/constants/theme';
 import { useOnboardingStore } from '@/store/onboarding-store';
 import { calculateBMI, getBMICategory } from '@/utils/calories';
 
-const TIME_TABS = ['90 Days', '6 Months', '1 Year', 'All time'];
+const TIME_TABS = ['30 Days', '60 Days', '90 Days', '6 Months', '1 Year', 'All time'];
 const WEEK_TABS = ['This Week', 'Last Week', '2 wks. ago', '3 wks. ago'];
 const STREAK_DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as const;
 const Y_AXIS_PLACEHOLDER = ['82.5', '82.3', '82.0', '81.8', '81.5'] as const;
@@ -40,12 +40,13 @@ export default function ProgressScreen() {
 
   const bmi = useMemo(() => calculateBMI(weightKg, heightCm), [weightKg, heightCm]);
   const bmiCategory = useMemo(() => getBMICategory(bmi), [bmi]);
+  // Segments: Underweight flex:14 (0-14%), Healthy flex:26 (14-40%), Overweight flex:20 (40-60%), Obese flex:40 (60-100%)
   const bmiPercent = useMemo((): number => {
     if (isNaN(bmi) || bmi <= 0) return 0;
     if (bmi < 18.5) return Math.max(0, ((bmi - 10) / 8.5) * 14);
-    if (bmi < 25) return 14 + ((bmi - 18.5) / 6.5) * 46;
-    if (bmi < 30) return 60 + ((bmi - 25) / 5) * 20;
-    return Math.min(100, 80 + ((bmi - 30) / 10) * 20);
+    if (bmi < 25) return 14 + ((bmi - 18.5) / 6.5) * 26;
+    if (bmi < 30) return 40 + ((bmi - 25) / 5) * 20;
+    return Math.min(100, 60 + ((bmi - 30) / 10) * 40);
   }, [bmi]);
   const bmiColor = useMemo(() =>
     bmi < 18.5 ? Theme.colors.infoBlue : bmi < 25 ? Theme.colors.success : bmi < 30 ? Theme.colors.warning : Theme.colors.calorieAlert,
@@ -88,12 +89,15 @@ export default function ProgressScreen() {
 
           {/* Streak Card */}
           <View style={styles.progCard}>
-            <Svg width={40} height={40} viewBox="0 0 24 24" fill="none" accessible={false}>
-              <Path d="M12 2c0 0-3 3.5-3 5.5s1.5 3.5 3 3.5s3-1.5 3-3.5S12 2 12 2z" stroke={Theme.colors.warning} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-              <Path d="M12 22c4.418 0 8-3.582 8-8c0-2.209-1-4.109-2.5-5.5C16 11 14 13 12 13s-4-2-5.5-4.5C5 9.891 4 11.791 4 14c0 4.418 3.582 8 8 8z" stroke={Theme.colors.warning} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
+            <View style={styles.streakIconWrap} accessible={false}>
+              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                <Circle cx={12} cy={8} r={6} stroke={Theme.colors.warning} strokeWidth={2} />
+                <Path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12" stroke={Theme.colors.warning} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M12 5v6M9 8h6" stroke={Theme.colors.warning} strokeWidth={2} strokeLinecap="round" />
+              </Svg>
+            </View>
             <Text style={styles.streakTitle}>Day streak</Text>
-            <View style={styles.streakDays} accessible={false}>
+            <View style={styles.streakDays} accessible={true} accessibilityLabel={`Streak days: ${STREAK_DAYS.join(', ')}`}>
               {STREAK_DAYS.map((d, i) => (
                 <View key={`${d}-${i}`} style={styles.streakDay}>
                   <Text style={styles.streakDayLabel}>{d}</Text>
@@ -263,12 +267,16 @@ const styles = StyleSheet.create({
   goalText: { fontSize: 11, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
   goalValueText: { color: Theme.colors.textDark },
   weightFooter: {
-    marginHorizontal: -16, marginTop: 10, marginBottom: -16, paddingVertical: 10,
-    borderTopWidth: 1, borderTopColor: Theme.colors.border, backgroundColor: Theme.colors.background,
-    borderBottomLeftRadius: Theme.borderRadius.card, borderBottomRightRadius: Theme.borderRadius.card, alignItems: 'center',
+    marginHorizontal: -16, marginTop: 10, paddingVertical: 12,
+    backgroundColor: Theme.colors.background,
+    borderBottomLeftRadius: 18, borderBottomRightRadius: 18, alignItems: 'center',
   },
   footerText: { fontSize: 11, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
 
+  streakIconWrap: {
+    width: 44, height: 44, borderRadius: 22, backgroundColor: Theme.colors.warningLight,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 4,
+  },
   streakTitle: { fontSize: 14, fontFamily: Theme.fonts.extraBold, color: Theme.colors.warning, marginBottom: 10 },
   streakDays: { flexDirection: 'row', gap: 4, justifyContent: 'center', width: '100%' },
   streakDay: { alignItems: 'center', gap: 4 },
@@ -350,7 +358,7 @@ const styles = StyleSheet.create({
 
   // BMI
   bmiHeader: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginBottom: 15 },
-  bmiValue: { fontSize: 28, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark, lineHeight: 28 },
+  bmiValue: { fontSize: 28, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark, lineHeight: 34 },
   bmiLabel: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted, marginBottom: 4 },
   bmiBadge: {
     backgroundColor: Theme.colors.calorieAlert, paddingHorizontal: 10, paddingVertical: 4, borderRadius: Theme.borderRadius.small,
@@ -358,7 +366,7 @@ const styles = StyleSheet.create({
   bmiBadgeText: {
     color: Theme.colors.white, fontSize: 10, fontFamily: Theme.fonts.extraBold, textTransform: 'uppercase',
   },
-  bmiBarContainer: { position: 'relative', height: 20, marginVertical: 15 },
+  bmiBarContainer: { position: 'relative', height: 22, marginVertical: 15 },
   bmiBar: {
     flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden', position: 'absolute', top: 5,
     width: '100%',
@@ -367,9 +375,9 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   bmiIndicator: {
-    position: 'absolute', top: 0, width: 14, height: 14, borderRadius: 7,
+    position: 'absolute', top: 3, width: 16, height: 16, borderRadius: 8,
     backgroundColor: Theme.colors.textDark, borderWidth: 2.5, borderColor: Theme.colors.surface,
-    marginLeft: -7,
+    marginLeft: -8,
   },
   bmiLegend: { flexDirection: 'row', justifyContent: 'space-between' },
   bmiLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },

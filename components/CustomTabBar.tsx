@@ -1,5 +1,6 @@
-import { useState, memo, useCallback } from 'react';
+import { useState, memo, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Pressable, Dimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Line } from 'react-native-svg';
 import Animated, {
   useSharedValue,
@@ -7,7 +8,7 @@ import Animated, {
   withSpring,
   FadeIn,
   FadeOut,
-  SlideInDown,
+  FadeInUp,
 } from 'react-native-reanimated';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Theme } from '@/constants/theme';
@@ -63,6 +64,16 @@ const ACTION_ITEMS = [
 export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
   const [showOverlay, setShowOverlay] = useState(false);
   const fabRotation = useSharedValue(0);
+  const { bottom: bottomInset } = useSafeAreaInsets();
+  const safeBottom = Math.max(bottomInset, 10);
+
+  const dynamicStyles = useMemo(() => ({
+    container: { height: 75 + safeBottom } as const,
+    navItems: { bottom: safeBottom } as const,
+    fab: { bottom: 22 + safeBottom } as const,
+    navBg: { bottom: -5, height: 85 + safeBottom } as const,
+    overlay: { paddingBottom: 105 + safeBottom } as const,
+  }), [safeBottom]);
 
   const toggleOverlay = useCallback(() => {
     setShowOverlay((prev) => {
@@ -76,6 +87,14 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
     transform: [{ rotate: `${fabRotation.value}deg` }],
   }));
 
+  const { svgHeight, svgViewBox, svgPath } = useMemo(() => {
+    const h = 85 + safeBottom;
+    return {
+      svgHeight: h,
+      svgViewBox: `0 0 320 ${h}`,
+      svgPath: `M 0,25 C 0,12 12,0 25,0 L 200,0 C 218,0 218,48 257.5,48 C 297,48 297,0 315,0 L 320,0 L 320,${h} L 0,${h} Z`,
+    };
+  }, [safeBottom]);
 
   return (
     <>
@@ -83,10 +102,10 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
         <Animated.View
           entering={FadeIn.duration(200)}
           exiting={FadeOut.duration(150)}
-          style={styles.overlayBg}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={toggleOverlay} />
+          style={[styles.overlayBg, dynamicStyles.overlay]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={toggleOverlay} accessible={true} accessibilityLabel="Close menu" accessibilityRole="button" />
           <Animated.View
-            entering={SlideInDown.springify().damping(18)}
+            entering={FadeInUp.duration(300)}
             style={styles.actionGrid}>
             {ACTION_ITEMS.map((item) => (
               <TouchableOpacity key={item.label} style={styles.actionBtn} activeOpacity={0.8} accessibilityLabel={item.label} accessibilityRole="button">
@@ -108,21 +127,23 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
         </Animated.View>
       )}
 
-      <View style={[styles.container, showOverlay && styles.containerOnTop]}>
+      <View style={[styles.container, dynamicStyles.container, showOverlay && styles.containerOnTop]}>
+        {/* Shadow layer */}
+        <View style={[styles.shadowLayer, dynamicStyles.navBg]} />
         <Svg
           width={SCREEN_WIDTH}
-          height={100}
-          viewBox="0 0 320 100"
+          height={svgHeight}
+          viewBox={svgViewBox}
           preserveAspectRatio="none"
-          style={styles.navBg}
+          style={[styles.navBg, dynamicStyles.navBg]}
           accessible={false}>
           <Path
-            d="M 0,30 C 0,15 15,0 30,0 L 195,0 C 215,0 215,55 257.5,55 C 300,55 300,0 320,0 L 320,100 L 0,100 Z"
-            fill={Theme.colors.surface}
+            d={svgPath}
+            fill={Theme.colors.accentBackground}
           />
         </Svg>
 
-        <View style={styles.navItems}>
+        <View style={[styles.navItems, dynamicStyles.navItems]}>
           {state.routes.map((route, index) => {
             const isFocused = state.index === index;
             const rawName = TAB_NAMES[index] ?? route.name;
@@ -179,9 +200,9 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
           })}
         </View>
 
-        <Animated.View style={[styles.fab, fabAnimatedStyle, showOverlay && styles.fabActive]}>
+        <Animated.View style={[styles.fab, dynamicStyles.fab, fabAnimatedStyle, showOverlay && styles.fabActive]}>
           <TouchableOpacity onPress={toggleOverlay} activeOpacity={0.8} style={styles.fabInner} accessibilityLabel={showOverlay ? 'Close menu' : 'Add item'} accessibilityRole="button" accessibilityHint="Opens menu with food logging options">
-            <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
+            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
               <Line
                 x1={12} y1={5} x2={12} y2={19}
                 stroke={showOverlay ? Theme.colors.textDark : Theme.colors.white}
@@ -208,7 +229,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 90,
     zIndex: 10,
   },
   containerOnTop: {
@@ -216,15 +236,25 @@ const styles = StyleSheet.create({
   },
   navBg: {
     position: 'absolute',
-    bottom: -5,
     left: 0,
+  },
+  shadowLayer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 25,
+    backgroundColor: Theme.colors.accentBackground,
+    shadowColor: Theme.colors.textDark,
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 15,
+    elevation: 12,
   },
   navItems: {
     position: 'absolute',
-    bottom: 0,
     left: 0,
     width: '75%',
-    height: 70,
+    height: 60,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
@@ -251,11 +281,10 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 35,
     right: 25,
-    width: 65,
-    height: 65,
-    borderRadius: 33, // half of 65px (circular)
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: Theme.colors.textDark,
     alignItems: 'center',
     justifyContent: 'center',
@@ -267,7 +296,7 @@ const styles = StyleSheet.create({
     zIndex: 3,
   },
   fabActive: {
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: Theme.colors.accentBackground,
     borderWidth: 2,
     borderColor: Theme.colors.border,
     shadowOpacity: 0,
@@ -290,7 +319,6 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.overlay,
     zIndex: 20,
     justifyContent: 'flex-end',
-    paddingBottom: 120,
     paddingHorizontal: 20,
   },
   actionGrid: {
