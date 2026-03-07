@@ -14,6 +14,7 @@ export const Theme = {
     border: 'rgba(226, 133, 110, 0.2)',
     success: '#7B9E87',
     warning: '#E0B05C',
+    warningDark: '#996B00',
     calorieAlert: '#D65A4F',
     urgentRed: '#DC2626',
     infoBlue: '#4AA0E0',

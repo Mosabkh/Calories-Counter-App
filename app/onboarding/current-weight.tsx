@@ -33,6 +33,7 @@ export default function CurrentWeightScreen() {
     const weight = wholeValues[clampedIndex];
     updatePayload({
       currentWeight: weight,
+      startWeight: weight,
       weightDecimal: decimalIndex,
       weightUnit: unit,
     });

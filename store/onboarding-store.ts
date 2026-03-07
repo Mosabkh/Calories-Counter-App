@@ -16,6 +16,7 @@ export interface OnboardingPayload {
   height?: number;
   heightUnit?: 'cm' | 'ft';
   currentWeight?: number;
+  startWeight?: number;
   weightDecimal?: number;
   targetWeight?: number;
   targetWeightDecimal?: number;

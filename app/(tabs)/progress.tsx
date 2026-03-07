@@ -30,7 +30,7 @@ const MACRO_LEGEND = [
 export default function ProgressScreen() {
   const [timeTab, setTimeTab] = useState(0);
   const [weekTab, setWeekTab] = useState(0);
-  const { currentWeight, targetWeight, weightUnit, height: storedHeight } = useOnboardingStore((s) => s.payload);
+  const { currentWeight, startWeight, targetWeight, weightUnit, height: storedHeight, goal } = useOnboardingStore((s) => s.payload);
 
   const cw = currentWeight || 70;
   const tw = targetWeight || cw;
@@ -53,7 +53,13 @@ export default function ProgressScreen() {
     [bmi],
   );
 
-  const weightProgress = cw === tw ? 1 : 0;
+  const sw = startWeight || cw;
+  const weightProgress = useMemo(() => {
+    if (goal === 'maintain' || sw === tw) return 1;
+    const totalChange = tw - sw;
+    if (totalChange === 0) return 0;
+    return Math.max(0, Math.min(1, (cw - sw) / totalChange));
+  }, [cw, sw, tw, goal]);
 
   const weightProgressStyle = useMemo(
     () => ({ width: `${Math.round(weightProgress * 100)}%` as const }),
@@ -126,7 +132,7 @@ export default function ProgressScreen() {
                 <Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" stroke={Theme.colors.textDark} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
                 <Line x1={4} y1={22} x2={4} y2={15} stroke={Theme.colors.textDark} strokeWidth={2.5} strokeLinecap="round" />
               </Svg>
-              <Text style={styles.flagPillText}>0% of goal</Text>
+              <Text style={styles.flagPillText}>{Math.round(weightProgress * 100)}% of goal</Text>
             </View>
           </View>
           <View style={styles.lineChartArea} accessible={true} accessibilityLabel={`Weight progress chart, range ${cw} to ${tw} ${unit}`} accessibilityRole="image">
@@ -205,7 +211,11 @@ export default function ProgressScreen() {
           </View>
           <View style={styles.encouragementPill}>
             <Text style={styles.encouragementText}>
-              Getting started is the hardest part. You{"'"}re ready for this!
+              {goal === 'gain'
+                ? 'Building up takes consistency. Every meal counts toward your goal!'
+                : goal === 'maintain'
+                  ? "Staying balanced is a skill. You're doing great by tracking!"
+                  : "Getting started is the hardest part. You're ready for this!"}
             </Text>
           </View>
         </View>
@@ -277,7 +287,7 @@ const styles = StyleSheet.create({
     width: 44, height: 44, borderRadius: 22, backgroundColor: Theme.colors.warningLight,
     alignItems: 'center', justifyContent: 'center', marginBottom: 4,
   },
-  streakTitle: { fontSize: 14, fontFamily: Theme.fonts.extraBold, color: Theme.colors.warning, marginBottom: 10 },
+  streakTitle: { fontSize: 14, fontFamily: Theme.fonts.extraBold, color: Theme.colors.warningDark, marginBottom: 10 },
   streakDays: { flexDirection: 'row', gap: 4, justifyContent: 'center', width: '100%' },
   streakDay: { alignItems: 'center', gap: 4 },
   streakDayLabel: { fontSize: 10, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },

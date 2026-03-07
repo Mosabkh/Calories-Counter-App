@@ -144,7 +144,7 @@ export default function CustomPlanScreen() {
           <View style={styles.bmiRangeLabels}>
             <Text style={[styles.bmiRangeText, { color: Theme.colors.infoBlue }]}>Under</Text>
             <Text style={[styles.bmiRangeText, { color: Theme.colors.success }]}>Healthy</Text>
-            <Text style={[styles.bmiRangeText, { color: Theme.colors.warning }]}>Over</Text>
+            <Text style={[styles.bmiRangeText, { color: Theme.colors.warningDark }]}>Over</Text>
             <Text style={[styles.bmiRangeText, { color: Theme.colors.urgentRed }]}>Obese</Text>
           </View>
         </View>
