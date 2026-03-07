@@ -1,12 +1,18 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Line, Circle } from 'react-native-svg';
 import { Theme } from '@/constants/theme';
+import { useOnboardingStore } from '@/store/onboarding-store';
+import { calculateBMI, getBMICategory } from '@/utils/calories';
 
 const TIME_TABS = ['90 Days', '6 Months', '1 Year', 'All time'];
 const WEEK_TABS = ['This Week', 'Last Week', '2 wks. ago', '3 wks. ago'];
-const STREAK_DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const STREAK_DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as const;
+const Y_AXIS_PLACEHOLDER = ['82.5', '82.3', '82.0', '81.8', '81.5'] as const;
+const Y_AXIS_ZEROS = ['0', '0', '0', '0', '0'] as const;
+const GRID_INDEXES = [0, 1, 2, 3, 4] as const;
+const X_AXIS_DAYS = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'] as const;
 
 const BMI_LEGEND = [
   { label: 'Underweight', color: Theme.colors.infoBlue },
@@ -24,6 +30,41 @@ const MACRO_LEGEND = [
 export default function ProgressScreen() {
   const [timeTab, setTimeTab] = useState(0);
   const [weekTab, setWeekTab] = useState(0);
+  const { currentWeight, targetWeight, weightUnit, height: storedHeight } = useOnboardingStore((s) => s.payload);
+
+  const cw = currentWeight || 70;
+  const tw = targetWeight || cw;
+  const unit = weightUnit || 'kg';
+  const weightKg = unit === 'lb' ? cw / 2.20462 : cw;
+  const heightCm = storedHeight || 170;
+
+  const bmi = useMemo(() => calculateBMI(weightKg, heightCm), [weightKg, heightCm]);
+  const bmiCategory = useMemo(() => getBMICategory(bmi), [bmi]);
+  const bmiPercent = useMemo((): number => {
+    if (isNaN(bmi) || bmi <= 0) return 0;
+    if (bmi < 18.5) return Math.max(0, ((bmi - 10) / 8.5) * 14);
+    if (bmi < 25) return 14 + ((bmi - 18.5) / 6.5) * 46;
+    if (bmi < 30) return 60 + ((bmi - 25) / 5) * 20;
+    return Math.min(100, 80 + ((bmi - 30) / 10) * 20);
+  }, [bmi]);
+  const bmiColor = useMemo(() =>
+    bmi < 18.5 ? Theme.colors.infoBlue : bmi < 25 ? Theme.colors.success : bmi < 30 ? Theme.colors.warning : Theme.colors.calorieAlert,
+    [bmi],
+  );
+
+  const weightProgress = cw === tw ? 1 : 0;
+
+  const weightProgressStyle = useMemo(
+    () => ({ width: `${Math.round(weightProgress * 100)}%` as const }),
+    [weightProgress],
+  );
+  const bmiIndicatorStyle = useMemo(
+    () => ({ left: `${Math.round(bmiPercent)}%` as const }),
+    [bmiPercent],
+  );
+
+  const handleTimeTab = useCallback((i: number) => setTimeTab(i), []);
+  const handleWeekTab = useCallback((i: number) => setWeekTab(i), []);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -31,14 +72,14 @@ export default function ProgressScreen() {
         {/* Top Cards */}
         <View style={styles.topCards}>
           {/* Weight Card */}
-          <View style={[styles.progCard, styles.progCardNoPadBottom]}>
+          <View style={[styles.progCard, styles.progCardNoPadBottom]} accessible={true} accessibilityLabel={`My weight: ${cw} ${unit}, Goal: ${tw} ${unit}`}>
             <Text style={styles.cardLabel}>My Weight</Text>
-            <Text style={styles.weightValue}>82 kg</Text>
+            <Text style={styles.weightValue}>{cw} {unit}</Text>
             <View style={styles.weightProgressBg}>
-              <View style={styles.weightProgressFill} />
+              <View style={[styles.weightProgressFill, weightProgressStyle]} />
             </View>
             <Text style={styles.goalText}>
-              Goal <Text style={styles.goalValueText}>72.9 kg</Text>
+              Goal <Text style={styles.goalValueText}>{tw} {unit}</Text>
             </Text>
             <View style={styles.weightFooter}>
               <Text style={styles.footerText}>Next weigh-in: 7d</Text>
@@ -47,14 +88,14 @@ export default function ProgressScreen() {
 
           {/* Streak Card */}
           <View style={styles.progCard}>
-            <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
+            <Svg width={40} height={40} viewBox="0 0 24 24" fill="none" accessible={false}>
               <Path d="M12 2c0 0-3 3.5-3 5.5s1.5 3.5 3 3.5s3-1.5 3-3.5S12 2 12 2z" stroke={Theme.colors.warning} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
               <Path d="M12 22c4.418 0 8-3.582 8-8c0-2.209-1-4.109-2.5-5.5C16 11 14 13 12 13s-4-2-5.5-4.5C5 9.891 4 11.791 4 14c0 4.418 3.582 8 8 8z" stroke={Theme.colors.warning} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
             <Text style={styles.streakTitle}>Day streak</Text>
-            <View style={styles.streakDays}>
+            <View style={styles.streakDays} accessible={false}>
               {STREAK_DAYS.map((d, i) => (
-                <View key={i} style={styles.streakDay}>
+                <View key={`${d}-${i}`} style={styles.streakDay}>
                   <Text style={styles.streakDayLabel}>{d}</Text>
                   <View style={styles.streakDot} />
                 </View>
@@ -66,7 +107,7 @@ export default function ProgressScreen() {
         {/* Time Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={styles.tabsContent}>
           {TIME_TABS.map((t, i) => (
-            <TouchableOpacity key={t} onPress={() => setTimeTab(i)} style={[styles.tab, i === timeTab && styles.tabActive]} accessibilityRole="tab" accessibilityState={{ selected: i === timeTab }}>
+            <TouchableOpacity key={t} onPress={() => handleTimeTab(i)} style={[styles.tab, i === timeTab && styles.tabActive]} accessibilityRole="tab" accessibilityLabel={t} accessibilityState={{ selected: i === timeTab }}>
               <Text style={[styles.tabText, i === timeTab && styles.tabTextActive]}>{t}</Text>
             </TouchableOpacity>
           ))}
@@ -75,23 +116,23 @@ export default function ProgressScreen() {
         {/* Goal Progress Chart */}
         <View style={styles.chartCard}>
           <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>Goal Progress</Text>
+            <Text style={styles.chartTitle} accessibilityRole="header">Goal Progress</Text>
             <View style={styles.flagPill}>
-              <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+              <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" accessible={false}>
                 <Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" stroke={Theme.colors.textDark} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
                 <Line x1={4} y1={22} x2={4} y2={15} stroke={Theme.colors.textDark} strokeWidth={2.5} strokeLinecap="round" />
               </Svg>
               <Text style={styles.flagPillText}>0% of goal</Text>
             </View>
           </View>
-          <View style={styles.lineChartArea}>
+          <View style={styles.lineChartArea} accessible={true} accessibilityLabel={`Weight progress chart, range ${cw} to ${tw} ${unit}`} accessibilityRole="image">
             <View style={styles.yAxis}>
-              {['82.5', '82.3', '82.0', '81.8', '81.5'].map((v) => (
+              {Y_AXIS_PLACEHOLDER.map((v) => (
                 <Text key={v} style={styles.yLabel}>{v}</Text>
               ))}
             </View>
             <View style={styles.gridLines}>
-              {[0, 1, 2, 3, 4].map((i) => (
+              {GRID_INDEXES.map((i) => (
                 <View key={i} style={styles.gridLine} />
               ))}
             </View>
@@ -102,18 +143,18 @@ export default function ProgressScreen() {
         </View>
 
         {/* Progress Photos */}
-        <View style={styles.chartCard}>
-          <Text style={[styles.chartTitle, styles.chartTitleMb15]}>Progress Photos</Text>
+        <View style={styles.chartCard} accessible={true} accessibilityLabel="Progress Photos section">
+          <Text style={[styles.chartTitle, styles.chartTitleMb15]} accessibilityRole="header">Progress Photos</Text>
           <View style={styles.photoCard}>
             <View style={styles.photoPlaceholder}>
-              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" accessible={false}>
                 <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke={Theme.colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
                 <Circle cx={12} cy={7} r={4} stroke={Theme.colors.primary} strokeWidth={2.5} />
               </Svg>
             </View>
             <View style={styles.photoTextContainer}>
               <Text style={styles.photoText}>Want to add a photo to track your progress?</Text>
-              <TouchableOpacity style={styles.btnUpload} accessibilityLabel="Upload a photo" accessibilityRole="button">
+              <TouchableOpacity style={styles.btnUpload} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Upload a photo" accessibilityRole="button">
                 <Text style={styles.btnUploadText}>+ Upload a Photo</Text>
               </TouchableOpacity>
             </View>
@@ -123,7 +164,7 @@ export default function ProgressScreen() {
         {/* Week Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={styles.tabsContent}>
           {WEEK_TABS.map((t, i) => (
-            <TouchableOpacity key={t} onPress={() => setWeekTab(i)} style={[styles.tab, i === weekTab && styles.tabActive]} accessibilityRole="tab" accessibilityState={{ selected: i === weekTab }}>
+            <TouchableOpacity key={t} onPress={() => handleWeekTab(i)} style={[styles.tab, i === weekTab && styles.tabActive]} accessibilityRole="tab" accessibilityLabel={t} accessibilityState={{ selected: i === weekTab }}>
               <Text style={[styles.tabText, i === weekTab && styles.tabTextActive]}>{t}</Text>
             </TouchableOpacity>
           ))}
@@ -131,22 +172,22 @@ export default function ProgressScreen() {
 
         {/* Total Calories Chart */}
         <View style={styles.chartCard}>
-          <Text style={[styles.chartTitle, styles.chartTitleMb5]}>Total calories</Text>
+          <Text style={[styles.chartTitle, styles.chartTitleMb5]} accessibilityRole="header">Total calories</Text>
           <Text style={styles.calValue}>0.0 <Text style={styles.calUnit}>cals</Text></Text>
-          <View style={styles.lineChartArea}>
+          <View style={styles.lineChartArea} accessible={true} accessibilityLabel="Calorie intake chart, no data yet" accessibilityRole="image">
             <View style={styles.yAxis}>
-              {['0', '0', '0', '0', '0'].map((v, i) => (
-                <Text key={i} style={styles.yLabel}>{v}</Text>
+              {Y_AXIS_ZEROS.map((v, i) => (
+                <Text key={`cal-y-${i}`} style={styles.yLabel}>{v}</Text>
               ))}
             </View>
             <View style={styles.gridLines}>
-              {[0, 1, 2, 3, 4].map((i) => (
+              {GRID_INDEXES.map((i) => (
                 <View key={i} style={styles.gridLine} />
               ))}
             </View>
           </View>
           <View style={styles.xAxis}>
-            {['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((d) => (
+            {X_AXIS_DAYS.map((d) => (
               <Text key={d} style={styles.xLabel}>{d}</Text>
             ))}
           </View>
@@ -160,29 +201,34 @@ export default function ProgressScreen() {
           </View>
           <View style={styles.encouragementPill}>
             <Text style={styles.encouragementText}>
-              Getting started is the hardest part. You're ready for this!
+              Getting started is the hardest part. You{"'"}re ready for this!
             </Text>
           </View>
         </View>
 
         {/* BMI Card */}
         <View style={styles.chartCard}>
-          <Text style={[styles.chartTitle, styles.chartTitleMb10]}>Your BMI</Text>
+          <Text style={[styles.chartTitle, styles.chartTitleMb10]} accessibilityRole="header">Your BMI</Text>
           <View style={styles.bmiHeader}>
-            <Text style={styles.bmiValue}>30.49</Text>
+            <Text style={[styles.bmiValue, { color: bmiColor }]}>{bmi}</Text>
             <Text style={styles.bmiLabel}>Your weight is</Text>
-            <View style={styles.bmiBadge}>
-              <Text style={styles.bmiBadgeText}>Obese</Text>
+            <View style={[styles.bmiBadge, { backgroundColor: bmiColor }]}>
+              <Text style={styles.bmiBadgeText}>{bmiCategory}</Text>
             </View>
           </View>
           <View style={styles.bmiBarContainer}>
-            <View style={styles.bmiBar} />
-            <View style={[styles.bmiIndicator, { left: '80%' }]} />
+            <View style={styles.bmiBar}>
+              <View style={[styles.bmiSegment, { flex: 14, backgroundColor: Theme.colors.infoBlue }]} />
+              <View style={[styles.bmiSegment, { flex: 26, backgroundColor: Theme.colors.success }]} />
+              <View style={[styles.bmiSegment, { flex: 20, backgroundColor: Theme.colors.warning }]} />
+              <View style={[styles.bmiSegment, { flex: 40, backgroundColor: Theme.colors.calorieAlert }]} />
+            </View>
+            <View style={[styles.bmiIndicator, bmiIndicatorStyle]} />
           </View>
-          <View style={styles.bmiLegend}>
+          <View style={styles.bmiLegend} accessible={true} accessibilityLabel={`BMI categories: ${BMI_LEGEND.map((b) => b.label).join(', ')}`}>
             {BMI_LEGEND.map((b) => (
               <View key={b.label} style={styles.bmiLegendItem}>
-                <View style={[styles.bDot, { backgroundColor: b.color }]} />
+                <View style={[styles.bDot, { backgroundColor: b.color }]} accessible={false} />
                 <Text style={styles.bmiLegendText}>{b.label}</Text>
               </View>
             ))}
@@ -201,8 +247,8 @@ const styles = StyleSheet.create({
   // Top cards
   topCards: { flexDirection: 'row', gap: 12, marginBottom: 20, marginTop: 10 },
   progCard: {
-    flex: 1, backgroundColor: Theme.colors.surface, borderRadius: 20, padding: 16,
-    alignItems: 'center', borderWidth: 1, borderColor: Theme.colors.border,
+    flex: 1, backgroundColor: Theme.colors.surface, borderRadius: Theme.borderRadius.card, padding: 16,
+    alignItems: 'center', borderWidth: 2, borderColor: Theme.colors.border,
     shadowColor: Theme.colors.textDark, shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.04, shadowRadius: 15, elevation: 2,
   },
@@ -213,37 +259,37 @@ const styles = StyleSheet.create({
     width: '100%', height: 6, backgroundColor: Theme.colors.background, borderRadius: 3,
     marginVertical: 8, overflow: 'hidden',
   },
-  weightProgressFill: { width: '30%', height: '100%', backgroundColor: Theme.colors.primary, borderRadius: 3 },
+  weightProgressFill: { height: '100%', backgroundColor: Theme.colors.primary, borderRadius: 3 },
   goalText: { fontSize: 11, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
   goalValueText: { color: Theme.colors.textDark },
   weightFooter: {
-    width: '132%', marginTop: 10, marginBottom: -16, paddingVertical: 10,
+    marginHorizontal: -16, marginTop: 10, marginBottom: -16, paddingVertical: 10,
     borderTopWidth: 1, borderTopColor: Theme.colors.border, backgroundColor: Theme.colors.background,
-    borderBottomLeftRadius: 20, borderBottomRightRadius: 20, alignItems: 'center',
+    borderBottomLeftRadius: Theme.borderRadius.card, borderBottomRightRadius: Theme.borderRadius.card, alignItems: 'center',
   },
   footerText: { fontSize: 11, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
 
   streakTitle: { fontSize: 14, fontFamily: Theme.fonts.extraBold, color: Theme.colors.warning, marginBottom: 10 },
   streakDays: { flexDirection: 'row', gap: 4, justifyContent: 'center', width: '100%' },
   streakDay: { alignItems: 'center', gap: 4 },
-  streakDayLabel: { fontSize: 8, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textMuted },
+  streakDayLabel: { fontSize: 10, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
   streakDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Theme.colors.border },
 
   // Tabs
   tabsScroll: { marginBottom: 15, paddingBottom: 5 },
   tabsContent: { gap: 8 },
   tab: {
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
-    backgroundColor: Theme.colors.surface, borderWidth: 1, borderColor: Theme.colors.border,
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: Theme.borderRadius.button,
+    backgroundColor: Theme.colors.surface, borderWidth: 2, borderColor: Theme.colors.border,
   },
   tabActive: { backgroundColor: Theme.colors.textDark, borderColor: Theme.colors.textDark },
-  tabText: { fontSize: 12, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textMuted },
-  tabTextActive: { color: '#FFFFFF' },
+  tabText: { fontSize: 12, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
+  tabTextActive: { color: Theme.colors.white },
 
   // Chart Card
   chartCard: {
-    backgroundColor: Theme.colors.surface, borderRadius: 20, padding: 20,
-    borderWidth: 1, borderColor: Theme.colors.border, marginBottom: 25,
+    backgroundColor: Theme.colors.surface, borderRadius: Theme.borderRadius.card, padding: 20,
+    borderWidth: 2, borderColor: Theme.colors.border, marginBottom: 25,
     shadowColor: Theme.colors.textDark, shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.04, shadowRadius: 15, elevation: 2,
   },
@@ -254,7 +300,7 @@ const styles = StyleSheet.create({
   chartTitleMb15: { marginBottom: 15 },
   flagPill: {
     backgroundColor: Theme.colors.flagPillBg, paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 4,
+    borderRadius: Theme.borderRadius.small, flexDirection: 'row', alignItems: 'center', gap: 4,
   },
   flagPillText: { fontSize: 11, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
 
@@ -273,15 +319,15 @@ const styles = StyleSheet.create({
   photoCard: { flexDirection: 'row', gap: 15, alignItems: 'center' },
   photoPlaceholder: {
     width: 60, height: 75, backgroundColor: Theme.colors.primaryActive,
-    borderWidth: 2, borderStyle: 'dashed', borderColor: Theme.colors.border, borderRadius: 12,
+    borderWidth: 2, borderStyle: 'dashed', borderColor: Theme.colors.border, borderRadius: Theme.borderRadius.small,
     alignItems: 'center', justifyContent: 'center',
   },
   photoTextContainer: { flex: 1 },
   photoText: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
   btnUpload: {
-    backgroundColor: Theme.colors.surface, borderWidth: 1, borderColor: Theme.colors.border,
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 15, marginTop: 10,
-    alignSelf: 'flex-start', shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    backgroundColor: Theme.colors.surface, borderWidth: 2, borderColor: Theme.colors.border,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: Theme.borderRadius.button, marginTop: 10,
+    alignSelf: 'flex-start', shadowColor: Theme.colors.textDark, shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.02, shadowRadius: 5, elevation: 1,
   },
   btnUploadText: { fontSize: 12, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
@@ -296,7 +342,7 @@ const styles = StyleSheet.create({
   legendDot: { width: 14, height: 14, borderRadius: 7 },
   legendText: { fontSize: 11, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
   encouragementPill: {
-    backgroundColor: Theme.colors.encouragementBg, padding: 10, borderRadius: 12, marginTop: 20,
+    backgroundColor: Theme.colors.encouragementBg, padding: 10, borderRadius: Theme.borderRadius.small, marginTop: 20,
   },
   encouragementText: {
     fontSize: 11, fontFamily: Theme.fonts.extraBold, color: Theme.colors.encouragementText, textAlign: 'center',
@@ -307,22 +353,26 @@ const styles = StyleSheet.create({
   bmiValue: { fontSize: 28, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark, lineHeight: 28 },
   bmiLabel: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted, marginBottom: 4 },
   bmiBadge: {
-    backgroundColor: Theme.colors.calorieAlert, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12,
+    backgroundColor: Theme.colors.calorieAlert, paddingHorizontal: 10, paddingVertical: 4, borderRadius: Theme.borderRadius.small,
   },
   bmiBadgeText: {
-    color: '#FFFFFF', fontSize: 10, fontFamily: Theme.fonts.extraBold, textTransform: 'uppercase',
+    color: Theme.colors.white, fontSize: 10, fontFamily: Theme.fonts.extraBold, textTransform: 'uppercase',
   },
-  bmiBarContainer: { position: 'relative', height: 25, marginVertical: 15 },
+  bmiBarContainer: { position: 'relative', height: 20, marginVertical: 15 },
   bmiBar: {
-    width: '100%', height: 8, borderRadius: 4, position: 'absolute', top: 8,
-    // Approximate the gradient with a solid - could use LinearGradient from expo-linear-gradient
-    backgroundColor: Theme.colors.warning,
+    flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden', position: 'absolute', top: 5,
+    width: '100%',
+  },
+  bmiSegment: {
+    height: '100%',
   },
   bmiIndicator: {
-    position: 'absolute', top: 0, width: 2, height: 24, backgroundColor: Theme.colors.textDark, borderRadius: 1,
+    position: 'absolute', top: 0, width: 14, height: 14, borderRadius: 7,
+    backgroundColor: Theme.colors.textDark, borderWidth: 2.5, borderColor: Theme.colors.surface,
+    marginLeft: -7,
   },
   bmiLegend: { flexDirection: 'row', justifyContent: 'space-between' },
   bmiLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   bDot: { width: 6, height: 6, borderRadius: 3 },
-  bmiLegendText: { fontSize: 9, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textMuted },
+  bmiLegendText: { fontSize: 10, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
 });

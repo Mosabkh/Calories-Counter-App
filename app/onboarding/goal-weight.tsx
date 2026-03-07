@@ -8,11 +8,12 @@ import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
 import { UnitToggle } from '@/components/onboarding/UnitToggle';
 import { ScrollPicker, PICKER_ITEM_HEIGHT, PICKER_CENTER } from '@/components/onboarding/ScrollPicker';
 import { useOnboardingStore } from '@/store/onboarding-store';
+import { BouncyView } from '@/components/onboarding/BouncyView';
 
-const KG_MIN = 30;
-const KG_MAX = 230;
-const LB_MIN = 66;
-const LB_MAX = 466;
+const KG_MIN = 40;
+const KG_MAX = 180;
+const LB_MIN = 88;
+const LB_MAX = 397;
 const DECIMAL_VALUES = ['.0', '.1', '.2', '.3', '.4', '.5', '.6', '.7', '.8', '.9'];
 
 export default function GoalWeightScreen() {
@@ -22,15 +23,15 @@ export default function GoalWeightScreen() {
   const currentWeight = useOnboardingStore((s) => s.payload.currentWeight);
   const goal = useOnboardingStore((s) => s.payload.goal);
 
-  const [unit, setUnit] = useState<string>(weightUnit);
+  const [unit, setUnit] = useState<'kg' | 'lb'>(weightUnit);
   const [decimalIndex, setDecimalIndex] = useState(0);
 
   const kgValues = useMemo(() => {
-    if (goal === 'lose' && currentWeight) {
+    if (goal === 'lose' && currentWeight != null) {
       const max = Math.max(KG_MIN, Math.min(currentWeight - 1, KG_MAX));
       return Array.from({ length: max - KG_MIN + 1 }, (_, i) => i + KG_MIN);
     }
-    if (goal === 'gain' && currentWeight) {
+    if (goal === 'gain' && currentWeight != null) {
       const min = Math.max(KG_MIN, Math.min(currentWeight + 1, KG_MAX));
       return Array.from({ length: KG_MAX - min + 1 }, (_, i) => i + min);
     }
@@ -69,24 +70,26 @@ export default function GoalWeightScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <BouncyView>
       <ProgressHeader step={2} progress={75} />
       <View style={styles.content}>
         <Text style={styles.title}>{goal === 'gain' ? 'What is your target weight?' : 'What is your desired weight?'}</Text>
         <UnitToggle
           options={['lb', 'kg']}
           selected={unit}
-          onSelect={(v) => setUnit(v)}
+          onSelect={(v) => setUnit(v as 'kg' | 'lb')}
         />
         <View style={styles.pickerRow}>
           <View style={[styles.pickerLine, { top: PICKER_ITEM_HEIGHT * PICKER_CENTER }]} />
           <View style={[styles.pickerLine, { top: PICKER_ITEM_HEIGHT * (PICKER_CENTER + 1) }]} />
-          <ScrollPicker items={unit === 'kg' ? kgValues : lbValues} selectedIndex={unit === 'kg' ? kgIndex : lbIndex} onSelect={unit === 'kg' ? setKgIndex : setLbIndex} width={80} hideLines />
-          <ScrollPicker items={DECIMAL_VALUES} selectedIndex={decimalIndex} onSelect={setDecimalIndex} width={40} hideLines />
+          <ScrollPicker items={unit === 'kg' ? kgValues : lbValues} selectedIndex={unit === 'kg' ? kgIndex : lbIndex} onSelect={unit === 'kg' ? setKgIndex : setLbIndex} width={80} hideLines accessibilityLabel="Goal weight" />
+          <ScrollPicker items={DECIMAL_VALUES} selectedIndex={decimalIndex} onSelect={setDecimalIndex} width={40} hideLines accessibilityLabel="Weight decimal" />
         </View>
       </View>
       <View style={styles.bottomAction}>
         <OnboardingButton title="Continue" onPress={handleContinue} />
       </View>
+      </BouncyView>
     </SafeAreaView>
   );
 }
@@ -110,7 +113,7 @@ const styles = StyleSheet.create({
   pickerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 10,
+    gap: 20,
     marginTop: 20,
     position: 'relative',
   },

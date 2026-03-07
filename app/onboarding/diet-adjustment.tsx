@@ -1,19 +1,38 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 import { Theme } from '@/constants/theme';
 import { ProgressHeader } from '@/components/onboarding/ProgressHeader';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
 import { useOnboardingStore } from '@/store/onboarding-store';
+import { BouncyView } from '@/components/onboarding/BouncyView';
 
 const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const EMOJIS = ['🍕', '🍦', '🍔', '🌮', '🍩', '🍰', '🧁'];
 
 export default function DietAdjustmentScreen() {
   const router = useRouter();
   const goal = useOnboardingStore((s) => s.payload.goal);
   const weekendDays = useOnboardingStore((s) => s.payload.weekendDays) ?? [];
+
+  // Guard: if no days selected, redirect back
+  if (weekendDays.length === 0) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <BouncyView>
+        <ProgressHeader step={3} progress={60} />
+        <View style={styles.content}>
+          <Text style={styles.title}>No days selected</Text>
+          <Text style={styles.subtitle}>Go back and pick which days you eat more so we can adjust your plan.</Text>
+        </View>
+        <View style={styles.bottomAction}>
+          <OnboardingButton title="Go Back" onPress={() => router.back()} />
+        </View>
+        </BouncyView>
+      </SafeAreaView>
+    );
+  }
 
   const isHighDay = (index: number) => weekendDays.includes(DAY_NAMES[index]);
 
@@ -29,16 +48,21 @@ export default function DietAdjustmentScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <BouncyView>
       <ProgressHeader step={3} progress={60} />
       <View style={styles.content}>
-        <Text style={styles.title}>We'll take that into account!</Text>
+        <Text style={styles.title}>We{"'"}ll take that into account!</Text>
 
         <View style={styles.chartContainer}>
           <View style={styles.barChart}>
             {DAY_LABELS.map((_, i) => (
               <View key={i} style={styles.barWrapper}>
                 {isHighDay(i) && (
-                  <Text style={styles.barEmoji}>{EMOJIS[i % EMOJIS.length]}</Text>
+                  <View style={styles.barIcon} accessible={false}>
+                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                      <Path d="M12 19V5M5 12L12 5L19 12" stroke={Theme.colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                    </Svg>
+                  </View>
                 )}
                 <View
                   style={[
@@ -73,6 +97,7 @@ export default function DietAdjustmentScreen() {
           onPress={() => router.push('/onboarding/burned-calories')}
         />
       </View>
+      </BouncyView>
     </SafeAreaView>
   );
 }
@@ -91,7 +116,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   barWrapper: { alignItems: 'center', width: 25 },
-  barEmoji: { fontSize: 20, marginBottom: 5 },
+  barIcon: { marginBottom: 5, alignItems: 'center' },
   bar: {
     width: 25, backgroundColor: Theme.colors.secondary, borderTopLeftRadius: 4,
     borderTopRightRadius: 4,

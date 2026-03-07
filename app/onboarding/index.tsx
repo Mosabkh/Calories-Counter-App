@@ -1,35 +1,38 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Theme } from '@/constants/theme';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BouncyView } from '@/components/onboarding/BouncyView';
 
 export default function WelcomeScreen() {
   const router = useRouter();
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.heroImg}>
-        <Text style={{ fontSize: 70 }}>📸</Text>
-      </View>
-      <View style={styles.content}>
-        <Text style={styles.title}>Calorie tracking made simple</Text>
-        <Text style={styles.subtitle}>
-          Just snap a quick photo of your meal and we'll do the rest
-        </Text>
-        <View style={styles.dots}>
-          <View style={[styles.dot, styles.dotActive]} />
-          <View style={styles.dot} />
-          <View style={styles.dot} />
+      <BouncyView>
+        <View style={styles.heroImg}>
+          <Image
+            source={require('@/assets/images/hero-food.png')}
+            style={styles.heroImage}
+            resizeMode="cover"
+            accessibilityLabel="A plate of food being scanned"
+          />
         </View>
-      </View>
-      <View style={styles.bottomAction}>
-        <OnboardingButton title="Next" onPress={() => router.push('/onboarding/name')} />
-        <Text style={styles.signInText}>
-          Purchased on the web?{' '}
-          <Text style={styles.signInLink}>Sign in</Text>
-        </Text>
-      </View>
+        <View style={styles.content}>
+          <Text style={styles.title}>Know exactly what you eat</Text>
+          <Text style={styles.subtitle}>
+            Snap your meals, get a personalized plan, and hit your goals without the guesswork.
+          </Text>
+        </View>
+        <View style={styles.bottomAction}>
+          <OnboardingButton title="Continue" onPress={() => router.push('/onboarding/name')} />
+          <Text style={styles.signInText}>
+            Purchased on the web?{' '}
+            <Text style={styles.signInLink}>Sign in</Text>
+          </Text>
+        </View>
+      </BouncyView>
     </SafeAreaView>
   );
 }
@@ -48,6 +51,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 10,
     overflow: 'hidden',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
   },
   content: {
     flex: 1,
@@ -68,23 +75,6 @@ const styles = StyleSheet.create({
     color: Theme.colors.textMuted,
     textAlign: 'center',
     lineHeight: 21,
-  },
-  dots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 15,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Theme.colors.border,
-  },
-  dotActive: {
-    width: 20,
-    borderRadius: 4,
-    backgroundColor: Theme.colors.primary,
   },
   bottomAction: {
     paddingHorizontal: 24,

@@ -5,8 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '@/constants/theme';
 import { ProgressHeader } from '@/components/onboarding/ProgressHeader';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
+import { OnboardingIcon } from '@/components/onboarding/OnboardingIcon';
 import { CardOption } from '@/components/onboarding/CardOption';
 import { useOnboardingStore } from '@/store/onboarding-store';
+import { BouncyView } from '@/components/onboarding/BouncyView';
 
 export default function SexScreen() {
   const router = useRouter();
@@ -22,28 +24,30 @@ export default function SexScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ProgressHeader step={1} progress={66} />
-      <View style={styles.content}>
-        <Text style={styles.title}>What is your sex?</Text>
-        <Text style={styles.subtitle}>Enter your biological sex at birth.</Text>
-        <View style={styles.cardGrid}>
-          <CardOption
-            icon="👩"
-            label="Female"
-            active={gender === 'female'}
-            onPress={() => setGender('female')}
-          />
-          <CardOption
-            icon="👨"
-            label="Male"
-            active={gender === 'male'}
-            onPress={() => setGender('male')}
-          />
+      <BouncyView>
+        <ProgressHeader step={1} progress={66} />
+        <View style={styles.content}>
+          <Text style={styles.title}>What is your sex?</Text>
+          <Text style={styles.subtitle}>Enter your biological sex at birth.</Text>
+          <View style={styles.cardGrid}>
+            <CardOption
+              icon={<OnboardingIcon name="female" size={36} color={Theme.colors.primary} />}
+              label="Female"
+              active={gender === 'female'}
+              onPress={() => setGender('female')}
+            />
+            <CardOption
+              icon={<OnboardingIcon name="male" size={36} color={Theme.colors.primary} />}
+              label="Male"
+              active={gender === 'male'}
+              onPress={() => setGender('male')}
+            />
+          </View>
         </View>
-      </View>
-      <View style={styles.bottomAction}>
-        <OnboardingButton title="Continue" onPress={handleContinue} />
-      </View>
+        <View style={styles.bottomAction}>
+          <OnboardingButton title="Continue" onPress={handleContinue} disabled={!gender} />
+        </View>
+      </BouncyView>
     </SafeAreaView>
   );
 }
@@ -61,14 +65,14 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontFamily: Theme.fonts.extraBold,
     color: Theme.colors.textDark,
-    textAlign: 'center',
+    textAlign: 'left',
     marginTop: 20,
   },
   subtitle: {
     fontSize: 14,
     fontFamily: Theme.fonts.regular,
     color: Theme.colors.textMuted,
-    textAlign: 'center',
+    textAlign: 'left',
     marginTop: 5,
   },
   cardGrid: {

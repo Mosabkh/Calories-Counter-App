@@ -1,27 +1,22 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Pressable, Dimensions, Platform } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { useState, memo, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Pressable, Dimensions } from 'react-native';
 import Svg, { Path, Line } from 'react-native-svg';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withTiming,
   FadeIn,
   FadeOut,
   SlideInDown,
 } from 'react-native-reanimated';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Theme } from '@/constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-interface TabBarProps {
-  state: any;
-  descriptors: any;
-  navigation: any;
-}
+type TabBarProps = BottomTabBarProps;
 
-const TAB_ICONS: Record<string, { viewBox: string; paths: string[] }> = {
+const TAB_ICONS = {
   index: {
     viewBox: '0 0 24 24',
     paths: [
@@ -38,7 +33,13 @@ const TAB_ICONS: Record<string, { viewBox: string; paths: string[] }> = {
       'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2',
     ],
   },
-};
+} as const satisfies Record<string, { viewBox: string; paths: string[] }>;
+
+type TabName = keyof typeof TAB_ICONS;
+
+const TAB_NAMES: TabName[] = ['index', 'progress', 'profile'];
+
+const isValidTabName = (name: string): name is TabName => name in TAB_ICONS;
 
 const ACTION_ITEMS = [
   {
@@ -59,23 +60,22 @@ const ACTION_ITEMS = [
   },
 ];
 
-export function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
+export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
   const [showOverlay, setShowOverlay] = useState(false);
   const fabRotation = useSharedValue(0);
 
-  const toggleOverlay = () => {
+  const toggleOverlay = useCallback(() => {
     setShowOverlay((prev) => {
       const next = !prev;
       fabRotation.value = withSpring(next ? 45 : 0, { damping: 15 });
       return next;
     });
-  };
+  }, [fabRotation]);
 
   const fabAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${fabRotation.value}deg` }],
   }));
 
-  const tabNames = ['index', 'progress', 'profile'];
 
   return (
     <>
@@ -114,7 +114,8 @@ export function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
           height={100}
           viewBox="0 0 320 100"
           preserveAspectRatio="none"
-          style={styles.navBg}>
+          style={styles.navBg}
+          accessible={false}>
           <Path
             d="M 0,30 C 0,15 15,0 30,0 L 195,0 C 215,0 215,55 257.5,55 C 300,55 300,0 320,0 L 320,100 L 0,100 Z"
             fill={Theme.colors.surface}
@@ -122,9 +123,10 @@ export function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
         </Svg>
 
         <View style={styles.navItems}>
-          {state.routes.map((route: any, index: number) => {
+          {state.routes.map((route, index) => {
             const isFocused = state.index === index;
-            const tabName = tabNames[index] || route.name;
+            const rawName = TAB_NAMES[index] ?? route.name;
+            const tabName: TabName = isValidTabName(rawName) ? rawName : 'index';
             const label = route.name === 'index' ? 'Home' : route.name.charAt(0).toUpperCase() + route.name.slice(1);
 
             return (
@@ -143,7 +145,7 @@ export function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
                 <View style={styles.navIconContainer}>
                   <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
                     <Path
-                      d={TAB_ICONS[tabName]?.paths[0] || ''}
+                      d={TAB_ICONS[tabName]?.paths?.[0] ?? ''}
                       stroke={isFocused ? Theme.colors.primary : Theme.colors.textMuted}
                       strokeWidth={2.5}
                       strokeLinecap="round"
@@ -182,13 +184,13 @@ export function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
             <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
               <Line
                 x1={12} y1={5} x2={12} y2={19}
-                stroke={showOverlay ? Theme.colors.textDark : '#FFFFFF'}
+                stroke={showOverlay ? Theme.colors.textDark : Theme.colors.white}
                 strokeWidth={2.5}
                 strokeLinecap="round"
               />
               <Line
                 x1={5} y1={12} x2={19} y2={12}
-                stroke={showOverlay ? Theme.colors.textDark : '#FFFFFF'}
+                stroke={showOverlay ? Theme.colors.textDark : Theme.colors.white}
                 strokeWidth={2.5}
                 strokeLinecap="round"
               />
@@ -198,7 +200,7 @@ export function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
       </View>
     </>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -253,7 +255,7 @@ const styles = StyleSheet.create({
     right: 25,
     width: 65,
     height: 65,
-    borderRadius: 33,
+    borderRadius: 33, // half of 65px (circular)
     backgroundColor: Theme.colors.textDark,
     alignItems: 'center',
     justifyContent: 'center',
@@ -299,12 +301,12 @@ const styles = StyleSheet.create({
   actionBtn: {
     width: '47%',
     backgroundColor: Theme.colors.surface,
-    borderRadius: 20,
+    borderRadius: Theme.borderRadius.card,
     paddingVertical: 25,
     paddingHorizontal: 15,
     alignItems: 'center',
     gap: 12,
-    shadowColor: '#000',
+    shadowColor: Theme.colors.textDark,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.15,
     shadowRadius: 25,

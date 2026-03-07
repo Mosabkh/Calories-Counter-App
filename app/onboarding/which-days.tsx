@@ -7,11 +7,12 @@ import { ProgressHeader } from '@/components/onboarding/ProgressHeader';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
 import { ListButton } from '@/components/onboarding/ListButton';
 import { useOnboardingStore } from '@/store/onboarding-store';
+import { BouncyView } from '@/components/onboarding/BouncyView';
 
 const PRESET_OPTIONS = [
   { label: 'Saturdays and Sundays', days: ['Saturday', 'Sunday'] },
   { label: 'Fridays, Saturdays and Sundays', days: ['Friday', 'Saturday', 'Sunday'] },
-  { label: 'Friday & Sunday', days: ['Friday', 'Sunday'] },
+  { label: 'Friday & Saturday', days: ['Friday', 'Saturday'] },
 ];
 
 const ALL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -58,6 +59,7 @@ export default function WhichDaysScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <BouncyView>
       <ProgressHeader step={3} progress={45} />
       <View style={styles.content}>
         <Text style={styles.title}>What days do you usually eat more?</Text>
@@ -95,8 +97,9 @@ export default function WhichDaysScreen() {
         )}
       </View>
       <View style={styles.bottomAction}>
-        <OnboardingButton title="Continue" onPress={handleContinue} />
+        <OnboardingButton title="Continue" onPress={handleContinue} disabled={!canContinue} />
       </View>
+      </BouncyView>
     </SafeAreaView>
   );
 }

@@ -22,12 +22,12 @@ export function ProgressHeader({ step, progress }: ProgressHeaderProps) {
         <Text style={styles.backText} accessible={false}>{'<'}</Text>
       </TouchableOpacity>
       <View style={styles.progressWrapper}>
-        <Text style={styles.stepLabel}>{STEP_LABELS[step]}</Text>
-        <View style={styles.barContainer}>
+        <Text style={styles.stepLabel} accessibilityRole="header">{STEP_LABELS[step]}</Text>
+        <View style={styles.barContainer} accessible={true} accessibilityRole="progressbar" accessibilityLabel={`Step ${step}, ${progress}% complete`} accessibilityValue={{ min: 0, max: 100, now: progress }}>
           <View style={[styles.bar, { width: `${progress}%` }]} />
         </View>
       </View>
-      <View style={{ width: 44 }} />
+      <View style={styles.spacer} />
     </View>
   );
 }
@@ -61,6 +61,9 @@ const styles = StyleSheet.create({
     color: Theme.colors.textMuted,
     textAlign: 'center',
     letterSpacing: 1,
+  },
+  spacer: {
+    width: 44,
   },
   barContainer: {
     width: '100%',

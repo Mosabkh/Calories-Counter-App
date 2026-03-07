@@ -1,10 +1,11 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '@/constants/theme';
 import { ProgressHeader } from '@/components/onboarding/ProgressHeader';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
 import { useOnboardingStore } from '@/store/onboarding-store';
+import { BouncyView } from '@/components/onboarding/BouncyView';
 
 export default function BurnedCaloriesScreen() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function BurnedCaloriesScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <BouncyView>
       <ProgressHeader step={3} progress={75} />
       <View style={styles.content}>
         <Text style={styles.title}>
@@ -27,11 +29,19 @@ export default function BurnedCaloriesScreen() {
         </Text>
         <View style={styles.card}>
           <View style={styles.cardImage}>
-            <Text style={{ fontSize: 40 }}>🏃‍♂️</Text>
+            <Image
+              source={require('@/assets/images/runner.jpg')}
+              style={styles.cardImg}
+              resizeMode="cover"
+              accessibilityLabel="Person running in a field"
+            />
+            <View style={styles.exampleBadge}>
+              <Text style={styles.exampleBadgeText}>EXAMPLE</Text>
+            </View>
           </View>
           <View style={styles.cardBody}>
             <Text style={styles.cardTitle}>
-              Today's goal: <Text style={styles.cardHighlight}>1600 Cals</Text>
+              Today{"'"}s goal: <Text style={styles.cardHighlight}>1600 Cals</Text>
             </Text>
             <Text style={styles.cardSub}>+ 200 cals from running</Text>
           </View>
@@ -43,15 +53,16 @@ export default function BurnedCaloriesScreen() {
             title="No"
             variant="outline"
             onPress={() => handleChoice(false)}
-            style={{ flex: 1 }}
+            style={styles.flexBtn}
           />
           <OnboardingButton
             title="Yes"
             onPress={() => handleChoice(true)}
-            style={{ flex: 1 }}
+            style={styles.flexBtn}
           />
         </View>
       </View>
+      </BouncyView>
     </SafeAreaView>
   );
 }
@@ -68,7 +79,19 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: Theme.colors.border, marginTop: 20,
   },
   cardImage: {
-    height: 120, backgroundColor: Theme.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center',
+    height: 150, overflow: 'hidden', position: 'relative',
+  },
+  exampleBadge: {
+    position: 'absolute', top: 10, left: 10,
+    backgroundColor: Theme.colors.textDark, paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 12,
+  },
+  exampleBadgeText: {
+    color: Theme.colors.white, fontSize: 10, fontFamily: Theme.fonts.extraBold,
+    letterSpacing: 0.5,
+  },
+  cardImg: {
+    width: '100%', height: '100%',
   },
   cardBody: { padding: 15 },
   cardTitle: {
@@ -80,4 +103,5 @@ const styles = StyleSheet.create({
   },
   bottomAction: { paddingHorizontal: 24, paddingBottom: 36 },
   rowBtns: { flexDirection: 'row', gap: 15 },
+  flexBtn: { flex: 1 },
 });

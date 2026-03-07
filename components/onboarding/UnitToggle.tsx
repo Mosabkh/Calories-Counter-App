@@ -9,7 +9,7 @@ interface UnitToggleProps {
 
 export function UnitToggle({ options, selected, onSelect }: UnitToggleProps) {
   return (
-    <View style={styles.container}>
+    <View style={styles.container} accessibilityRole="radiogroup" accessibilityLabel="Unit selection">
       {options.map((option) => (
         <TouchableOpacity
           key={option}
@@ -58,6 +58,6 @@ const styles = StyleSheet.create({
     color: Theme.colors.textMuted,
   },
   activeText: {
-    color: '#FFFFFF',
+    color: Theme.colors.white,
   },
 });

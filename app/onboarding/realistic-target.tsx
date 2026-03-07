@@ -5,6 +5,7 @@ import { Theme } from '@/constants/theme';
 import { ProgressHeader } from '@/components/onboarding/ProgressHeader';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
 import { useOnboardingStore } from '@/store/onboarding-store';
+import { BouncyView } from '@/components/onboarding/BouncyView';
 
 export default function RealisticTargetScreen() {
   const router = useRouter();
@@ -16,17 +17,18 @@ export default function RealisticTargetScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <BouncyView>
       <ProgressHeader step={2} progress={85} />
       <View style={styles.content}>
         <Text style={styles.title}>
           {isGaining ? 'Gaining' : 'Losing'}{' '}
           <Text style={styles.highlight}>{diff.toFixed(1)} {unit}</Text>{' '}
-          is a realistic target. It's not hard at all!
+          is a realistic target. It{"'"}s not hard at all!
         </Text>
         <Text style={styles.subtitle}>
           {isGaining
-            ? 'Our system uses a gradual surplus approach so you gain lean mass, not just fat. 90% of our users find this pace sustainable.'
-            : 'Because our system forces sustainable metrics, 90% of our users find this change easy to maintain.'}
+            ? 'We calculate the right surplus for your body so you gain lean mass at a healthy, sustainable pace.'
+            : 'We calculate the right deficit for your body so you lose weight at a healthy, sustainable pace.'}
         </Text>
       </View>
       <View style={styles.bottomAction}>
@@ -35,6 +37,7 @@ export default function RealisticTargetScreen() {
           onPress={() => router.push('/onboarding/goal-speed')}
         />
       </View>
+      </BouncyView>
     </SafeAreaView>
   );
 }

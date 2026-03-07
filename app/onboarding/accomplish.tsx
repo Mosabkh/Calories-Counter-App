@@ -5,31 +5,33 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '@/constants/theme';
 import { ProgressHeader } from '@/components/onboarding/ProgressHeader';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
+import { OnboardingIcon } from '@/components/onboarding/OnboardingIcon';
 import { ListButton } from '@/components/onboarding/ListButton';
 import { useOnboardingStore } from '@/store/onboarding-store';
+import { BouncyView } from '@/components/onboarding/BouncyView';
 
 const LOSE_OPTIONS = [
-  { key: 'healthy', icon: '🍎', label: 'Eat and live healthier' },
-  { key: 'motivated', icon: '💪', label: 'Stay motivated' },
-  { key: 'body', icon: '🧘', label: 'Feel better about my body' },
+  { key: 'healthy', icon: <OnboardingIcon name="apple" size={22} color={Theme.colors.primary} />, label: 'Eat and live healthier' },
+  { key: 'motivated', icon: <OnboardingIcon name="flame" size={22} color={Theme.colors.primary} />, label: 'Stay motivated' },
+  { key: 'body', icon: <OnboardingIcon name="body" size={22} color={Theme.colors.primary} />, label: 'Feel better about my body' },
 ];
 
 const GAIN_OPTIONS = [
-  { key: 'muscle', icon: '💪', label: 'Build muscle and strength' },
-  { key: 'healthy', icon: '🍎', label: 'Eat healthier and gain properly' },
-  { key: 'confidence', icon: '🧘', label: 'Feel more confident' },
+  { key: 'muscle', icon: <OnboardingIcon name="barbell" size={22} color={Theme.colors.primary} />, label: 'Build muscle and strength' },
+  { key: 'healthy', icon: <OnboardingIcon name="apple" size={22} color={Theme.colors.primary} />, label: 'Eat healthier and gain properly' },
+  { key: 'confidence', icon: <OnboardingIcon name="body" size={22} color={Theme.colors.primary} />, label: 'Feel more confident' },
 ];
 
 const MAINTAIN_OPTIONS = [
-  { key: 'healthy', icon: '🍎', label: 'Eat and live healthier' },
-  { key: 'track', icon: '📊', label: 'Stay on track with my nutrition' },
-  { key: 'body', icon: '🧘', label: 'Feel better about my body' },
+  { key: 'healthy', icon: <OnboardingIcon name="apple" size={22} color={Theme.colors.primary} />, label: 'Eat and live healthier' },
+  { key: 'track', icon: <OnboardingIcon name="bar-chart" size={22} color={Theme.colors.primary} />, label: 'Stay on track with my nutrition' },
+  { key: 'body', icon: <OnboardingIcon name="body" size={22} color={Theme.colors.primary} />, label: 'Feel better about my body' },
 ];
 
 export default function AccomplishScreen() {
   const router = useRouter();
   const updatePayload = useOnboardingStore((s) => s.updatePayload);
-  const goal = useOnboardingStore((s) => s.payload.goal);
+  const goal = useOnboardingStore((s) => s.payload.goal) || 'lose';
   const storedAccomplish = useOnboardingStore((s) => s.payload.accomplish);
   const [selected, setSelected] = useState(storedAccomplish);
   const options = goal === 'gain' ? GAIN_OPTIONS : goal === 'maintain' ? MAINTAIN_OPTIONS : LOSE_OPTIONS;
@@ -42,22 +44,24 @@ export default function AccomplishScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ProgressHeader step={2} progress={30} />
-      <View style={styles.content}>
-        <Text style={styles.title}>What would you like to accomplish?</Text>
-        {options.map((opt) => (
-          <ListButton
-            key={opt.key}
-            icon={opt.icon}
-            label={opt.label}
-            active={selected === opt.key}
-            onPress={() => setSelected(opt.key)}
-          />
-        ))}
-      </View>
-      <View style={styles.bottomAction}>
-        <OnboardingButton title="Continue" onPress={handleContinue} />
-      </View>
+      <BouncyView>
+        <ProgressHeader step={2} progress={30} />
+        <View style={styles.content}>
+          <Text style={styles.title}>What would you like to accomplish?</Text>
+          {options.map((opt) => (
+            <ListButton
+              key={opt.key}
+              icon={opt.icon}
+              label={opt.label}
+              active={selected === opt.key}
+              onPress={() => setSelected(opt.key)}
+            />
+          ))}
+        </View>
+        <View style={styles.bottomAction}>
+          <OnboardingButton title="Continue" onPress={handleContinue} disabled={!selected} />
+        </View>
+      </BouncyView>
     </SafeAreaView>
   );
 }

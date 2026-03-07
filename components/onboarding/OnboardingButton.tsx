@@ -5,6 +5,7 @@ interface OnboardingButtonProps {
   title: string;
   onPress: () => void;
   variant?: 'primary' | 'outline' | 'text';
+  disabled?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
 }
@@ -13,22 +14,26 @@ export function OnboardingButton({
   title,
   onPress,
   variant = 'primary',
+  disabled,
   style,
   textStyle,
 }: OnboardingButtonProps) {
   return (
     <TouchableOpacity
       onPress={onPress}
+      disabled={disabled}
       style={[
         styles.base,
         variant === 'primary' && styles.primary,
         variant === 'outline' && styles.outline,
         variant === 'text' && styles.text,
+        disabled && variant === 'primary' && styles.primaryDisabled,
         style,
       ]}
       activeOpacity={0.8}
       accessibilityLabel={title}
-      accessibilityRole="button">
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}>
       <Text
         style={[
           styles.baseText,
@@ -46,12 +51,15 @@ export function OnboardingButton({
 const styles = StyleSheet.create({
   base: {
     padding: 16,
-    borderRadius: 20,
+    borderRadius: Theme.borderRadius.button,
     width: '100%',
     alignItems: 'center',
   },
   primary: {
     backgroundColor: Theme.colors.primary,
+  },
+  primaryDisabled: {
+    opacity: 0.45,
   },
   outline: {
     backgroundColor: 'transparent',
@@ -68,7 +76,7 @@ const styles = StyleSheet.create({
     fontFamily: Theme.fonts.extraBold,
   },
   primaryText: {
-    color: '#FFFFFF',
+    color: Theme.colors.white,
   },
   outlineText: {
     color: Theme.colors.textDark,

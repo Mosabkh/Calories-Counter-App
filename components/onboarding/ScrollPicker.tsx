@@ -98,7 +98,7 @@ export function ScrollPicker({
       style={styles.outerWrap}
       accessible={true}
       accessibilityRole="adjustable"
-      accessibilityLabel={accessibilityLabel ? `${accessibilityLabel}: ${items[selectedIndex]}` : `${items[selectedIndex]}`}
+      accessibilityLabel={accessibilityLabel ? `${accessibilityLabel}: ${items[selectedIndex] ?? ''}` : `${items[selectedIndex] ?? ''}`}
       accessibilityHint="Swipe up or down to change value"
     >
       <View style={[styles.container, { width, height: listHeight }]}>

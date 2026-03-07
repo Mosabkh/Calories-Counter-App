@@ -3,23 +3,27 @@ import { Theme } from '@/constants/theme';
 
 interface ListButtonProps {
   label: string;
-  icon?: string;
+  desc?: string;
+  icon?: React.ReactNode;
   active?: boolean;
   onPress: () => void;
   rightContent?: React.ReactNode;
 }
 
-export function ListButton({ label, icon, active, onPress, rightContent }: ListButtonProps) {
+export function ListButton({ label, desc, icon, active, onPress, rightContent }: ListButtonProps) {
   return (
     <TouchableOpacity
       onPress={onPress}
       style={[styles.container, active && styles.active]}
       activeOpacity={0.7}
-      accessibilityLabel={label}
+      accessibilityLabel={desc ? `${label}, ${desc}` : label}
       accessibilityRole="radio"
       accessibilityState={{ selected: !!active }}>
-      {icon && <Text style={styles.icon} accessible={false}>{icon}</Text>}
-      <Text style={[styles.label, active && styles.labelActive]}>{label}</Text>
+      {icon && <View style={styles.iconWrap}>{icon}</View>}
+      <View style={styles.textWrap}>
+        <Text style={[styles.label, active && styles.labelActive]}>{label}</Text>
+        {desc && <Text style={styles.desc}>{desc}</Text>}
+      </View>
       {rightContent && <View style={styles.right}>{rightContent}</View>}
     </TouchableOpacity>
   );
@@ -41,14 +45,25 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.primary,
     backgroundColor: Theme.colors.primaryActive,
   },
-  icon: {
-    fontSize: 20,
+  iconWrap: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textWrap: {
+    flex: 1,
   },
   label: {
     fontSize: 14,
     fontFamily: Theme.fonts.extraBold,
     color: Theme.colors.textMuted,
-    flex: 1,
+  },
+  desc: {
+    fontSize: 12,
+    fontFamily: Theme.fonts.regular,
+    color: Theme.colors.textMuted,
+    marginTop: 2,
   },
   labelActive: {
     color: Theme.colors.textDark,

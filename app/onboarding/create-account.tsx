@@ -4,28 +4,31 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '@/constants/theme';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
 import { ProgressHeader } from '@/components/onboarding/ProgressHeader';
+import { BouncyView } from '@/components/onboarding/BouncyView';
 
 export default function CreateAccountScreen() {
   const router = useRouter();
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <BouncyView>
       <ProgressHeader step={3} progress={100} />
       <View style={styles.content}>
         <Text style={styles.title}>Create an account</Text>
-        <Text style={styles.subtitle}>Save your plan and start tracking today.</Text>
+        <Text style={styles.subtitle}>Save your plan so you never lose your progress.</Text>
         <OnboardingButton
           title="Sign in with Google"
           variant="outline"
           onPress={() => router.push('/onboarding/try-free')}
-          style={{ marginTop: 40 }}
+          style={styles.googleBtn}
         />
         <OnboardingButton
-          title="Skip"
+          title="Continue without account"
           variant="text"
           onPress={() => router.push('/onboarding/try-free')}
         />
       </View>
+      </BouncyView>
     </SafeAreaView>
   );
 }
@@ -42,5 +45,8 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted,
     textAlign: 'center', marginTop: 5, marginBottom: 40,
+  },
+  googleBtn: {
+    marginTop: 40,
   },
 });

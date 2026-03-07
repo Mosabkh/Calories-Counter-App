@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
 import { UnitToggle } from '@/components/onboarding/UnitToggle';
 import { ScrollPicker, PICKER_ITEM_HEIGHT, PICKER_CENTER } from '@/components/onboarding/ScrollPicker';
 import { useOnboardingStore } from '@/store/onboarding-store';
+import { BouncyView } from '@/components/onboarding/BouncyView';
 
 const CM_VALUES = Array.from({ length: 121 }, (_, i) => i + 100); // 100-220
 const FT_VALUES = Array.from({ length: 5 }, (_, i) => i + 4); // 4-8
@@ -18,7 +19,7 @@ export default function HeightScreen() {
   const updatePayload = useOnboardingStore((s) => s.updatePayload);
   const storedUnit = useOnboardingStore((s) => s.payload.heightUnit) || 'cm';
 
-  const [unit, setUnit] = useState<string>(storedUnit);
+  const [unit, setUnit] = useState<'cm' | 'ft'>(storedUnit);
   const [cmIndex, setCmIndex] = useState(64); // 164cm
   const [ftIndex, setFtIndex] = useState(1); // 5ft
   const [inIndex, setInIndex] = useState(5); // 5in
@@ -27,36 +28,38 @@ export default function HeightScreen() {
     const height = unit === 'cm'
       ? CM_VALUES[cmIndex]
       : FT_VALUES[ftIndex] * 30.48 + IN_VALUES[inIndex] * 2.54;
-    updatePayload({ height: Math.round(height), heightUnit: unit as 'cm' | 'ft' });
+    updatePayload({ height: Math.round(height), heightUnit: unit });
     router.push('/onboarding/current-weight');
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ProgressHeader step={2} progress={45} />
-      <View style={styles.content}>
-        <Text style={styles.title}>Height</Text>
-        <UnitToggle
-          options={['ft in', 'cm']}
-          selected={unit === 'ft' ? 'ft in' : 'cm'}
-          onSelect={(v) => setUnit(v === 'ft in' ? 'ft' : 'cm')}
-        />
-        <View style={styles.pickerRow}>
-          <View style={[styles.pickerLine, { top: PICKER_ITEM_HEIGHT * PICKER_CENTER }]} />
-          <View style={[styles.pickerLine, { top: PICKER_ITEM_HEIGHT * (PICKER_CENTER + 1) }]} />
-          {unit === 'cm' ? (
-            <ScrollPicker items={CM_VALUES} selectedIndex={cmIndex} onSelect={setCmIndex} width={100} suffix="cm" hideLines />
-          ) : (
-            <>
-              <ScrollPicker items={FT_VALUES} selectedIndex={ftIndex} onSelect={setFtIndex} width={60} suffix="ft" hideLines />
-              <ScrollPicker items={IN_VALUES} selectedIndex={inIndex} onSelect={setInIndex} width={60} suffix="in" hideLines />
-            </>
-          )}
+      <BouncyView>
+        <ProgressHeader step={2} progress={45} />
+        <View style={styles.content}>
+          <Text style={styles.title}>Height</Text>
+          <UnitToggle
+            options={['ft in', 'cm']}
+            selected={unit === 'ft' ? 'ft in' : 'cm'}
+            onSelect={(v) => setUnit(v === 'ft in' ? 'ft' as const : 'cm' as const)}
+          />
+          <View style={styles.pickerRow}>
+            <View style={[styles.pickerLine, { top: PICKER_ITEM_HEIGHT * PICKER_CENTER }]} />
+            <View style={[styles.pickerLine, { top: PICKER_ITEM_HEIGHT * (PICKER_CENTER + 1) }]} />
+            {unit === 'cm' ? (
+              <ScrollPicker items={CM_VALUES} selectedIndex={cmIndex} onSelect={setCmIndex} width={100} suffix="cm" hideLines accessibilityLabel="Height in centimeters" />
+            ) : (
+              <>
+                <ScrollPicker items={FT_VALUES} selectedIndex={ftIndex} onSelect={setFtIndex} width={60} suffix="ft" hideLines accessibilityLabel="Height feet" />
+                <ScrollPicker items={IN_VALUES} selectedIndex={inIndex} onSelect={setInIndex} width={60} suffix="in" hideLines accessibilityLabel="Height inches" />
+              </>
+            )}
+          </View>
         </View>
-      </View>
-      <View style={styles.bottomAction}>
-        <OnboardingButton title="Continue" onPress={handleContinue} />
-      </View>
+        <View style={styles.bottomAction}>
+          <OnboardingButton title="Continue" onPress={handleContinue} />
+        </View>
+      </BouncyView>
     </SafeAreaView>
   );
 }
@@ -74,7 +77,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontFamily: Theme.fonts.extraBold,
     color: Theme.colors.textDark,
-    textAlign: 'center',
+    textAlign: 'left',
     marginTop: 20,
   },
   pickerRow: {

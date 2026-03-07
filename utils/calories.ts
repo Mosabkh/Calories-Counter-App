@@ -12,7 +12,7 @@
 
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
 
-const ACTIVITY_MULTIPLIERS: Record<ActivityLevel, number> = {
+const ACTIVITY_MULTIPLIERS: Readonly<Record<ActivityLevel, number>> = {
   sedentary: 1.2,     // Little or no exercise
   light: 1.375,       // Light exercise 1-3 days/week
   moderate: 1.55,     // Moderate exercise 3-5 days/week
@@ -22,7 +22,7 @@ const ACTIVITY_MULTIPLIERS: Record<ActivityLevel, number> = {
 
 /**
  * Mifflin-St Jeor BMR (kcal/day)
- * Men:   10 × weight(kg) + 6.25 × height(cm) - 5 × age - 5 + 166  → simplified: 10w + 6.25h - 5a + 5
+ * Men:   10 × weight(kg) + 6.25 × height(cm) - 5 × age + 5
  * Women: 10 × weight(kg) + 6.25 × height(cm) - 5 × age - 161
  */
 export function calculateBMR(
@@ -83,17 +83,25 @@ export function calculateMacros(
   const proteinPerKg = activity === 'sedentary' ? 1.2
     : activity === 'light' ? 1.4
     : activity === 'moderate' ? 1.6
-    : 2.0; // active & very_active
+    : activity === 'active' ? 1.8
+    : 2.2; // very_active (ISSN position stand, Jager et al. 2017)
   const protein = Math.round(weightKg * proteinPerKg);
   const proteinCal = protein * 4;
 
   const fatCal = Math.round(dailyCalories * 0.25);
   const fat = Math.round(fatCal / 9);
 
-  const carbCal = Math.max(0, dailyCalories - proteinCal - fatCal);
-  const carbs = Math.round(carbCal / 4);
+  const actualFatCal = fat * 9;
+  const remainingCal = dailyCalories - proteinCal - actualFatCal;
+  const carbs = Math.max(0, Math.round(remainingCal / 4));
 
-  return { protein, fat, carbs, calories: dailyCalories };
+  // Reconcile: adjust carbs so macro calories exactly match target
+  const macroSum = proteinCal + actualFatCal + carbs * 4;
+  const finalCarbs = macroSum !== dailyCalories
+    ? carbs + Math.round((dailyCalories - macroSum) / 4)
+    : carbs;
+
+  return { protein, fat, carbs: Math.max(0, finalCarbs), calories: dailyCalories };
 }
 
 /**
@@ -121,29 +129,35 @@ export function calculateDaySplit(
 export function calculateBMI(weightKg: number, heightCm: number): number {
   const heightM = heightCm / 100;
   if (heightM <= 0) return 0;
-  return parseFloat((weightKg / (heightM * heightM)).toFixed(1));
+  const result = parseFloat((weightKg / (heightM * heightM)).toFixed(1));
+  return isNaN(result) ? 0 : result;
 }
 
-export function getBMICategory(bmi: number): string {
+export function getBMICategory(bmi: number): 'Underweight' | 'Normal' | 'Overweight' | 'Obese' {
   if (bmi < 18.5) return 'Underweight';
   if (bmi < 25) return 'Normal';
   if (bmi < 30) return 'Overweight';
   return 'Obese';
 }
 
-const MONTH_ABBREVS: Record<string, number> = {
+const MONTH_ABBREVS: Readonly<Record<string, number>> = {
   Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
   Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
 };
 
 /** Calculate age from birth year/month/day. Month can be abbreviation ('Jan') or number string ('1'). */
+/**
+ * Calculate age from birth components. Returns clamped age 18-78 (validated Mifflin-St Jeor range).
+ * Falls back to 25 only if parsing completely fails.
+ */
 export function calculateAge(birthYear: string, birthMonth: string, birthDay: string): number {
   const now = new Date();
   const year = parseInt(birthYear, 10);
+  if (isNaN(year)) return 25;
   const day = parseInt(birthDay, 10);
+  if (isNaN(day)) return 25;
   const month = MONTH_ABBREVS[birthMonth] ?? (parseInt(birthMonth, 10) - 1);
-
-  if (isNaN(year) || isNaN(day) || isNaN(month)) return 25; // safe fallback
+  if (isNaN(month) || month < 0 || month > 11) return 25;
 
   const birth = new Date(year, month, day);
   let age = now.getFullYear() - birth.getFullYear();
@@ -151,5 +165,6 @@ export function calculateAge(birthYear: string, birthMonth: string, birthDay: st
   if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) {
     age--;
   }
-  return Math.max(1, age);
+  // Clamp to scientifically validated range for Mifflin-St Jeor
+  return Math.max(18, Math.min(78, age));
 }

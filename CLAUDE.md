@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-"Cal AI" — a React Native calorie tracking app built with Expo SDK 54 and expo-router v6 (file-based routing). Users photograph meals for automatic calorie tracking. The app has a multi-step onboarding flow (26 screens) and a tabbed main interface.
+"Calobite" — a React Native calorie tracking app built with Expo SDK 54 and expo-router v6 (file-based routing). Users photograph meals for automatic calorie tracking. The app has a multi-step onboarding flow (26 screens) and a tabbed main interface.
 
 ## Commands
 
@@ -31,8 +31,11 @@ No test runner is configured.
 
 ### Theming & Styling
 
-- `constants/theme.ts` — single `Theme` object with colors, fonts (Nunito family), and border radii. Warm palette: coral primary (`#E2856E`), cream background (`#FFFAF5`).
+- `constants/theme.ts` — single `Theme` object (`as const`) with colors, fonts (Nunito family), and border radii. Warm palette: coral primary (`#E2856E`), cream background (`#FFFAF5`), muted text `#6B4A40` (WCAG AA compliant).
 - All styling uses `StyleSheet.create` with `Theme` constants. No external styling library.
+- Always use `Theme.colors.*` — never hardcode hex values like `#FFFFFF` (use `Theme.colors.white`) or `#000` (use `Theme.colors.textDark` for shadows).
+- Always use `Theme.borderRadius.card` (20) / `Theme.borderRadius.button` (20) — never hardcode `borderRadius: 16` or `15`.
+- Card-like elements use `borderWidth: 2` consistently (not 1 or 1.5).
 
 ### Key Conventions
 
@@ -43,7 +46,7 @@ No test runner is configured.
 - Reusable onboarding components in `components/onboarding/` (ProgressHeader, OnboardingButton, ListButton, CardOption, UnitToggle, ScrollPicker)
 - Shared utilities in `utils/`:
   - `target-date.ts` — calculates estimated goal date from weight difference and weekly speed
-  - `calories.ts` — Mifflin-St Jeor BMR, TDEE, daily calorie target, macro split, age calculation. Scientific references: Mifflin et al. (1990), ACSM, ISSN.
+  - `calories.ts` — Mifflin-St Jeor BMR, TDEE, daily calorie target, macro split (activity-scaled protein: 1.2-2.2 g/kg), BMI, age calculation. Scientific references: Mifflin et al. (1990), ACSM, ISSN.
 
 ### ScrollPicker Component
 
@@ -52,7 +55,7 @@ The `ScrollPicker` uses scroll-offset-based selection (`Math.round(contentOffset
 ### Goal-dependent Onboarding Flow
 
 The onboarding path adapts based on `goal` (lose/gain/maintain):
-- **Maintain**: skips `goal-weight`, `realistic-target`, `goal-speed`, `projection` — goes straight from `current-weight` → `transition2`. Target weight = current weight.
+- **Maintain**: skips `goal-weight`, `realistic-target`, `goal-speed`, `projection` — goes straight from `current-weight` to `transition2`. Target weight = current weight.
 - **Gain**: `goal-weight` picker starts at currentWeight+1 (min), `realistic-target` says "Gaining", `goal-speed` says "Gain weight speed", `roadblocks` shows gain-specific options.
 - **Lose**: default path, picker capped at currentWeight-1 (max).
 - Screen text (accomplish, roadblocks, weekends, diet-adjustment, burned-calories, projection, custom-plan, generating) adapts per goal.
@@ -61,7 +64,25 @@ The onboarding path adapts based on `goal` (lose/gain/maintain):
 
 - `generating.tsx` uses `router.replace` (not push) to navigate to `custom-plan` — prevents back-loop where the auto-timer re-fires
 - Back button touch targets must be at least 44x44px with `hitSlop` — smaller targets are untappable on real devices
+- Back buttons must have `accessibilityLabel="Go back"` and `accessibilityRole="button"`, with the `<` text marked `accessible={false}`
 - Bottom action padding: all onboarding screens use `paddingBottom: 36`
+
+### Accessibility Standards
+
+- All decorative emojis and icons must have `accessible={false}`
+- Interactive elements need `accessibilityLabel`, `accessibilityRole`, and `accessibilityState` where applicable
+- `UnitToggle` uses `accessibilityRole="radiogroup"`, individual options use `accessibilityRole="radio"`
+- `ScrollPicker` has `accessibilityRole="adjustable"` with value in the label (uses `?? ''` for bounds safety)
+- `ProgressHeader` bar uses `accessibilityRole="progressbar"` with `accessibilityValue`
+- Data cards (calories, macros, BMI) should have consolidated `accessibilityLabel` combining their values
+- SVG decorative backgrounds use `accessible={false}`
+
+### Performance Patterns
+
+- `CustomTabBar` and `SettingItem` are wrapped in `memo()` — preserve this when editing
+- Callbacks passed to child components should use `useCallback` for stability
+- Avoid inline style objects in render — extract to `StyleSheet.create` or module-level constants
+- Static data arrays used in `useMemo`-dependent rendering should themselves be memoized
 
 ### Known Workarounds
 

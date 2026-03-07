@@ -3,7 +3,9 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '@/constants/theme';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
+import { OnboardingIcon } from '@/components/onboarding/OnboardingIcon';
 import { useOnboardingStore } from '@/store/onboarding-store';
+import { BouncyView } from '@/components/onboarding/BouncyView';
 
 export default function Transition1Screen() {
   const router = useRouter();
@@ -11,26 +13,30 @@ export default function Transition1Screen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} style={styles.backTouchable} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Text style={styles.backBtn}>{'<'}</Text>
-        </TouchableOpacity>
-      </View>
-      <View style={styles.content}>
-        <Text style={styles.icon}>🙌</Text>
-        <Text style={styles.title}>Great job, {name}!</Text>
-        <Text style={styles.subtitle}>
-          Now, let's talk about your body and goals so we can calculate your perfect plan.
-        </Text>
-      </View>
-      <View style={styles.bottomAction}>
-        <OnboardingButton
-          title="Let's go"
-          onPress={() => router.push('/onboarding/goal')}
-          style={{ backgroundColor: '#FFFFFF' }}
-          textStyle={{ color: Theme.colors.primary }}
-        />
-      </View>
+      <BouncyView>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} style={styles.backTouchable} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Go back" accessibilityRole="button">
+            <Text style={styles.backBtn} accessible={false}>{'<'}</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.content}>
+          <View style={styles.iconWrap}>
+            <OnboardingIcon name="celebrate" size={64} color={Theme.colors.white} />
+          </View>
+          <Text style={styles.title}>Great job, {name}!</Text>
+          <Text style={styles.subtitle}>
+            Now, let{"'"}s talk about your body and goals so we can calculate your perfect plan.
+          </Text>
+        </View>
+        <View style={styles.bottomAction}>
+          <OnboardingButton
+            title="Continue"
+            onPress={() => router.push('/onboarding/goal')}
+            style={styles.whiteBtn}
+            textStyle={styles.whiteBtnText}
+          />
+        </View>
+      </BouncyView>
     </SafeAreaView>
   );
 }
@@ -47,7 +53,7 @@ const styles = StyleSheet.create({
     width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
   },
   backBtn: {
-    fontSize: 22, fontFamily: Theme.fonts.bold, color: '#FFFFFF',
+    fontSize: 22, fontFamily: Theme.fonts.bold, color: Theme.colors.white,
   },
   content: {
     flex: 1,
@@ -55,14 +61,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 30,
   },
-  icon: {
-    fontSize: 80,
+  iconWrap: {
     marginBottom: 20,
   },
   title: {
     fontSize: 28,
     fontFamily: Theme.fonts.extraBold,
-    color: '#FFFFFF',
+    color: Theme.colors.white,
     textAlign: 'center',
     marginBottom: 10,
   },
@@ -76,5 +81,11 @@ const styles = StyleSheet.create({
   bottomAction: {
     paddingHorizontal: 24,
     paddingBottom: 36,
+  },
+  whiteBtn: {
+    backgroundColor: Theme.colors.white,
+  },
+  whiteBtnText: {
+    color: Theme.colors.primary,
   },
 });

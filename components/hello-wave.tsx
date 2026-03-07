@@ -1,6 +1,7 @@
+import React from 'react';
 import Animated from 'react-native-reanimated';
 
-export function HelloWave() {
+export function HelloWave(): React.ReactNode {
   return (
     <Animated.Text
       style={{

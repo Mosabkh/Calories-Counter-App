@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Pressable, AppState } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Pressable, AppState, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
@@ -8,14 +8,17 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Theme } from '@/constants/theme';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
+import { OnboardingIcon } from '@/components/onboarding/OnboardingIcon';
 import { useOnboardingStore } from '@/store/onboarding-store';
+import { BouncyView } from '@/components/onboarding/BouncyView';
 
 const TIMER_DURATION = 15 * 60; // 15 minutes in seconds
 
+const TIMELINE_ICONS = ['unlock', 'bell', 'crown'] as const;
 const TIMELINE = [
-  { icon: '🔓', title: 'Today', desc: "Unlock all the app's features.", dark: false },
-  { icon: '🔔', title: 'In 2 Days - Reminder', desc: "We'll send you a reminder.", dark: false },
-  { icon: '👑', title: 'In 3 Days - Billing Starts', desc: "You'll be charged unless you cancel.", dark: true },
+  { iconName: TIMELINE_ICONS[0], title: 'Today - No Payment', desc: "Unlock all the app's features for free.", dark: false },
+  { iconName: TIMELINE_ICONS[1], title: 'In 2 Days - Reminder', desc: "We'll send you a reminder.", dark: false },
+  { iconName: TIMELINE_ICONS[2], title: 'In 3 Days - Billing Starts', desc: "You'll be charged unless you cancel.", dark: true },
 ];
 
 export default function PaywallScreen() {
@@ -66,8 +69,15 @@ export default function PaywallScreen() {
     router.replace('/(tabs)');
   };
 
+  const [hasSeenModal, setHasSeenModal] = useState(false);
+
   const handleClose = () => {
-    setShowModal(true);
+    if (!hasSeenModal && countdown > 0) {
+      setShowModal(true);
+      setHasSeenModal(true);
+    } else {
+      handleSkipToApp();
+    }
   };
 
   const handleDismissModal = () => {
@@ -81,6 +91,7 @@ export default function PaywallScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <BouncyView>
       <View style={styles.header}>
         <View style={styles.headerSpacer} />
         <View style={styles.headerFlex} />
@@ -97,7 +108,7 @@ export default function PaywallScreen() {
           {TIMELINE.map((item, i) => (
             <View key={i} style={styles.timelineItem}>
               <View style={[styles.timelineIcon, item.dark && styles.timelineIconDark]}>
-                <Text style={styles.timelineIconText}>{item.icon}</Text>
+                <OnboardingIcon name={item.iconName} size={16} color={Theme.colors.white} strokeWidth={2.5} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.timelineTitle}>{item.title}</Text>
@@ -120,7 +131,7 @@ export default function PaywallScreen() {
               <Text style={styles.pricingPrice}>JOD7.10<Text style={styles.pricingPer}>/mo</Text></Text>
             </View>
             <View style={[styles.radio, selectedPlan === 'monthly' && styles.radioActive]}>
-              {selectedPlan === 'monthly' && <Text style={styles.radioCheck}>✔</Text>}
+              {selectedPlan === 'monthly' && <OnboardingIcon name="check-circle" size={14} color={Theme.colors.white} />}
             </View>
           </TouchableOpacity>
 
@@ -139,7 +150,7 @@ export default function PaywallScreen() {
               <Text style={styles.pricingPrice}>JOD1.77<Text style={styles.pricingPer}>/mo</Text></Text>
             </View>
             <View style={[styles.radio, selectedPlan === 'yearly' && styles.radioActive]}>
-              {selectedPlan === 'yearly' && <Text style={styles.radioCheck}>✔</Text>}
+              {selectedPlan === 'yearly' && <OnboardingIcon name="check-circle" size={14} color={Theme.colors.white} />}
             </View>
           </TouchableOpacity>
         </View>
@@ -152,32 +163,37 @@ export default function PaywallScreen() {
           style={styles.subscribeBtn}
           textStyle={styles.subscribeBtnText}
         />
-        <Text style={styles.cancelText}>Cancel anytime from the App Store.</Text>
+        <Text style={styles.cancelText}>Cancel anytime from the {Platform.OS === 'android' ? 'Google Play Store' : 'App Store'}.</Text>
       </View>
 
+      </BouncyView>
       {showModal && (
         <Animated.View
           entering={FadeIn.duration(200)}
-          style={styles.modalOverlay}>
+          style={styles.modalOverlay}
+          accessibilityViewIsModal={true}>
           <Pressable style={styles.modalBackdrop} onPress={handleDismissModal} accessibilityLabel="Dismiss offer" accessibilityRole="button" />
           <Animated.View entering={SlideInDown.springify().damping(28).stiffness(200)} style={styles.downsellSheet}>
-            <Text style={styles.modalTitle}>Wait! 🛑</Text>
-            <Text style={styles.modalSubtitle}>Don't leave your custom plan behind.</Text>
+            <View style={styles.modalTitleRow}>
+              <Text style={styles.modalTitle}>Wait!</Text>
+              <OnboardingIcon name="alert-octagon" size={28} color={Theme.colors.urgentRed} />
+            </View>
+            <Text style={styles.modalSubtitle}>Your custom plan is ready and waiting.</Text>
             <Text style={styles.modalBody}>
               Claim this one-time offer to get your first full year for{' '}
               <Text style={styles.modalDiscount}>60% off</Text>.
             </Text>
-            <View style={styles.timerBadge}>
-              <Text style={styles.timerText}>Offer expires in: {formatTime(countdown)}</Text>
+            <View style={styles.timerBadge} accessibilityLiveRegion="polite" accessibilityLabel={`Offer expires in ${formatTime(countdown)}`}>
+              <Text style={styles.timerText} accessible={false}>Offer expires in: {formatTime(countdown)}</Text>
             </View>
             <View style={styles.offerCard}>
               <Text style={styles.offerOriginal}>Normally JOD 21.30 / year</Text>
               <Text style={styles.offerPrice}>Only JOD 8.50</Text>
-              <Text style={styles.offerPer}>That's JOD 0.70 / month!</Text>
+              <Text style={styles.offerPer}>That{"'"}s JOD 0.70 / month!</Text>
             </View>
             <OnboardingButton title="Claim 60% Off Now" onPress={handleSubscribe} />
             <OnboardingButton
-              title="No thanks, I'll lose my plan"
+              title="Maybe later"
               variant="text"
               onPress={handleSkipToApp}
               style={styles.noThanksBtn}
@@ -224,7 +240,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   timelineIconDark: { backgroundColor: Theme.colors.textDark },
-  timelineIconText: { fontSize: 14 },
   timelineTitle: {
     fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark, fontSize: 15,
   },
@@ -233,13 +248,13 @@ const styles = StyleSheet.create({
   },
   pricingGrid: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   pricingCard: {
-    flex: 1, borderWidth: 2, borderColor: Theme.colors.border, borderRadius: 16,
+    flex: 1, borderWidth: 2, borderColor: Theme.colors.border, borderRadius: Theme.borderRadius.card,
     padding: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: Theme.colors.surface, position: 'relative',
   },
   pricingCardActive: {
     borderColor: Theme.colors.textDark, borderWidth: 3, padding: 14,
-    backgroundColor: 'rgba(84, 49, 40, 0.03)',
+    backgroundColor: Theme.colors.pricingCardActiveBg,
   },
   pricingBadge: {
     position: 'absolute', top: -12, left: '50%', transform: [{ translateX: -40 }],
@@ -247,7 +262,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   pricingBadgeText: {
-    color: '#FFFFFF', fontSize: 10, fontFamily: Theme.fonts.extraBold,
+    color: Theme.colors.white, fontSize: 10, fontFamily: Theme.fonts.extraBold,
   },
   pricingName: {
     fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark, fontSize: 17,
@@ -263,10 +278,9 @@ const styles = StyleSheet.create({
   radioActive: {
     borderColor: Theme.colors.primary, backgroundColor: Theme.colors.primary,
   },
-  radioCheck: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' as const },
   bottomAction: { paddingHorizontal: 24, paddingBottom: 36 },
-  subscribeBtn: { backgroundColor: '#000000' },
-  subscribeBtnText: { color: '#FFFFFF' },
+  subscribeBtn: { backgroundColor: Theme.colors.textDark },
+  subscribeBtnText: { color: Theme.colors.white },
   noThanksBtn: { marginTop: 10 },
   cancelText: {
     fontSize: 11, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted,
@@ -286,9 +300,14 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.surface, width: '100%', padding: 30, paddingHorizontal: 24,
     borderTopLeftRadius: 30, borderTopRightRadius: 30, alignItems: 'center',
   },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 5,
+  },
   modalTitle: {
     fontSize: 28, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
-    marginBottom: 5,
   },
   modalSubtitle: {
     fontSize: 16, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textMuted,

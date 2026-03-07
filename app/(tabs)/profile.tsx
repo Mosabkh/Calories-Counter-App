@@ -1,8 +1,37 @@
+import { memo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Path, Circle, Line, Polyline, Rect, Polygon } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { Theme } from '@/constants/theme';
 import { useOnboardingStore } from '@/store/onboarding-store';
+
+const SETTINGS = {
+  subscription: {
+    iconPath: 'M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2',
+    label: 'Subscription',
+    badge: 'FREE',
+  },
+  goals: {
+    iconPath: 'M12 22A10 10 0 1 0 12 2A10 10 0 0 0 12 22Z',
+    label: 'My Goals',
+    extraPaths: ['M12 18A6 6 0 1 0 12 6A6 6 0 0 0 12 18Z', 'M12 14A2 2 0 1 0 12 10A2 2 0 0 0 12 14Z'],
+  },
+  reminders: {
+    iconPath: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9',
+    label: 'Reminders',
+    extraPaths: ['M13.73 21a2 2 0 0 1-3.46 0'],
+  },
+  units: {
+    iconPath: 'M3 3h18v18H3V3z',
+    label: 'Units & Formatting',
+    extraPaths: ['M3 9h18', 'M9 21V9'],
+  },
+  help: {
+    iconPath: 'M12 22A10 10 0 1 0 12 2A10 10 0 0 0 12 22Z',
+    label: 'Help Center',
+    extraPaths: ['M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3', 'M12 17h0.01'],
+  },
+} as const;
 
 interface SettingItemProps {
   iconPath: string;
@@ -11,15 +40,15 @@ interface SettingItemProps {
   extraPaths?: string[];
 }
 
-function SettingItem({ iconPath, label, badge, extraPaths }: SettingItemProps): React.ReactNode {
+const SettingItem = memo(function SettingItem({ iconPath, label, badge, extraPaths }: SettingItemProps): React.ReactElement {
   return (
     <TouchableOpacity style={styles.settingItem} activeOpacity={0.6} accessibilityLabel={label} accessibilityRole="button">
       <View style={styles.settingLeft}>
         <View style={styles.settingIcon}>
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
             <Path d={iconPath} stroke={Theme.colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-            {extraPaths?.map((p, i) => (
-              <Path key={i} d={p} stroke={Theme.colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+            {extraPaths?.map((p) => (
+              <Path key={p} d={p} stroke={Theme.colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
             ))}
           </Svg>
         </View>
@@ -30,76 +59,56 @@ function SettingItem({ iconPath, label, badge, extraPaths }: SettingItemProps): 
           </View>
         )}
       </View>
-      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" style={{ opacity: 0.5 }}>
+      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" style={styles.chevron} accessible={false}>
         <Path d="M9 18L15 12L9 6" stroke={Theme.colors.textMuted} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
       </Svg>
     </TouchableOpacity>
   );
-}
+});
 
 export default function ProfileScreen() {
-  const name = useOnboardingStore((s) => s.payload.name) || 'Sam';
+  const name = useOnboardingStore((s) => s.payload.name) || 'User';
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.pageTitle}>Profile</Text>
+        <Text style={styles.pageTitle} accessibilityRole="header">Profile</Text>
 
         {/* User Info Card */}
         <View style={styles.userCard}>
           <View style={styles.avatar}>
-            <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
+            <Svg width={30} height={30} viewBox="0 0 24 24" fill="none" accessible={false}>
               <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke={Theme.colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
               <Circle cx={12} cy={7} r={4} stroke={Theme.colors.primary} strokeWidth={2.5} />
             </Svg>
           </View>
           <View>
             <Text style={styles.userName}>{name}</Text>
-            <Text style={styles.userEmail}>{name.toLowerCase()}@example.com</Text>
-            <TouchableOpacity style={styles.btnEdit} accessibilityLabel="Edit Profile" accessibilityRole="button">
+            <Text style={styles.userEmail}>No email linked</Text>
+            <TouchableOpacity style={styles.btnEdit} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Edit Profile" accessibilityRole="button">
               <Text style={styles.btnEditText}>Edit Profile</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Account */}
-        <Text style={styles.groupTitle}>Account</Text>
+        <Text style={styles.groupTitle} accessibilityRole="header">Account</Text>
         <View style={styles.settingsCard}>
-          <SettingItem
-            iconPath="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2"
-            label="Subscription"
-            badge="FREE"
-          />
-          <SettingItem
-            iconPath="M12 22A10 10 0 1 0 12 2A10 10 0 0 0 12 22Z"
-            label="My Goals"
-            extraPaths={['M12 18A6 6 0 1 0 12 6A6 6 0 0 0 12 18Z', 'M12 14A2 2 0 1 0 12 10A2 2 0 0 0 12 14Z']}
-          />
+          <SettingItem {...SETTINGS.subscription} />
+          <SettingItem {...SETTINGS.goals} />
         </View>
 
         {/* Preferences */}
-        <Text style={styles.groupTitle}>Preferences</Text>
+        <Text style={styles.groupTitle} accessibilityRole="header">Preferences</Text>
         <View style={styles.settingsCard}>
-          <SettingItem
-            iconPath="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
-            label="Reminders"
-            extraPaths={['M13.73 21a2 2 0 0 1-3.46 0']}
-          />
-          <SettingItem
-            iconPath="M3 3h18v18H3V3z"
-            label="Units & Formatting"
-            extraPaths={['M3 9h18', 'M9 21V9']}
-          />
+          <SettingItem {...SETTINGS.reminders} />
+          <SettingItem {...SETTINGS.units} />
         </View>
 
         {/* Support */}
-        <Text style={styles.groupTitle}>Support</Text>
+        <Text style={styles.groupTitle} accessibilityRole="header">Support</Text>
         <View style={styles.settingsCard}>
-          <SettingItem
-            iconPath="M12 22A10 10 0 1 0 12 2A10 10 0 0 0 12 22Z"
-            label="Help Center"
-            extraPaths={['M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3', 'M12 17h0.01']}
-          />
+          <SettingItem {...SETTINGS.help} />
         </View>
 
         {/* Sign Out */}
@@ -123,7 +132,7 @@ const styles = StyleSheet.create({
   // User Card
   userCard: {
     flexDirection: 'row', alignItems: 'center', gap: 15, backgroundColor: Theme.colors.surface,
-    padding: 20, borderRadius: 20, borderWidth: 1, borderColor: Theme.colors.border,
+    padding: 20, borderRadius: Theme.borderRadius.card, borderWidth: 2, borderColor: Theme.colors.border,
     marginBottom: 25, shadowColor: Theme.colors.textDark, shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.04, shadowRadius: 15, elevation: 2,
   },
@@ -135,7 +144,7 @@ const styles = StyleSheet.create({
   userEmail: { fontSize: 12, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted, marginTop: 2 },
   btnEdit: {
     backgroundColor: Theme.colors.primaryActive, paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: 12, marginTop: 8, alignSelf: 'flex-start',
+    borderRadius: Theme.borderRadius.small, marginTop: 8, alignSelf: 'flex-start',
   },
   btnEditText: { fontSize: 11, fontFamily: Theme.fonts.extraBold, color: Theme.colors.primary },
 
@@ -145,7 +154,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, marginLeft: 5,
   },
   settingsCard: {
-    backgroundColor: Theme.colors.surface, borderRadius: 20, borderWidth: 1,
+    backgroundColor: Theme.colors.surface, borderRadius: Theme.borderRadius.card, borderWidth: 2,
     borderColor: Theme.colors.border, overflow: 'hidden', marginBottom: 25,
     shadowColor: Theme.colors.textDark, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.02, shadowRadius: 10, elevation: 1,
@@ -157,7 +166,7 @@ const styles = StyleSheet.create({
   },
   settingLeft: { flexDirection: 'row', alignItems: 'center', gap: 15 },
   settingIcon: {
-    width: 36, height: 36, borderRadius: 12, backgroundColor: Theme.colors.background,
+    width: 36, height: 36, borderRadius: Theme.borderRadius.small, backgroundColor: Theme.colors.background,
     alignItems: 'center', justifyContent: 'center',
   },
   settingName: { fontSize: 15, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
@@ -165,11 +174,12 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.textDark, paddingHorizontal: 8, paddingVertical: 4,
     borderRadius: 8, marginLeft: 10,
   },
-  settingBadgeText: { color: '#FFFFFF', fontSize: 10, fontFamily: Theme.fonts.extraBold },
+  settingBadgeText: { color: Theme.colors.white, fontSize: 10, fontFamily: Theme.fonts.extraBold },
+  chevron: { opacity: 0.5 },
 
   // Logout
   btnLogout: {
-    borderWidth: 2, borderColor: Theme.colors.border, padding: 16, borderRadius: 20,
+    borderWidth: 2, borderColor: Theme.colors.border, padding: 16, borderRadius: Theme.borderRadius.card,
     marginBottom: 20, alignItems: 'center',
   },
   btnLogoutText: {

@@ -6,6 +6,7 @@ import { ProgressHeader } from '@/components/onboarding/ProgressHeader';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
 import { useOnboardingStore } from '@/store/onboarding-store';
 import { requestPermissionsAsync } from 'expo-notifications/build/NotificationPermissions';
+import { BouncyView } from '@/components/onboarding/BouncyView';
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -23,15 +24,16 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <BouncyView>
       <ProgressHeader step={3} progress={100} />
       <View style={styles.content}>
         <Text style={styles.title}>Enable Notifications</Text>
         <View style={styles.notifCard}>
           <View style={styles.notifHeader}>
-            <Text style={styles.notifApp}>App Name</Text>
+            <Text style={styles.notifApp}>Calobite</Text>
             <Text style={styles.notifTime}>now</Text>
           </View>
-          <Text style={styles.notifTitle}>It's lunchtime</Text>
+          <Text style={styles.notifTitle}>It{"'"}s lunchtime</Text>
           <Text style={styles.notifBody}>
             Log your lunch! Remember that consistent actions get results.
           </Text>
@@ -42,7 +44,16 @@ export default function NotificationsScreen() {
       </View>
       <View style={styles.bottomAction}>
         <OnboardingButton title="Enable Notifications" onPress={handleEnable} />
+        <OnboardingButton
+          title="Not now"
+          variant="text"
+          onPress={() => {
+            updatePayload({ enableNotifications: false });
+            router.push('/onboarding/generating');
+          }}
+        />
       </View>
+      </BouncyView>
     </SafeAreaView>
   );
 }
@@ -55,8 +66,8 @@ const styles = StyleSheet.create({
     textAlign: 'center', marginTop: 20,
   },
   notifCard: {
-    backgroundColor: Theme.colors.surface, borderRadius: 15, padding: 15,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05,
+    backgroundColor: Theme.colors.surface, borderRadius: Theme.borderRadius.card, padding: 15,
+    shadowColor: Theme.colors.textDark, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05,
     shadowRadius: 15, elevation: 3, marginVertical: 30,
   },
   notifHeader: {

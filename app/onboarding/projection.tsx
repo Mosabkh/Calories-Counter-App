@@ -6,8 +6,10 @@ import Svg, { Path, Circle, Defs, LinearGradient, Stop, Line, Text as SvgText } 
 import { Theme } from '@/constants/theme';
 import { ProgressHeader } from '@/components/onboarding/ProgressHeader';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
+import { OnboardingIcon } from '@/components/onboarding/OnboardingIcon';
 import { useOnboardingStore } from '@/store/onboarding-store';
 import { getTargetDate } from '@/utils/target-date';
+import { BouncyView } from '@/components/onboarding/BouncyView';
 
 const CHART_W = 280;
 const CHART_H = 160;
@@ -68,6 +70,7 @@ export default function ProjectionScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <BouncyView>
       <ProgressHeader step={3} progress={95} />
       <View style={styles.content}>
         <Text style={styles.title}>
@@ -88,7 +91,7 @@ export default function ProjectionScreen() {
             </View>
             <View style={styles.weightBlock}>
               <Text style={styles.weightLabel}>Goal</Text>
-              <Text style={[styles.weightValue, { color: Theme.colors.primary }]}>{tw} {unit}</Text>
+              <Text style={[styles.weightValue, styles.weightValueGoal]}>{tw} {unit}</Text>
             </View>
           </View>
 
@@ -152,16 +155,16 @@ export default function ProjectionScreen() {
 
               {/* Start dot */}
               <Circle cx={startPt.x} cy={startPt.y} r={6} fill={Theme.colors.textDark} />
-              <Circle cx={startPt.x} cy={startPt.y} r={3} fill="#FFFFFF" />
+              <Circle cx={startPt.x} cy={startPt.y} r={3} fill={Theme.colors.white} />
 
               {/* End dot */}
               <Circle cx={endPt.x} cy={endPt.y} r={6} fill={Theme.colors.primary} />
-              <Circle cx={endPt.x} cy={endPt.y} r={3} fill="#FFFFFF" />
+              <Circle cx={endPt.x} cy={endPt.y} r={3} fill={Theme.colors.white} />
             </Svg>
           </View>
 
           <View style={styles.dateRow}>
-            <Text style={styles.dateIcon}>{'📅'}</Text>
+            <OnboardingIcon name="calendar" size={16} color={Theme.colors.textMuted} />
             <Text style={styles.dateText}>Estimated goal date: <Text style={styles.dateBold}>{targetDate}</Text></Text>
           </View>
         </View>
@@ -172,6 +175,7 @@ export default function ProjectionScreen() {
           onPress={() => router.push('/onboarding/notifications')}
         />
       </View>
+      </BouncyView>
     </SafeAreaView>
   );
 }
@@ -212,12 +216,14 @@ const styles = StyleSheet.create({
     borderTopWidth: 1, borderTopColor: Theme.colors.border,
     marginTop: 4,
   },
-  dateIcon: { fontSize: 14 },
   dateText: {
     fontSize: 13, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted,
   },
   dateBold: {
     fontFamily: Theme.fonts.extraBold, color: Theme.colors.primary,
+  },
+  weightValueGoal: {
+    color: Theme.colors.primary,
   },
   bottomAction: { paddingHorizontal: 24, paddingBottom: 36 },
 });

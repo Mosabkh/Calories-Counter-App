@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { View, Text, TextInput, StyleSheet } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Keyboard } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '@/constants/theme';
 import { ProgressHeader } from '@/components/onboarding/ProgressHeader';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
 import { useOnboardingStore } from '@/store/onboarding-store';
+import { BouncyView } from '@/components/onboarding/BouncyView';
 
 export default function NameScreen() {
   const router = useRouter();
@@ -14,12 +15,14 @@ export default function NameScreen() {
   const [name, setName] = useState(storedName || '');
 
   const handleContinue = () => {
+    Keyboard.dismiss();
     updatePayload({ name: name.trim() || undefined });
     router.push('/onboarding/sex');
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <BouncyView>
       <ProgressHeader step={1} progress={33} />
       <View style={styles.content}>
         <Text style={styles.title}>How do you prefer to be addressed?</Text>
@@ -28,7 +31,7 @@ export default function NameScreen() {
           value={name}
           onChangeText={setName}
           placeholder="Your name"
-          placeholderTextColor={Theme.colors.border}
+          placeholderTextColor={Theme.colors.textMuted}
           autoFocus
           accessibilityLabel="Enter your name"
         />
@@ -38,9 +41,13 @@ export default function NameScreen() {
         <OnboardingButton
           title="Skip"
           variant="text"
-          onPress={() => router.push('/onboarding/sex')}
+          onPress={() => {
+            updatePayload({ name: undefined });
+            router.push('/onboarding/sex');
+          }}
         />
       </View>
+      </BouncyView>
     </SafeAreaView>
   );
 }
@@ -58,7 +65,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontFamily: Theme.fonts.extraBold,
     color: Theme.colors.textDark,
-    textAlign: 'center',
+    textAlign: 'left',
     marginTop: 20,
     lineHeight: 32,
   },

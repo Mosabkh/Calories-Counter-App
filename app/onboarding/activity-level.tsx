@@ -5,16 +5,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '@/constants/theme';
 import { ProgressHeader } from '@/components/onboarding/ProgressHeader';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
+import { OnboardingIcon } from '@/components/onboarding/OnboardingIcon';
 import { ListButton } from '@/components/onboarding/ListButton';
 import { useOnboardingStore } from '@/store/onboarding-store';
 import type { ActivityLevel } from '@/utils/calories';
+import { BouncyView } from '@/components/onboarding/BouncyView';
 
-const OPTIONS: { key: ActivityLevel; icon: string; label: string; desc: string }[] = [
-  { key: 'sedentary', icon: '🪑', label: 'Sedentary', desc: 'Little or no exercise' },
-  { key: 'light', icon: '🚶', label: 'Lightly active', desc: 'Light exercise 1-3 days/week' },
-  { key: 'moderate', icon: '🏃', label: 'Moderately active', desc: 'Moderate exercise 3-5 days/week' },
-  { key: 'active', icon: '💪', label: 'Very active', desc: 'Hard exercise 6-7 days/week' },
-  { key: 'very_active', icon: '🏋️', label: 'Extra active', desc: 'Very hard exercise or physical job' },
+const OPTIONS: { key: ActivityLevel; icon: React.ReactNode; label: string; desc: string }[] = [
+  { key: 'sedentary', icon: <OnboardingIcon name="couch" size={22} color={Theme.colors.primary} />, label: 'Sedentary', desc: 'Little or no exercise' },
+  { key: 'light', icon: <OnboardingIcon name="walking" size={22} color={Theme.colors.primary} />, label: 'Lightly active', desc: 'Light exercise 1-3 days/week' },
+  { key: 'moderate', icon: <OnboardingIcon name="heart-pulse" size={22} color={Theme.colors.primary} />, label: 'Moderately active', desc: 'Moderate exercise 3-5 days/week' },
+  { key: 'active', icon: <OnboardingIcon name="running" size={22} color={Theme.colors.primary} />, label: 'Highly active', desc: 'Hard exercise 6-7 days/week' },
+  { key: 'very_active', icon: <OnboardingIcon name="barbell" size={22} color={Theme.colors.primary} />, label: 'Athlete', desc: 'Very intense exercise or physical job' },
 ];
 
 export default function ActivityLevelScreen() {
@@ -31,6 +33,7 @@ export default function ActivityLevelScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <BouncyView>
       <ProgressHeader step={2} progress={35} />
       <View style={styles.content}>
         <Text style={styles.title}>How active are you?</Text>
@@ -46,8 +49,9 @@ export default function ActivityLevelScreen() {
         ))}
       </View>
       <View style={styles.bottomAction}>
-        <OnboardingButton title="Continue" onPress={handleContinue} />
+        <OnboardingButton title="Continue" onPress={handleContinue} disabled={!selected} />
       </View>
+      </BouncyView>
     </SafeAreaView>
   );
 }

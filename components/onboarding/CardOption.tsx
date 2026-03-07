@@ -1,8 +1,8 @@
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { Theme } from '@/constants/theme';
 
 interface CardOptionProps {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   active?: boolean;
   onPress: () => void;
@@ -17,7 +17,7 @@ export function CardOption({ icon, label, active, onPress }: CardOptionProps) {
       accessibilityLabel={label}
       accessibilityRole="radio"
       accessibilityState={{ selected: !!active }}>
-      <Text style={styles.icon} accessible={false}>{icon}</Text>
+      <View style={styles.iconWrap}>{icon}</View>
       <Text style={[styles.label, active && styles.labelActive]}>{label}</Text>
     </TouchableOpacity>
   );
@@ -37,12 +37,15 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.primary,
     backgroundColor: Theme.colors.primaryActive,
   },
-  icon: {
-    fontSize: 40,
+  iconWrap: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 10,
   },
   label: {
-    fontFamily: Theme.fonts.bold,
+    fontFamily: Theme.fonts.extraBold,
     color: Theme.colors.textMuted,
     fontSize: 14,
   },

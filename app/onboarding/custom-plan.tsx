@@ -1,10 +1,13 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '@/constants/theme';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
+import { OnboardingIcon } from '@/components/onboarding/OnboardingIcon';
 import { ProgressHeader } from '@/components/onboarding/ProgressHeader';
+import { BouncyView } from '@/components/onboarding/BouncyView';
 import { useOnboardingStore } from '@/store/onboarding-store';
 import { getTargetDate } from '@/utils/target-date';
 import {
@@ -36,6 +39,10 @@ export default function CustomPlanScreen() {
   const targetDate = isMaintain ? '' : getTargetDate(cw, tw, speed);
   const highDayCount = (eatsMoreOnWeekends && weekendDays) ? weekendDays.length : 0;
 
+  useEffect(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, []);
+
   const plan = useMemo(() => {
     const weightKg = unit === 'lb' ? cw / 2.20462 : cw;
     const heightCm = height || 170;
@@ -56,12 +63,12 @@ export default function CustomPlanScreen() {
     return { ...macros, ...daySplit, bmi, bmiCategory };
   }, [cw, height, birthYear, birthMonth, birthDay, gender, activityLevel, goal, speed, unit, highDayCount]);
 
-  const MACROS = [
+  const MACROS = useMemo(() => [
     { value: `${plan.calories}`, label: 'Calories', color: Theme.colors.primary },
     { value: `${plan.carbs}g`, label: 'Carbs', color: Theme.colors.secondary },
     { value: `${plan.protein}g`, label: 'Protein', color: Theme.colors.primaryHover },
     { value: `${plan.fat}g`, label: 'Fats', color: Theme.colors.textMuted },
-  ];
+  ], [plan]);
 
   const badgeText = isMaintain
     ? `Target: Maintain ${cw} ${unit}`
@@ -89,20 +96,23 @@ export default function CustomPlanScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <BouncyView>
       <ProgressHeader step={3} progress={100} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.sparkle}>✨</Text>
+        <View style={styles.sparkle}>
+          <OnboardingIcon name="sparkle" size={40} color={Theme.colors.primary} />
+        </View>
         <Text style={styles.title}>Congratulations! Your plan is ready.</Text>
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{badgeText}</Text>
         </View>
 
         <Text style={styles.sectionTitle}>Your BMI</Text>
-        <View style={styles.bmiCard}>
+        <View style={styles.bmiCard} accessible={true} accessibilityLabel={`BMI: ${plan.bmi}, ${plan.bmiCategory}`}>
           <View style={styles.bmiHeader}>
             <Text style={[styles.bmiValue, { color: bmiColor }]}>{plan.bmi}</Text>
             <Text style={[styles.bmiCategory, { color: bmiColor }]}>{plan.bmiCategory}</Text>
@@ -125,12 +135,18 @@ export default function CustomPlanScreen() {
             <Text style={styles.bmiLabelText}>30</Text>
             <Text style={styles.bmiLabelText}>40</Text>
           </View>
+          <View style={styles.bmiRangeLabels}>
+            <Text style={[styles.bmiRangeText, { color: Theme.colors.infoBlue }]}>Under</Text>
+            <Text style={[styles.bmiRangeText, { color: Theme.colors.success }]}>Healthy</Text>
+            <Text style={[styles.bmiRangeText, { color: Theme.colors.warning }]}>Over</Text>
+            <Text style={[styles.bmiRangeText, { color: Theme.colors.urgentRed }]}>Obese</Text>
+          </View>
         </View>
 
         <Text style={styles.sectionTitle}>Daily Recommendation</Text>
         <View style={styles.macroGrid}>
           {MACROS.map((m) => (
-            <View key={m.label} style={styles.macroCard}>
+            <View key={m.label} style={styles.macroCard} accessible={true} accessibilityLabel={`${m.label}: ${m.value}`}>
               <View style={[styles.macroCircle, { borderColor: m.color }]}>
                 <Text style={styles.macroValue}>{m.value}</Text>
               </View>
@@ -167,6 +183,7 @@ export default function CustomPlanScreen() {
           onPress={() => router.push('/onboarding/create-account')}
         />
       </View>
+      </BouncyView>
     </SafeAreaView>
   );
 }
@@ -175,17 +192,17 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: 24, alignItems: 'center', paddingBottom: 16 },
-  sparkle: { fontSize: 40, marginTop: 10, marginBottom: 10 },
+  sparkle: { marginTop: 10, marginBottom: 10 },
   title: {
     fontSize: 24, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
     textAlign: 'center', lineHeight: 32,
   },
   badge: {
     backgroundColor: Theme.colors.primary, paddingHorizontal: 18, paddingVertical: 10,
-    borderRadius: 16, marginTop: 10,
+    borderRadius: Theme.borderRadius.card, marginTop: 10,
   },
   badgeText: {
-    color: '#FFFFFF', fontFamily: Theme.fonts.bold, fontSize: 14, textAlign: 'center',
+    color: Theme.colors.white, fontFamily: Theme.fonts.bold, fontSize: 14, textAlign: 'center',
   },
   sectionTitle: {
     fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark, fontSize: 18,
@@ -195,9 +212,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 16, width: '100%',
   },
   macroCard: {
-    width: '47%', backgroundColor: Theme.colors.surface, padding: 12, borderRadius: 16,
+    width: '47%', backgroundColor: Theme.colors.surface, padding: 12, borderRadius: Theme.borderRadius.card,
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    borderWidth: 1, borderColor: Theme.colors.border,
+    borderWidth: 2, borderColor: Theme.colors.border,
   },
   macroCircle: {
     width: 45, height: 45, borderRadius: 23, borderWidth: 4,
@@ -220,7 +237,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', gap: 12,
   },
   daySplitCard: {
-    flex: 1, backgroundColor: Theme.colors.surface, borderRadius: 16,
+    flex: 1, backgroundColor: Theme.colors.surface, borderRadius: Theme.borderRadius.card,
     padding: 14, alignItems: 'center',
     borderWidth: 1, borderColor: Theme.colors.border,
   },
@@ -239,7 +256,7 @@ const styles = StyleSheet.create({
     fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted, fontSize: 11,
   },
   bmiCard: {
-    width: '100%', backgroundColor: Theme.colors.surface, borderRadius: 16,
+    width: '100%', backgroundColor: Theme.colors.surface, borderRadius: Theme.borderRadius.card,
     padding: 16, marginTop: 12,
     borderWidth: 1, borderColor: Theme.colors.border,
   },
@@ -273,6 +290,12 @@ const styles = StyleSheet.create({
   },
   bmiLabelText: {
     fontSize: 10, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted,
+  },
+  bmiRangeLabels: {
+    flexDirection: 'row', justifyContent: 'space-around', marginTop: 4,
+  },
+  bmiRangeText: {
+    fontSize: 10, fontFamily: Theme.fonts.semiBold,
   },
   reference: {
     fontSize: 11, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted,
