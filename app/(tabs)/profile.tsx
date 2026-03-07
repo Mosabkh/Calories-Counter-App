@@ -1,9 +1,13 @@
-import { memo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { memo, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { Theme } from '@/constants/theme';
-import { useOnboardingStore } from '@/store/onboarding-store';
+import { useUserStore } from '@/store/user-store';
+import { useSubscriptionStore } from '@/store/subscription-store';
+import { restorePurchases } from '@/utils/revenue-cat';
+import { signOut } from '@/utils/auth';
 
 const SETTINGS = {
   subscription: {
@@ -38,11 +42,12 @@ interface SettingItemProps {
   label: string;
   badge?: string;
   extraPaths?: string[];
+  onPress?: () => void;
 }
 
-const SettingItem = memo(function SettingItem({ iconPath, label, badge, extraPaths }: SettingItemProps): React.ReactElement {
+const SettingItem = memo(function SettingItem({ iconPath, label, badge, extraPaths, onPress }: SettingItemProps): React.ReactElement {
   return (
-    <TouchableOpacity style={styles.settingItem} activeOpacity={0.6} accessibilityLabel={label} accessibilityRole="button">
+    <TouchableOpacity style={styles.settingItem} activeOpacity={0.6} accessibilityLabel={label} accessibilityRole="button" onPress={onPress}>
       <View style={styles.settingLeft}>
         <View style={styles.settingIcon}>
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
@@ -67,7 +72,41 @@ const SettingItem = memo(function SettingItem({ iconPath, label, badge, extraPat
 });
 
 export default function ProfileScreen() {
-  const name = useOnboardingStore((s) => s.payload.name) || 'User';
+  const router = useRouter();
+  const profile = useUserStore((s) => s.profile);
+  const authUser = useUserStore((s) => s.auth.user);
+  const subPlan = useSubscriptionStore((s) => s.plan);
+  const subIsActive = useSubscriptionStore((s) => s.isActive);
+  const name = profile?.name || 'User';
+  const email = authUser?.email || 'No email linked';
+
+  const subscriptionBadge = subIsActive
+    ? subPlan === 'yearly' ? 'YEARLY' : 'MONTHLY'
+    : 'FREE';
+
+  const handleRestore = useCallback(async () => {
+    const restored = await restorePurchases();
+    Alert.alert(
+      restored ? 'Restored!' : 'Nothing to Restore',
+      restored
+        ? 'Your subscription has been restored.'
+        : 'No previous purchases found.',
+    );
+  }, []);
+
+  const handleSignOut = useCallback(() => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut();
+          router.replace('/');
+        },
+      },
+    ]);
+  }, [router]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -84,8 +123,15 @@ export default function ProfileScreen() {
           </View>
           <View>
             <Text style={styles.userName}>{name}</Text>
-            <Text style={styles.userEmail}>No email linked</Text>
-            <TouchableOpacity style={styles.btnEdit} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Edit Profile" accessibilityRole="button">
+            <TouchableOpacity
+              disabled={!!authUser?.email}
+              onPress={() => Alert.alert('Coming Soon', 'Email linking will be available when cloud accounts are enabled.')}
+              accessibilityLabel={authUser?.email ? email : 'Link email'}
+              accessibilityRole={authUser?.email ? 'text' : 'button'}
+            >
+              <Text style={styles.userEmail}>{email}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.btnEdit} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Edit Profile" accessibilityRole="button" onPress={() => router.push('/edit-profile')}>
               <Text style={styles.btnEditText}>Edit Profile</Text>
             </TouchableOpacity>
           </View>
@@ -94,25 +140,30 @@ export default function ProfileScreen() {
         {/* Account */}
         <Text style={styles.groupTitle} accessibilityRole="header">Account</Text>
         <View style={styles.settingsCard}>
-          <SettingItem {...SETTINGS.subscription} />
-          <SettingItem {...SETTINGS.goals} />
+          <SettingItem {...SETTINGS.subscription} badge={subscriptionBadge} onPress={() => router.push('/subscription')} />
+          <SettingItem {...SETTINGS.goals} onPress={() => router.push('/my-goals')} />
         </View>
 
         {/* Preferences */}
         <Text style={styles.groupTitle} accessibilityRole="header">Preferences</Text>
         <View style={styles.settingsCard}>
-          <SettingItem {...SETTINGS.reminders} />
-          <SettingItem {...SETTINGS.units} />
+          <SettingItem {...SETTINGS.reminders} onPress={() => router.push('/reminders')} />
+          <SettingItem {...SETTINGS.units} onPress={() => router.push('/units')} />
         </View>
 
         {/* Support */}
         <Text style={styles.groupTitle} accessibilityRole="header">Support</Text>
         <View style={styles.settingsCard}>
-          <SettingItem {...SETTINGS.help} />
+          <SettingItem {...SETTINGS.help} onPress={() => router.push('/help')} />
         </View>
 
+        {/* Restore Purchases */}
+        <TouchableOpacity style={styles.btnRestore} onPress={handleRestore} accessibilityLabel="Restore Purchases" accessibilityRole="button">
+          <Text style={styles.btnRestoreText}>Restore Purchases</Text>
+        </TouchableOpacity>
+
         {/* Sign Out */}
-        <TouchableOpacity style={styles.btnLogout} accessibilityLabel="Sign Out" accessibilityRole="button">
+        <TouchableOpacity style={styles.btnLogout} onPress={handleSignOut} accessibilityLabel="Sign Out" accessibilityRole="button">
           <Text style={styles.btnLogoutText}>Sign Out</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -176,6 +227,15 @@ const styles = StyleSheet.create({
   },
   settingBadgeText: { color: Theme.colors.white, fontSize: 10, fontFamily: Theme.fonts.extraBold },
   chevron: { opacity: 0.5 },
+
+  // Restore
+  btnRestore: {
+    padding: 16, borderRadius: Theme.borderRadius.card,
+    marginBottom: 12, alignItems: 'center',
+  },
+  btnRestoreText: {
+    fontSize: 14, fontFamily: Theme.fonts.bold, color: Theme.colors.primary,
+  },
 
   // Logout
   btnLogout: {

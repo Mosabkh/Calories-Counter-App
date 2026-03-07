@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Pressable, AppState, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Pressable, AppState, Platform, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
@@ -11,6 +11,8 @@ import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
 import { OnboardingIcon } from '@/components/onboarding/OnboardingIcon';
 import { useOnboardingStore } from '@/store/onboarding-store';
 import { BouncyView } from '@/components/onboarding/BouncyView';
+import { graduateOnboarding } from '@/utils/graduate-onboarding';
+import { fetchOfferings, purchase, type StubPackage } from '@/utils/revenue-cat';
 
 const TIMER_DURATION = 15 * 60; // 15 minutes in seconds
 
@@ -28,6 +30,21 @@ export default function PaywallScreen() {
   const [showModal, setShowModal] = useState(false);
   const [countdown, setCountdown] = useState(TIMER_DURATION);
   const timerStartRef = useRef<number | null>(null);
+  const [purchasing, setPurchasing] = useState(false);
+  const [packages, setPackages] = useState<{ monthly?: StubPackage; yearly?: StubPackage }>({});
+
+  // Fetch RevenueCat offerings on mount
+  useEffect(() => {
+    (async () => {
+      const offerings = await fetchOfferings();
+      const current = offerings?.current;
+      if (current) {
+        const monthly = current.availablePackages.find((p) => p.identifier.includes('monthly') || p.identifier === '$rc_monthly');
+        const yearly = current.availablePackages.find((p) => p.identifier.includes('annual') || p.identifier === '$rc_annual');
+        setPackages({ monthly, yearly });
+      }
+    })();
+  }, []);
 
   const getRemaining = useCallback(() => {
     if (!timerStartRef.current) return TIMER_DURATION;
@@ -64,9 +81,31 @@ export default function PaywallScreen() {
     return `${m}:${sec.toString().padStart(2, '0')}`;
   };
 
-  const handleSubscribe = () => {
-    completeOnboarding();
-    router.replace('/(tabs)');
+  const handleSubscribe = async () => {
+    const pkg = selectedPlan === 'yearly' ? packages.yearly : packages.monthly;
+
+    // If no packages loaded (no RevenueCat keys yet), fall through to free access
+    if (!pkg) {
+      graduateOnboarding();
+      completeOnboarding();
+      router.replace('/(tabs)');
+      return;
+    }
+
+    setPurchasing(true);
+    try {
+      const success = await purchase(pkg);
+      if (success) {
+        graduateOnboarding();
+        completeOnboarding();
+        router.replace('/(tabs)');
+      }
+      // If !success, user cancelled — stay on screen
+    } catch {
+      Alert.alert('Purchase Failed', 'Something went wrong. Please try again.');
+    } finally {
+      setPurchasing(false);
+    }
   };
 
   const [hasSeenModal, setHasSeenModal] = useState(false);
@@ -85,6 +124,7 @@ export default function PaywallScreen() {
   };
 
   const handleSkipToApp = () => {
+    graduateOnboarding();
     completeOnboarding();
     router.replace('/(tabs)');
   };
@@ -158,8 +198,9 @@ export default function PaywallScreen() {
 
       <View style={styles.bottomAction}>
         <OnboardingButton
-          title="Start My 3-Day Free Trial"
+          title={purchasing ? 'Processing...' : 'Start My 3-Day Free Trial'}
           onPress={handleSubscribe}
+          disabled={purchasing}
           style={styles.subscribeBtn}
           textStyle={styles.subscribeBtnText}
         />
@@ -191,7 +232,7 @@ export default function PaywallScreen() {
               <Text style={styles.offerPrice}>Only JOD 8.50</Text>
               <Text style={styles.offerPer}>That{"'"}s JOD 0.70 / month!</Text>
             </View>
-            <OnboardingButton title="Claim 60% Off Now" onPress={handleSubscribe} />
+            <OnboardingButton title={purchasing ? 'Processing...' : 'Claim 60% Off Now'} onPress={handleSubscribe} disabled={purchasing} />
             <OnboardingButton
               title="Maybe later"
               variant="text"

@@ -36,7 +36,14 @@
           "backgroundColor": "#FFFAF5"
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow Calobite to access your camera to photograph meals."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

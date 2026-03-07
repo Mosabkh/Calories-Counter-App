@@ -1,6 +1,7 @@
 import { useState, memo, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Pressable, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import Svg, { Path, Line } from 'react-native-svg';
 import Animated, {
   useSharedValue,
@@ -12,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Theme } from '@/constants/theme';
+import { launchMealCamera } from '@/utils/camera';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -62,6 +64,7 @@ const ACTION_ITEMS = [
 ];
 
 export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
+  const router = useRouter();
   const [showOverlay, setShowOverlay] = useState(false);
   const fabRotation = useSharedValue(0);
   const { bottom: bottomInset } = useSafeAreaInsets();
@@ -108,7 +111,29 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
             entering={FadeInUp.duration(300)}
             style={styles.actionGrid}>
             {ACTION_ITEMS.map((item) => (
-              <TouchableOpacity key={item.label} style={styles.actionBtn} activeOpacity={0.8} accessibilityLabel={item.label} accessibilityRole="button">
+              <TouchableOpacity
+                key={item.label}
+                style={styles.actionBtn}
+                activeOpacity={0.8}
+                accessibilityLabel={item.label}
+                accessibilityRole="button"
+                onPress={async () => {
+                  toggleOverlay();
+                  if (item.label === 'Food database') {
+                    router.push('/food-search');
+                  } else if (item.label === 'Scan food') {
+                    const uri = await launchMealCamera();
+                    if (uri) {
+                      router.push({ pathname: '/log-meal', params: { imageUri: uri } });
+                    }
+                  }
+                  if (item.label === 'Log exercise') {
+                    router.push('/log-exercise');
+                  } else if (item.label === 'Saved Foods') {
+                    router.push('/saved-foods');
+                  }
+                }}
+              >
                 <View style={styles.actionBtnIcon}>
                   <Svg width={32} height={32} viewBox="0 0 24 24" fill="none">
                     <Path

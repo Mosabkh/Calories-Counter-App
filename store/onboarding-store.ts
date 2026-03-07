@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { zustandStorage } from './storage';
 import type { ActivityLevel } from '@/utils/calories';
 
 export interface OnboardingPayload {
@@ -42,13 +44,21 @@ interface OnboardingState {
   reset: () => void;
 }
 
-export const useOnboardingStore = create<OnboardingState>((set) => ({
-  currentStep: 1,
-  payload: {},
-  isOnboardingComplete: false,
-  setStep: (step) => set({ currentStep: step }),
-  updatePayload: (data) =>
-    set((state) => ({ payload: { ...state.payload, ...data } })),
-  completeOnboarding: () => set({ isOnboardingComplete: true }),
-  reset: () => set({ currentStep: 1, payload: {}, isOnboardingComplete: false }),
-}));
+export const useOnboardingStore = create<OnboardingState>()(
+  persist(
+    (set) => ({
+      currentStep: 1,
+      payload: {},
+      isOnboardingComplete: false,
+      setStep: (step) => set({ currentStep: step }),
+      updatePayload: (data) =>
+        set((state) => ({ payload: { ...state.payload, ...data } })),
+      completeOnboarding: () => set({ isOnboardingComplete: true }),
+      reset: () => set({ currentStep: 1, payload: {}, isOnboardingComplete: false }),
+    }),
+    {
+      name: 'calobite-onboarding',
+      storage: createJSONStorage(() => zustandStorage),
+    },
+  ),
+);

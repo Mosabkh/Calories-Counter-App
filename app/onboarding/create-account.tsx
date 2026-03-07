@@ -5,9 +5,21 @@ import { Theme } from '@/constants/theme';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
 import { ProgressHeader } from '@/components/onboarding/ProgressHeader';
 import { BouncyView } from '@/components/onboarding/BouncyView';
+import { signInAnonymously } from '@/utils/auth';
 
 export default function CreateAccountScreen() {
   const router = useRouter();
+
+  const handleGoogleSignIn = () => {
+    // TODO: Replace with Supabase Auth Google sign-in when backend is integrated
+    signInAnonymously();
+    router.push('/onboarding/try-free');
+  };
+
+  const handleSkip = () => {
+    signInAnonymously();
+    router.push('/onboarding/try-free');
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -19,13 +31,13 @@ export default function CreateAccountScreen() {
         <OnboardingButton
           title="Sign in with Google"
           variant="outline"
-          onPress={() => router.push('/onboarding/try-free')}
+          onPress={handleGoogleSignIn}
           style={styles.googleBtn}
         />
         <OnboardingButton
           title="Continue without account"
           variant="text"
-          onPress={() => router.push('/onboarding/try-free')}
+          onPress={handleSkip}
         />
       </View>
       </BouncyView>

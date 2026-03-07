@@ -6,10 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 "Calobite" — a React Native calorie tracking app built with Expo SDK 54 and expo-router v6 (file-based routing). Users photograph meals for automatic calorie tracking. The app has a multi-step onboarding flow (26 screens) and a tabbed main interface with home, progress, and profile screens.
 
+## Development Environment
+
+**CRITICAL: Expo Go only.** No Apple Developer account yet — do NOT use native modules that require `expo prebuild` or a development build. Everything must run in Expo Go on physical iPhone and Android devices.
+
 ## Commands
 
-- `npx expo start` — start the dev server
-- `npx expo start --android` / `--ios` / `--web` — start for a specific platform
+- `npx expo start` — start the dev server (use `--clear` to clear Metro cache)
+- `npx expo start --android` / `--ios` — start for a specific platform
 - `npm run lint` (runs `expo lint`) — lint with ESLint flat config
 
 No test runner is configured.
@@ -22,11 +26,56 @@ No test runner is configured.
 - `app/index.tsx` — Entry redirect: sends to `/(tabs)` if onboarding complete, else `/onboarding`
 - `app/onboarding/_layout.tsx` — Stack with `slide_from_right` transitions; 26 screens across 3 phases (Basics, Body & Goals, Lifestyle) plus transitions, plan generation, account creation, and paywall
 - `app/(tabs)/_layout.tsx` — Bottom tabs (home, progress, profile) with `CustomTabBar`
+- Modal screens: `log-meal`, `food-search`, `log-weight`, `log-exercise`, `saved-foods` (slide from bottom)
+- Settings screens: `edit-profile`, `my-goals`, `reminders`, `units`, `help`, `subscription`, `progress-photos` (slide from right)
 
 ### State Management
 
-- Zustand store at `store/onboarding-store.ts` — holds all onboarding data (`OnboardingPayload`) and completion state. Not persisted (resets on app restart).
-- Notable store fields: `weekendDays` is `string[]` (day names), `weeklyGoalSpeed` is number (kg/week), `activityLevel` is `ActivityLevel` type, `startWeight` is the baseline weight set during onboarding (equal to `currentWeight` at time of entry).
+All persistent stores use Zustand with `persist` middleware backed by an in-memory `Map` (`store/storage.ts`). Data does **not** persist across app restarts in current Expo Go setup.
+
+- `store/onboarding-store.ts` — temporary onboarding data (`OnboardingPayload`). Notable fields: `weekendDays` is `string[]` (day names), `weeklyGoalSpeed` is number (kg/week), `activityLevel` is `ActivityLevel` type, `startWeight` equals `currentWeight` at time of entry.
+- `store/user-store.ts` — `UserProfile` (graduated from onboarding) + `AuthState`. Persist key: `calobite-user`.
+- `store/diary-store.ts` — meal entries keyed by `'YYYY-MM-DD'`. Has `getDailySummary()` for totals. `addMeal` auto-triggers streak recording. Persist key: `calobite-diary`.
+- `store/weight-store.ts` — weight log entries sorted by timestamp descending. Persist key: `calobite-weight`.
+- `store/streak-store.ts` — tracks logging streaks via `recordActivity(todayKey)`. Persist key: `calobite-streak`.
+- `store/exercise-store.ts` — exercise entries keyed by date. Persist key: `calobite-exercise`.
+- `store/favorites-store.ts` — saved food IDs + cached `FoodItem` data for online foods. `toggle(id, food?)` caches online items. Persist key: `calobite-favorites`.
+- `store/photo-store.ts` — progress photos sorted by timestamp. Persist key: `calobite-photos`.
+- `store/subscription-store.ts` — subscription state (plan, isActive, expiresAt). Persist key: `calobite-subscription`.
+- `store/reminders-store.ts` — reminder configs per meal + weigh-in (enabled, hour, minute). Persist key: `calobite-reminders`.
+
+### Storage Migration Path
+
+`store/storage.ts` currently uses an in-memory `Map` for Expo Go compatibility. When switching to a development build:
+1. `npm install react-native-mmkv`
+2. Swap the adapter in `storage.ts` (commented-out MMKV code is there)
+3. `npm install react-native-purchases` and add real API keys in `utils/revenue-cat.ts`
+
+### Onboarding Graduation
+
+`utils/graduate-onboarding.ts` copies the onboarding payload into the persistent user store and seeds the initial weight entry. Called once at the end of onboarding. It recalculates BMR/TDEE/macros and handles unit conversions (ft→cm, lb→kg) before persisting.
+
+### Types
+
+- `types/data.ts` — `UserProfile`, `AuthState`, `MealEntry`, `ExerciseEntry`, `DailySummary`, `WeightEntry`, `StreakData`
+- `types/food.ts` — `FoodItem` (per-100g macros, default serving)
+- All date strings use `'YYYY-MM-DD'` format (see `utils/date.ts`)
+
+### Food Search (Hybrid: Offline + Online)
+
+- **Offline**: `data/usda-sr-legacy.json` — USDA SR Legacy dataset (~7,766 whole foods, ~2MB bundled). IDs prefixed `usda_`.
+- **Online**: Open Food Facts API (3M+ packaged foods) via `searchOnline()`. Uses v1 search endpoint (`/cgi/search.pl`), 500ms debounce, 20s timeout, requires `User-Agent` header. IDs prefixed `off_`.
+- `utils/food-search.ts` — `searchFoods()` (local, prefix-biased + multi-word matching), `searchOnline()`, `getFoodById()`, `calculateMacros()`, `getCategories()`, `getFoodsByCategory()`
+- `app/food-search.tsx` — merged results with section headers ("Local Results" / "Online Results"), loading spinner for online, `KeyboardAvoidingView` + `keyboardDismissMode="on-drag"`
+- `store/favorites-store.ts` — saves food IDs + caches full `FoodItem` data for online foods (`off_*`). `toggle()` accepts optional `FoodItem` so online favorites can be resolved later in saved-foods screen.
+
+### Subscriptions (Stubbed)
+
+RevenueCat is fully stubbed for Expo Go — no native SDK is imported. `utils/revenue-cat.ts` returns fake offerings and simulates purchases. Related files:
+- `store/subscription-store.ts` — persisted subscription state
+- `utils/premium.ts` — `isPremium()` and `usePremium()` hook for gating features
+- `app/subscription.tsx` — subscription management screen
+- `app/onboarding/paywall.tsx` — paywall with `StubPackage` types
 
 ### Theming & Styling
 
@@ -39,10 +88,10 @@ No test runner is configured.
 
 ### In-App Screens
 
-- **Home** (`app/(tabs)/index.tsx`): Animated `DonutChart` using `react-native-reanimated` (`Animated.createAnimatedComponent(Circle)` with `useAnimatedProps`). Intro pulse animation via `withSequence`. Goal prediction bar with `interpolateColor` highlight animation delayed after donut completes.
-- **Progress** (`app/(tabs)/progress.tsx`): Weight progress calculated from `startWeight`/`currentWeight`/`targetWeight` (not binary). Encouragement message adapts per `goal` (lose/gain/maintain). BMI visualization with piecewise percent mapping aligned to bar segment flex widths.
-- **Profile** (`app/(tabs)/profile.tsx`): Settings list with `SettingItem` (wrapped in `memo()`).
-- **CustomTabBar** (`components/CustomTabBar.tsx`): SVG-shaped nav bar with FAB button. Uses `useSafeAreaInsets` for dynamic positioning. All positions (container height, nav items, FAB, overlay padding) computed from `safeBottom`. SVG path, viewBox, and height are memoized.
+- **Home** (`app/(tabs)/index.tsx`): Animated `DonutChart` using `react-native-reanimated`. Exercise burned calories adjust target. Uses latest weigh-in for goal prediction. Empty state when no profile.
+- **Progress** (`app/(tabs)/progress.tsx`): Weight chart (SVG polyline), calorie stacked bar chart, streak dots from actual logged days, progress photos with upload, BMI visualization. Empty state when no profile.
+- **Profile** (`app/(tabs)/profile.tsx`): Settings list with `SettingItem` (wrapped in `memo()`). Dynamic subscription badge. Sign out with confirmation.
+- **CustomTabBar** (`components/CustomTabBar.tsx`): SVG-shaped nav bar with FAB button. FAB actions: camera, log exercise, saved foods. Uses `useSafeAreaInsets` for dynamic positioning.
 
 ### BMI Bar Alignment
 
@@ -62,8 +111,15 @@ If you change one, change both.
 - New Architecture enabled (`newArchEnabled: true`)
 - Reusable onboarding components in `components/onboarding/` (ProgressHeader, OnboardingButton, ListButton, CardOption, UnitToggle, ScrollPicker, BouncyView, OnboardingIcon)
 - Shared utilities in `utils/`:
-  - `target-date.ts` — calculates estimated goal date from weight difference and weekly speed
   - `calories.ts` — Mifflin-St Jeor BMR, TDEE, daily calorie target, macro split (activity-scaled protein: 1.2-2.2 g/kg), BMI, age calculation. `calculateDailyCalories` enforces a safety floor (`minCal`) for all goals including maintain.
+  - `date.ts` — date key helpers (`toDateKey`, `yesterdayKey`, `daysAgoKey`, `weekKeys`, `dayLabel`, `inferMealType`). All use local timezone.
+  - `recalculate-targets.ts` — shared utility for edit-profile and my-goals to recalculate BMR/TDEE/macros from profile changes
+  - `graduate-onboarding.ts` — one-time onboarding→persistent store migration
+  - `auth.ts` — auth stubs (`signInAnonymously`, `signOut`); real OAuth deferred to Supabase integration
+  - `food-search.ts` — hybrid food search (USDA offline + Open Food Facts online) and macro calculation
+  - `camera.ts` — camera/image picker utilities
+  - `revenue-cat.ts` — stubbed RevenueCat wrapper
+  - `premium.ts` — premium feature gating
 
 ### ScrollPicker Component
 
@@ -94,6 +150,18 @@ The onboarding path and in-app text adapt based on `goal` (lose/gain/maintain):
 - Data cards (calories, macros, BMI) should have consolidated `accessibilityLabel` combining their values
 - Overlay dismiss pressables need `accessibilityLabel="Close menu"` and `accessibilityRole="button"`
 
+### Zustand Selector Pattern (CRITICAL)
+
+Never call store methods that return new objects inside selectors — this causes infinite re-render loops (`getSnapshot should be cached`). Select raw state and derive with `useMemo`:
+```tsx
+// BAD — creates new object each render, breaks React's snapshot caching:
+const summary = useDiaryStore((s) => s.getDailySummary(date));
+
+// GOOD — select raw data, derive in component:
+const entries = useDiaryStore((s) => s.entries);
+const summary = useMemo(() => /* derive from entries */, [entries, date]);
+```
+
 ### Performance Patterns
 
 - `CustomTabBar`, `SettingItem`, and `DonutChart` are wrapped in `memo()` — preserve this when editing
@@ -105,6 +173,8 @@ The onboarding path and in-app text adapt based on `goal` (lose/gain/maintain):
 ### Known Workarounds
 
 - `expo-notifications` barrel import is broken in SDK 54 (missing `unregisterForNotificationsAsync`). Import directly from `expo-notifications/build/NotificationPermissions` instead.
+- Notification scheduling in `reminders.tsx` is wrapped in try/catch — silently fails in Expo Go.
+- `react-native-mmkv` and `react-native-purchases` are NOT installed — they require NitroModules / native builds incompatible with Expo Go.
 
 ### Design Prototypes
 
