@@ -128,24 +128,31 @@ export default function CustomPlanScreen() {
               <View style={[styles.bmiSegment, { flex: 14, backgroundColor: Theme.colors.infoBlue }]} />
               <View style={[styles.bmiSegment, { flex: 26, backgroundColor: Theme.colors.success }]} />
               <View style={[styles.bmiSegment, { flex: 20, backgroundColor: Theme.colors.warning }]} />
-              <View style={[styles.bmiSegment, { flex: 40, backgroundColor: Theme.colors.calorieAlert }]} />
+              <View style={[styles.bmiSegment, { flex: 13, backgroundColor: Theme.colors.obeseLight }]} />
+              <View style={[styles.bmiSegment, { flex: 14, backgroundColor: Theme.colors.obeseMid }]} />
+              <View style={[styles.bmiSegment, { flex: 13, backgroundColor: Theme.colors.obeseDark }]} />
             </View>
             <View style={[styles.bmiMarker, { left: `${bmiPercent}%` }]}>
               <View style={[styles.bmiMarkerDot, { backgroundColor: bmiColor }]} />
             </View>
           </View>
-          <View style={styles.bmiLabels}>
-            <Text style={styles.bmiLabelText}>15</Text>
-            <Text style={styles.bmiLabelText}>18.5</Text>
-            <Text style={styles.bmiLabelText}>25</Text>
-            <Text style={styles.bmiLabelText}>30</Text>
-            <Text style={styles.bmiLabelText}>40</Text>
-          </View>
           <View style={styles.bmiRangeLabels}>
-            <Text style={[styles.bmiRangeText, { color: Theme.colors.infoBlue }]}>Under</Text>
-            <Text style={[styles.bmiRangeText, { color: Theme.colors.success }]}>Healthy</Text>
-            <Text style={[styles.bmiRangeText, { color: Theme.colors.warningDark }]}>Over</Text>
-            <Text style={[styles.bmiRangeText, { color: Theme.colors.urgentRed }]}>Obese</Text>
+            <View style={[styles.bmiRangeItem, { flex: 20 }]}>
+              <View style={[styles.bmiRangeDot, { backgroundColor: Theme.colors.infoBlue }]} />
+              <Text style={[styles.bmiRangeText, { color: Theme.colors.infoBlue }]}>Underweight</Text>
+            </View>
+            <View style={[styles.bmiRangeItem, { flex: 22 }]}>
+              <View style={[styles.bmiRangeDot, { backgroundColor: Theme.colors.success }]} />
+              <Text style={[styles.bmiRangeText, { color: Theme.colors.success }]}>Healthy</Text>
+            </View>
+            <View style={[styles.bmiRangeItem, { flex: 22 }]}>
+              <View style={[styles.bmiRangeDot, { backgroundColor: Theme.colors.warning }]} />
+              <Text style={[styles.bmiRangeText, { color: Theme.colors.warningDark }]}>Overweight</Text>
+            </View>
+            <View style={[styles.bmiRangeItem, { flex: 36 }]}>
+              <View style={[styles.bmiRangeDot, { backgroundColor: Theme.colors.obeseDark }]} />
+              <Text style={[styles.bmiRangeText, { color: Theme.colors.obeseDark }]}>Obese</Text>
+            </View>
           </View>
         </View>
 
@@ -291,14 +298,14 @@ const styles = StyleSheet.create({
     width: 14, height: 14, borderRadius: 7,
     borderWidth: 2.5, borderColor: Theme.colors.surface,
   },
-  bmiLabels: {
-    flexDirection: 'row', justifyContent: 'space-between',
-  },
-  bmiLabelText: {
-    fontSize: 10, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted,
-  },
   bmiRangeLabels: {
-    flexDirection: 'row', justifyContent: 'space-around', marginTop: 4,
+    flexDirection: 'row', marginTop: 6,
+  },
+  bmiRangeItem: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3,
+  },
+  bmiRangeDot: {
+    width: 6, height: 6, borderRadius: 3,
   },
   bmiRangeText: {
     fontSize: 10, fontFamily: Theme.fonts.semiBold,

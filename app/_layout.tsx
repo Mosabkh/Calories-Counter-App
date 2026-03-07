@@ -39,19 +39,19 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="onboarding" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="log-meal" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="food-search" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="log-weight" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="log-exercise" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="saved-foods" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="progress-photos" options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen name="subscription" options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen name="edit-profile" options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen name="my-goals" options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen name="reminders" options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen name="units" options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen name="help" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+        <Stack.Screen name="log-meal" options={{ presentation: 'modal', animation: 'fade_from_bottom', gestureEnabled: true, fullScreenSwipeEnabled: true }} />
+        <Stack.Screen name="food-search" options={{ presentation: 'modal', animation: 'fade_from_bottom', gestureEnabled: true, fullScreenSwipeEnabled: true }} />
+        <Stack.Screen name="log-weight" options={{ presentation: 'modal', animation: 'fade_from_bottom', gestureEnabled: true, fullScreenSwipeEnabled: true }} />
+        <Stack.Screen name="log-exercise" options={{ presentation: 'modal', animation: 'fade_from_bottom', gestureEnabled: true, fullScreenSwipeEnabled: true }} />
+        <Stack.Screen name="saved-foods" options={{ presentation: 'modal', animation: 'fade_from_bottom', gestureEnabled: true, fullScreenSwipeEnabled: true }} />
+        <Stack.Screen name="progress-photos" options={{ animation: 'fade_from_bottom', gestureEnabled: true, fullScreenSwipeEnabled: true }} />
+        <Stack.Screen name="subscription" options={{ animation: 'fade_from_bottom', gestureEnabled: true, fullScreenSwipeEnabled: true }} />
+        <Stack.Screen name="edit-profile" options={{ animation: 'fade_from_bottom', gestureEnabled: true, fullScreenSwipeEnabled: true }} />
+        <Stack.Screen name="my-goals" options={{ animation: 'fade_from_bottom', gestureEnabled: true, fullScreenSwipeEnabled: true }} />
+        <Stack.Screen name="reminders" options={{ animation: 'fade_from_bottom', gestureEnabled: true, fullScreenSwipeEnabled: true }} />
+        <Stack.Screen name="units" options={{ animation: 'fade_from_bottom', gestureEnabled: true, fullScreenSwipeEnabled: true }} />
+        <Stack.Screen name="help" options={{ animation: 'fade_from_bottom', gestureEnabled: true, fullScreenSwipeEnabled: true }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>
       <StatusBar style="dark" />

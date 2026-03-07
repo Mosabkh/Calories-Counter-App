@@ -89,19 +89,21 @@ RevenueCat is fully stubbed for Expo Go — no native SDK is imported. `utils/re
 ### In-App Screens
 
 - **Home** (`app/(tabs)/index.tsx`): Animated `DonutChart` using `react-native-reanimated`. Exercise burned calories adjust target. Uses latest weigh-in for goal prediction. Empty state when no profile.
-- **Progress** (`app/(tabs)/progress.tsx`): Weight chart (SVG polyline), calorie stacked bar chart, streak dots from actual logged days, progress photos with upload, BMI visualization. Empty state when no profile.
+- **Progress** (`app/(tabs)/progress.tsx`): Time-based weight chart (SVG polyline, points positioned by actual date not index), calorie stacked bar chart, streak dots from actual logged days, progress photos with upload, BMI visualization. Weight chart X-axis projects forward from today; "All time" extends to estimated goal date. Single entry shows horizontal line from Y axis to data point with dot. Year suffix (`'27`) shown on labels crossing into a different year. Empty state when no profile.
 - **Profile** (`app/(tabs)/profile.tsx`): Settings list with `SettingItem` (wrapped in `memo()`). Dynamic subscription badge. Sign out with confirmation.
-- **CustomTabBar** (`components/CustomTabBar.tsx`): SVG-shaped nav bar with FAB button. FAB actions: camera, log exercise, saved foods. Uses `useSafeAreaInsets` for dynamic positioning.
+- **CustomTabBar** (`components/CustomTabBar.tsx`): Clean tab bar with inline centered FAB. Layout: Home | Progress | (+) | Profile. FAB opens overlay with action rows (scan food, food database, log exercise, saved foods). Uses `useSafeAreaInsets` for dynamic bottom padding.
 
 ### BMI Bar Alignment
 
-Both `custom-plan.tsx` and `progress.tsx` use the same piecewise BMI-to-percent mapping. The bar segments use flex ratios `14:26:20:40`, so the percent mapping must match:
+Both `custom-plan.tsx` and `progress.tsx` use the same piecewise BMI-to-percent mapping. The bar segments use flex ratios `14:26:20:13:14:13` (total 100), so the percent mapping must match:
 - Underweight (BMI 10-18.5) → 0-14%
 - Healthy (BMI 18.5-25) → 14-40%
 - Overweight (BMI 25-30) → 40-60%
-- Obese (BMI 30-40) → 60-100%
+- Obese (BMI 30-40) → 60-100% (3 sub-segments: `obeseLight`, `obeseMid`, `obeseDark`)
 
-If you change one, change both.
+Both bars show colored dot legends next to category labels. The onboarding label flex ratios (20:22:22:36) differ from the bar segment ratios to give "Underweight" enough room to render on one line.
+
+If you change the bar segments or percent mapping in one file, change both.
 
 ### Key Conventions
 
@@ -113,6 +115,7 @@ If you change one, change both.
 - Shared utilities in `utils/`:
   - `calories.ts` — Mifflin-St Jeor BMR, TDEE, daily calorie target, macro split (activity-scaled protein: 1.2-2.2 g/kg), BMI, age calculation. `calculateDailyCalories` enforces a safety floor (`minCal`) for all goals including maintain.
   - `date.ts` — date key helpers (`toDateKey`, `yesterdayKey`, `daysAgoKey`, `weekKeys`, `dayLabel`, `inferMealType`). All use local timezone.
+  - `target-date.ts` — `getTargetDate(currentWeight, targetWeight, weeklySpeed)` → formatted target date string. Used by onboarding `custom-plan` and home screen goal prediction.
   - `recalculate-targets.ts` — shared utility for edit-profile and my-goals to recalculate BMR/TDEE/macros from profile changes
   - `graduate-onboarding.ts` — one-time onboarding→persistent store migration
   - `auth.ts` — auth stubs (`signInAnonymously`, `signOut`); real OAuth deferred to Supabase integration

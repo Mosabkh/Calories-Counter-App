@@ -22,11 +22,16 @@ const GOAL_OPTIONS = [
   { value: 'gain' as const, label: 'Gain Weight', emoji: '' },
 ];
 
-const SPEED_OPTIONS = [
-  { value: 0.25, label: '0.25 kg/week', desc: 'Slow & steady' },
-  { value: 0.5, label: '0.5 kg/week', desc: 'Recommended' },
-  { value: 0.75, label: '0.75 kg/week', desc: 'Moderate' },
-  { value: 1.0, label: '1.0 kg/week', desc: 'Aggressive' },
+const LOSE_SPEED_OPTIONS = [
+  { value: 0.5, label: '0.5 kg/week', lbLabel: '1.1 lb/week', desc: 'Slow & steady' },
+  { value: 1.0, label: '1.0 kg/week', lbLabel: '2.2 lb/week', desc: 'Recommended' },
+  { value: 1.5, label: '1.5 kg/week', lbLabel: '3.3 lb/week', desc: 'Aggressive' },
+];
+
+const GAIN_SPEED_OPTIONS = [
+  { value: 0.25, label: '0.25 kg/week', lbLabel: '0.55 lb/week', desc: 'Lean gain' },
+  { value: 0.5, label: '0.5 kg/week', lbLabel: '1.1 lb/week', desc: 'Recommended' },
+  { value: 0.75, label: '0.75 kg/week', lbLabel: '1.65 lb/week', desc: 'Aggressive' },
 ];
 
 export default function MyGoalsScreen() {
@@ -40,6 +45,17 @@ export default function MyGoalsScreen() {
 
   const unit = profile?.weightUnit ?? 'kg';
   const isMaintain = goal === 'maintain';
+  const speedOptions = goal === 'gain' ? GAIN_SPEED_OPTIONS : LOSE_SPEED_OPTIONS;
+
+  const handleGoalChange = useCallback((newGoal: 'lose' | 'maintain' | 'gain') => {
+    setGoal(newGoal);
+    // Reset speed to the "Recommended" middle option for the new goal
+    if (newGoal === 'gain') {
+      setSpeed(0.5);
+    } else if (newGoal === 'lose') {
+      setSpeed(1.0);
+    }
+  }, []);
 
   const handleSave = useCallback(() => {
     if (!profile) return;
@@ -94,7 +110,7 @@ export default function MyGoalsScreen() {
               <TouchableOpacity
                 key={opt.value}
                 style={[styles.goalRow, goal === opt.value && styles.goalRowActive]}
-                onPress={() => setGoal(opt.value)}
+                onPress={() => handleGoalChange(opt.value)}
                 accessibilityRole="radio"
                 accessibilityState={{ selected: goal === opt.value }}
               >
@@ -126,7 +142,7 @@ export default function MyGoalsScreen() {
             <>
               <Text style={styles.label}>Weekly Goal Speed</Text>
               <View style={styles.speedList}>
-                {SPEED_OPTIONS.map((opt) => (
+                {speedOptions.map((opt) => (
                   <TouchableOpacity
                     key={opt.value}
                     style={[styles.speedRow, speed === opt.value && styles.speedRowActive]}
@@ -137,7 +153,7 @@ export default function MyGoalsScreen() {
                     <View style={styles.speedLeft}>
                       <View style={[styles.radio, speed === opt.value && styles.radioActive]} />
                       <Text style={[styles.speedLabel, speed === opt.value && styles.speedLabelActive]}>
-                        {opt.label}
+                        {unit === 'lb' ? opt.lbLabel : opt.label}
                       </Text>
                     </View>
                     <Text style={styles.speedDesc}>{opt.desc}</Text>

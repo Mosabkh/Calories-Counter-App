@@ -1,5 +1,5 @@
 import { useState, memo, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Pressable, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Svg, { Path, Line } from 'react-native-svg';
@@ -9,59 +9,57 @@ import Animated, {
   withSpring,
   FadeIn,
   FadeOut,
-  FadeInUp,
 } from 'react-native-reanimated';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Theme } from '@/constants/theme';
 import { launchMealCamera } from '@/utils/camera';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
 type TabBarProps = BottomTabBarProps;
 
 const TAB_ICONS = {
   index: {
-    viewBox: '0 0 24 24',
-    paths: [
-      'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
-    ],
+    paths: ['M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'],
+    extraPath: 'M9 22L9 12L15 12L15 22',
   },
   progress: {
-    viewBox: '0 0 24 24',
     paths: ['M22 12L18 12L15 21L9 3L6 12L2 12'],
+    extraPath: null,
   },
   profile: {
-    viewBox: '0 0 24 24',
-    paths: [
-      'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2',
-    ],
+    paths: ['M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'],
+    extraPath: 'M12 11A4 4 0 1 0 12 3A4 4 0 0 0 12 11Z',
   },
-} as const satisfies Record<string, { viewBox: string; paths: string[] }>;
+} as const;
 
 type TabName = keyof typeof TAB_ICONS;
 
 const TAB_NAMES: TabName[] = ['index', 'progress', 'profile'];
+const TAB_LABELS: Record<TabName, string> = { index: 'Home', progress: 'Progress', profile: 'Profile' };
 
 const isValidTabName = (name: string): name is TabName => name in TAB_ICONS;
 
 const ACTION_ITEMS = [
+  {
+    label: 'Scan food',
+    iconPath: 'M4 7V4h3M4 17v3h3M20 7V4h-3M20 17v3h-3',
+  },
   {
     label: 'Food database',
     iconPath: 'M21 21L16.65 16.65M11 19A8 8 0 1 0 11 3A8 8 0 0 0 11 19Z',
   },
   {
     label: 'Log exercise',
-    iconPath: 'M12 20h9M16.5 14c-1.5-1.5-3-3-3-3l-2.5 2.5',
+    iconPath: 'M18 6L6 18M6 8V6h2M18 16v2h-2',
   },
   {
-    label: 'Scan food',
-    iconPath: 'M4 7V4h3M4 17v3h3M20 7V4h-3M20 17v3h-3',
-  },
-  {
-    label: 'Saved Foods',
+    label: 'Saved foods',
     iconPath: 'M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z',
   },
 ];
+
+const FAB_SIZE = 50;
+
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
   const router = useRouter();
@@ -71,17 +69,14 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
   const safeBottom = Math.max(bottomInset, 10);
 
   const dynamicStyles = useMemo(() => ({
-    container: { height: 75 + safeBottom } as const,
-    navItems: { bottom: safeBottom } as const,
-    fab: { bottom: 22 + safeBottom } as const,
-    navBg: { bottom: -5, height: 85 + safeBottom } as const,
-    overlay: { paddingBottom: 105 + safeBottom } as const,
+    bar: { paddingBottom: safeBottom } as const,
+    overlay: { paddingBottom: 70 + safeBottom } as const,
   }), [safeBottom]);
 
   const toggleOverlay = useCallback(() => {
     setShowOverlay((prev) => {
       const next = !prev;
-      fabRotation.value = withSpring(next ? 45 : 0, { damping: 15 });
+      fabRotation.value = withSpring(next ? 45 : 0, { damping: 12, stiffness: 180 });
       return next;
     });
   }, [fabRotation]);
@@ -90,14 +85,66 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
     transform: [{ rotate: `${fabRotation.value}deg` }],
   }));
 
-  const { svgHeight, svgViewBox, svgPath } = useMemo(() => {
-    const h = 85 + safeBottom;
-    return {
-      svgHeight: h,
-      svgViewBox: `0 0 320 ${h}`,
-      svgPath: `M 0,25 C 0,12 12,0 25,0 L 200,0 C 218,0 218,48 257.5,48 C 297,48 297,0 315,0 L 320,0 L 320,${h} L 0,${h} Z`,
-    };
-  }, [safeBottom]);
+  const handleAction = useCallback(async (label: string) => {
+    toggleOverlay();
+    if (label === 'Food database') {
+      router.push('/food-search');
+    } else if (label === 'Scan food') {
+      const uri = await launchMealCamera();
+      if (uri) {
+        router.push({ pathname: '/log-meal', params: { imageUri: uri } });
+      }
+    } else if (label === 'Log exercise') {
+      router.push('/log-exercise');
+    } else if (label === 'Saved foods') {
+      router.push('/saved-foods');
+    }
+  }, [toggleOverlay, router]);
+
+  const renderTab = useCallback((route: (typeof state.routes)[number], index: number) => {
+    const isFocused = state.index === index;
+    const rawName = TAB_NAMES[index] ?? route.name;
+    const tabName: TabName = isValidTabName(rawName) ? rawName : 'index';
+    const icon = TAB_ICONS[tabName];
+    const label = TAB_LABELS[tabName] ?? route.name;
+
+    return (
+      <TouchableOpacity
+        key={route.key}
+        onPress={() => {
+          if (!isFocused) navigation.navigate(route.name);
+        }}
+        style={styles.tabItem}
+        activeOpacity={0.7}
+        accessibilityLabel={`${label} tab`}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: isFocused }}>
+        <View style={styles.iconWrap}>
+          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" accessible={false}>
+            <Path
+              d={icon.paths[0]}
+              stroke={isFocused ? Theme.colors.primary : Theme.colors.textMuted}
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            {icon.extraPath && (
+              <Path
+                d={icon.extraPath}
+                stroke={isFocused ? Theme.colors.primary : Theme.colors.textMuted}
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
+          </Svg>
+        </View>
+        <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
+          {label}
+        </Text>
+      </TouchableOpacity>
+    );
+  }, [state, navigation]);
 
   return (
     <>
@@ -105,144 +152,82 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
         <Animated.View
           entering={FadeIn.duration(200)}
           exiting={FadeOut.duration(150)}
-          style={[styles.overlayBg, dynamicStyles.overlay]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={toggleOverlay} accessible={true} accessibilityLabel="Close menu" accessibilityRole="button" />
-          <Animated.View
-            entering={FadeInUp.duration(300)}
-            style={styles.actionGrid}>
-            {ACTION_ITEMS.map((item) => (
-              <TouchableOpacity
+          style={styles.overlayBg}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={toggleOverlay}
+            accessible={true}
+            accessibilityLabel="Close menu"
+            accessibilityRole="button"
+          />
+          <View style={[styles.actionColumn, dynamicStyles.overlay]}>
+            {ACTION_ITEMS.map((item, i) => (
+              <AnimatedTouchable
                 key={item.label}
-                style={styles.actionBtn}
+                entering={FadeIn.delay(i * 50).duration(200).withInitialValues({ transform: [{ translateY: 20 }] })}
+                style={styles.actionRow}
                 activeOpacity={0.8}
                 accessibilityLabel={item.label}
                 accessibilityRole="button"
-                onPress={async () => {
-                  toggleOverlay();
-                  if (item.label === 'Food database') {
-                    router.push('/food-search');
-                  } else if (item.label === 'Scan food') {
-                    const uri = await launchMealCamera();
-                    if (uri) {
-                      router.push({ pathname: '/log-meal', params: { imageUri: uri } });
-                    }
-                  }
-                  if (item.label === 'Log exercise') {
-                    router.push('/log-exercise');
-                  } else if (item.label === 'Saved Foods') {
-                    router.push('/saved-foods');
-                  }
-                }}
+                onPress={() => handleAction(item.label)}
               >
-                <View style={styles.actionBtnIcon}>
-                  <Svg width={32} height={32} viewBox="0 0 24 24" fill="none">
+                <View style={styles.actionIcon}>
+                  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
                     <Path
                       d={item.iconPath}
-                      stroke={Theme.colors.textDark}
+                      stroke={Theme.colors.white}
                       strokeWidth={2.5}
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     />
                   </Svg>
                 </View>
-                <Text style={styles.actionBtnText}>{item.label}</Text>
-              </TouchableOpacity>
+                <Text style={styles.actionLabel}>{item.label}</Text>
+              </AnimatedTouchable>
             ))}
-          </Animated.View>
+          </View>
         </Animated.View>
       )}
 
-      <View style={[styles.container, dynamicStyles.container, showOverlay && styles.containerOnTop]}>
-        {/* Shadow layer */}
-        <View style={[styles.shadowLayer, dynamicStyles.navBg]} />
-        <Svg
-          width={SCREEN_WIDTH}
-          height={svgHeight}
-          viewBox={svgViewBox}
-          preserveAspectRatio="none"
-          style={[styles.navBg, dynamicStyles.navBg]}
-          accessible={false}>
-          <Path
-            d={svgPath}
-            fill={Theme.colors.accentBackground}
-          />
-        </Svg>
+      <View style={[styles.container, showOverlay && styles.containerOnTop]}>
+        <View style={[styles.bar, dynamicStyles.bar]}>
+          {/* Home */}
+          {renderTab(state.routes[0], 0)}
 
-        <View style={[styles.navItems, dynamicStyles.navItems]}>
-          {state.routes.map((route, index) => {
-            const isFocused = state.index === index;
-            const rawName = TAB_NAMES[index] ?? route.name;
-            const tabName: TabName = isValidTabName(rawName) ? rawName : 'index';
-            const label = route.name === 'index' ? 'Home' : route.name.charAt(0).toUpperCase() + route.name.slice(1);
+          {/* Progress */}
+          {renderTab(state.routes[1], 1)}
 
-            return (
+          {/* Center FAB as inline tab item */}
+          <View style={styles.fabSlot}>
+            <Animated.View style={[styles.fab, fabAnimatedStyle, showOverlay && styles.fabActive]}>
               <TouchableOpacity
-                key={route.key}
-                onPress={() => {
-                  if (!isFocused) {
-                    navigation.navigate(route.name);
-                  }
-                }}
-                style={styles.navItem}
-                activeOpacity={0.7}
-                accessibilityLabel={`${label} tab`}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: isFocused }}>
-                <View style={styles.navIconContainer}>
-                  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d={TAB_ICONS[tabName]?.paths?.[0] ?? ''}
-                      stroke={isFocused ? Theme.colors.primary : Theme.colors.textMuted}
-                      strokeWidth={2.5}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    {tabName === 'profile' && (
-                      <Path
-                        d="M12 11A4 4 0 1 0 12 3A4 4 0 0 0 12 11Z"
-                        stroke={isFocused ? Theme.colors.primary : Theme.colors.textMuted}
-                        strokeWidth={2.5}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    )}
-                    {tabName === 'index' && (
-                      <Path
-                        d="M9 22L9 12L15 12L15 22"
-                        stroke={isFocused ? Theme.colors.primary : Theme.colors.textMuted}
-                        strokeWidth={2.5}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    )}
-                  </Svg>
-                </View>
-                <Text style={[styles.navLabel, isFocused && styles.navLabelActive]}>
-                  {label}
-                </Text>
+                onPress={toggleOverlay}
+                activeOpacity={0.8}
+                style={styles.fabInner}
+                accessibilityLabel={showOverlay ? 'Close menu' : 'Add item'}
+                accessibilityRole="button"
+                accessibilityHint="Opens menu with food logging options">
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" accessible={false}>
+                  <Line
+                    x1={12} y1={5} x2={12} y2={19}
+                    stroke={showOverlay ? Theme.colors.textDark : Theme.colors.white}
+                    strokeWidth={2.5}
+                    strokeLinecap="round"
+                  />
+                  <Line
+                    x1={5} y1={12} x2={19} y2={12}
+                    stroke={showOverlay ? Theme.colors.textDark : Theme.colors.white}
+                    strokeWidth={2.5}
+                    strokeLinecap="round"
+                  />
+                </Svg>
               </TouchableOpacity>
-            );
-          })}
-        </View>
+            </Animated.View>
+          </View>
 
-        <Animated.View style={[styles.fab, dynamicStyles.fab, fabAnimatedStyle, showOverlay && styles.fabActive]}>
-          <TouchableOpacity onPress={toggleOverlay} activeOpacity={0.8} style={styles.fabInner} accessibilityLabel={showOverlay ? 'Close menu' : 'Add item'} accessibilityRole="button" accessibilityHint="Opens menu with food logging options">
-            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-              <Line
-                x1={12} y1={5} x2={12} y2={19}
-                stroke={showOverlay ? Theme.colors.textDark : Theme.colors.white}
-                strokeWidth={2.5}
-                strokeLinecap="round"
-              />
-              <Line
-                x1={5} y1={12} x2={19} y2={12}
-                stroke={showOverlay ? Theme.colors.textDark : Theme.colors.white}
-                strokeWidth={2.5}
-                strokeLinecap="round"
-              />
-            </Svg>
-          </TouchableOpacity>
-        </Animated.View>
+          {/* Profile */}
+          {renderTab(state.routes[2], 2)}
+        </View>
       </View>
     </>
   );
@@ -259,73 +244,71 @@ const styles = StyleSheet.create({
   containerOnTop: {
     zIndex: 30,
   },
-  navBg: {
-    position: 'absolute',
-    left: 0,
-  },
-  shadowLayer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    borderTopLeftRadius: 25,
-    backgroundColor: Theme.colors.accentBackground,
-    shadowColor: Theme.colors.textDark,
-    shadowOffset: { width: 0, height: -8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 15,
-    elevation: 12,
-  },
-  navItems: {
-    position: 'absolute',
-    left: 0,
-    width: '75%',
-    height: 60,
+  bar: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    zIndex: 2,
-    paddingHorizontal: 10,
+    alignItems: 'flex-end',
+    backgroundColor: Theme.colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 10,
+    shadowColor: Theme.colors.textDark,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 10,
   },
-  navItem: {
+  tabItem: {
+    flex: 1,
     alignItems: 'center',
-    gap: 4,
+    paddingVertical: 8,
+    gap: 3,
   },
-  navIconContainer: {
-    width: 22,
-    height: 22,
+  iconWrap: {
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  navLabel: {
-    fontSize: 10,
-    fontFamily: Theme.fonts.extraBold,
+  tabLabel: {
+    fontSize: 11,
+    fontFamily: Theme.fonts.semiBold,
     color: Theme.colors.textMuted,
   },
-  navLabelActive: {
+  tabLabelActive: {
     color: Theme.colors.primary,
+    fontFamily: Theme.fonts.extraBold,
+  },
+
+  // FAB inline slot
+  fabSlot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 8,
   },
   fab: {
-    position: 'absolute',
-    right: 25,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Theme.colors.textDark,
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    borderRadius: FAB_SIZE / 2,
+    backgroundColor: Theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Theme.colors.textDark,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 8,
-    zIndex: 3,
+    marginBottom: 6,
+    shadowColor: Theme.colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   fabActive: {
-    backgroundColor: Theme.colors.accentBackground,
+    backgroundColor: Theme.colors.surface,
     borderWidth: 2,
     borderColor: Theme.colors.border,
-    shadowOpacity: 0,
-    elevation: 0,
+    shadowColor: Theme.colors.textDark,
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 3,
   },
   fabInner: {
     width: '100%',
@@ -344,35 +327,36 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.overlay,
     zIndex: 20,
     justifyContent: 'flex-end',
-    paddingHorizontal: 20,
-  },
-  actionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 15,
-  },
-  actionBtn: {
-    width: '47%',
-    backgroundColor: Theme.colors.surface,
-    borderRadius: Theme.borderRadius.card,
-    paddingVertical: 25,
-    paddingHorizontal: 15,
     alignItems: 'center',
-    gap: 12,
+  },
+  actionColumn: {
+    alignItems: 'center',
+    gap: 10,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.textDark,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 22,
+    gap: 14,
+    width: 200,
     shadowColor: Theme.colors.textDark,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 25,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  actionBtnIcon: {
-    width: 32,
-    height: 32,
+  actionIcon: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  actionBtnText: {
-    fontSize: 14,
-    fontFamily: Theme.fonts.extraBold,
-    color: Theme.colors.textDark,
-    textAlign: 'center',
+  actionLabel: {
+    fontSize: 15,
+    fontFamily: Theme.fonts.bold,
+    color: Theme.colors.white,
   },
 });

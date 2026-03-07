@@ -10,9 +10,11 @@ import Animated, {
   withTiming,
   withSequence,
   withDelay,
+  withSpring,
+  withRepeat,
+  interpolate,
   interpolateColor,
   Easing,
-  FadeInUp,
 } from 'react-native-reanimated';
 import { Theme } from '@/constants/theme';
 import { useUserStore } from '@/store/user-store';
@@ -174,19 +176,58 @@ export default function HomeScreen() {
     return { weight: `${profile.targetWeight} ${profile.weightUnit}`, date: dateStr };
   }, [profile, latestWeight]);
 
-  // Goal prediction bar highlight animation
-  const highlightAnim = useSharedValue(0);
+  // Goal prediction bar — celebrative entrance
+  const goalEntry = useSharedValue(0);
+  const goalScale = useSharedValue(0);
+  const goalGlow = useSharedValue(0);
+  const goalShimmer = useSharedValue(0);
+
   useEffect(() => {
     if (goalDateLabel) {
-      highlightAnim.value = withDelay(1500, withTiming(1, { duration: 1200, easing: Easing.out(Easing.cubic) }));
+      // 1. Bounce in from below
+      goalScale.value = withDelay(1200, withSpring(1, { damping: 10, stiffness: 120, mass: 0.8 }));
+      goalEntry.value = withDelay(1200, withSpring(1, { damping: 12, stiffness: 100 }));
+      // 2. Glow pulse after arrival
+      goalGlow.value = withDelay(1800,
+        withSequence(
+          withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) }),
+          withTiming(0.3, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.6, { duration: 500, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+        ),
+      );
+      // 3. Shimmer sweep across text
+      goalShimmer.value = withDelay(2000,
+        withRepeat(
+          withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+          2,
+          false,
+        ),
+      );
     }
-  }, [goalDateLabel, highlightAnim]);
+  }, [goalDateLabel, goalEntry, goalScale, goalGlow, goalShimmer]);
 
+  const goalBarStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(goalEntry.value, [0, 0.5, 1], [0, 0.8, 1]),
+    transform: [
+      { translateY: interpolate(goalEntry.value, [0, 1], [30, 0]) },
+      { scale: interpolate(goalScale.value, [0, 1], [0.9, 1]) },
+    ],
+  }));
+  const goalGlowStyle = useAnimatedStyle(() => ({
+    shadowOpacity: interpolate(goalGlow.value, [0, 1], [0.03, 0.25]),
+    shadowRadius: interpolate(goalGlow.value, [0, 1], [10, 30]),
+    borderColor: interpolateColor(goalGlow.value, [0, 0.5, 1], [Theme.colors.border, Theme.colors.primary, Theme.colors.primary]),
+  }));
   const goalTextStyle = useAnimatedStyle(() => ({
-    color: interpolateColor(highlightAnim.value, [0, 1], [Theme.colors.primary, Theme.colors.textMuted]),
+    color: interpolateColor(goalShimmer.value, [0, 0.4, 0.6, 1], [
+      Theme.colors.textMuted, Theme.colors.primary, Theme.colors.primary, Theme.colors.textMuted,
+    ]),
   }));
   const goalBoldTextStyle = useAnimatedStyle(() => ({
-    color: interpolateColor(highlightAnim.value, [0, 1], [Theme.colors.calorieAlert, Theme.colors.textDark]),
+    color: interpolateColor(goalShimmer.value, [0, 0.4, 0.6, 1], [
+      Theme.colors.textDark, Theme.colors.calorieAlert, Theme.colors.calorieAlert, Theme.colors.textDark,
+    ]),
   }));
 
   const greeting = profile?.name ? `Hi, ${profile.name}` : 'Hi there';
@@ -223,8 +264,9 @@ export default function HomeScreen() {
           </View>
           <View style={styles.streakPill} accessible={true} accessibilityLabel={`${streakCount} day streak`}>
             <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" accessible={false}>
-              <Path d="M12 2c0 0-3 3.5-3 5.5s1.5 3.5 3 3.5s3-1.5 3-3.5S12 2 12 2z" stroke={Theme.colors.calorieAlert} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
-              <Path d="M12 22c4.418 0 8-3.582 8-8c0-2.209-1-4.109-2.5-5.5C16 11 14 13 12 13s-4-2-5.5-4.5C5 9.891 4 11.791 4 14c0 4.418 3.582 8 8 8z" stroke={Theme.colors.calorieAlert} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+              <Circle cx={12} cy={8} r={6} stroke={Theme.colors.warning} strokeWidth={2.5} />
+              <Path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12" stroke={Theme.colors.warning} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+              <Path d="M12 5v6M9 8h6" stroke={Theme.colors.warning} strokeWidth={2.5} strokeLinecap="round" />
             </Svg>
             <Text style={styles.streakText}>{streakCount}</Text>
           </View>
@@ -313,7 +355,7 @@ export default function HomeScreen() {
 
         {/* Goal Prediction */}
         {goalDateLabel && (
-          <Animated.View entering={FadeInUp.delay(1500).duration(500)} style={styles.goalPredictionBar} accessible={true} accessibilityLabel={`You will reach ${goalDateLabel.weight} by ${goalDateLabel.date}`}>
+          <Animated.View style={[styles.goalPredictionBar, goalBarStyle, goalGlowStyle]} accessible={true} accessibilityLabel={`You will reach ${goalDateLabel.weight} by ${goalDateLabel.date}`}>
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
               <Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" stroke={Theme.colors.calorieAlert} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
               <Line x1={4} y1={22} x2={4} y2={15} stroke={Theme.colors.calorieAlert} strokeWidth={2.5} strokeLinecap="round" />

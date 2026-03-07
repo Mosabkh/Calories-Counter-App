@@ -12,7 +12,7 @@ import { useWeightStore } from '@/store/weight-store';
 import { useStreakStore } from '@/store/streak-store';
 import { useDiaryStore } from '@/store/diary-store';
 import { usePhotoStore } from '@/store/photo-store';
-import { toDateKey, daysAgoKey, weekKeys, dayLabel, daysBetween } from '@/utils/date';
+import { toDateKey, weekKeys, dayLabel, daysBetween } from '@/utils/date';
 import { calculateBMI, getBMICategory } from '@/utils/calories';
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -41,7 +41,7 @@ const BMI_LEGEND = [
   { label: 'Underweight', color: Theme.colors.infoBlue },
   { label: 'Healthy', color: Theme.colors.success },
   { label: 'Overweight', color: Theme.colors.warning },
-  { label: 'Obese', color: Theme.colors.calorieAlert },
+  { label: 'Obese', color: Theme.colors.obeseDark },
 ];
 
 const MACRO_LEGEND = [
@@ -66,24 +66,46 @@ function yAxisLabels(min: number, max: number, decimals = 1): string[] {
   return Array.from({ length: 5 }, (_, i) => (max - i * step).toFixed(decimals));
 }
 
-/** Convert weight entries to an SVG polyline points string. */
-function toPolylinePoints(
+function dateToMs(dateKey: string): number {
+  return new Date(dateKey + 'T00:00:00').getTime();
+}
+
+/** Convert weight entries to SVG points, positioned by actual date within the time range. */
+function toChartPoints(
   entries: { date: string; weight: number }[],
   min: number,
   max: number,
-): string {
-  if (entries.length === 0) return '';
+  startMs: number,
+  endMs: number,
+): { points: string; singlePoint: { x: number; y: number } | null } {
+  if (entries.length === 0) return { points: '', singlePoint: null };
+  const range = endMs - startMs || 1;
+
   if (entries.length === 1) {
+    const xRatio = (dateToMs(entries[0].date) - startMs) / range;
+    const x = Math.max(12, Math.min(CHART_W - 5, xRatio * CHART_W));
     const y = max === min ? CHART_H / 2 : CHART_H - ((entries[0].weight - min) / (max - min)) * CHART_H;
-    return `0,${y} ${CHART_W},${y}`;
+    return { points: `0,${y} ${x},${y}`, singlePoint: { x, y } };
   }
-  return entries
-    .map((e, i) => {
-      const x = (i / (entries.length - 1)) * CHART_W;
+
+  const points = entries
+    .map((e) => {
+      const x = ((dateToMs(e.date) - startMs) / range) * CHART_W;
       const y = max === min ? CHART_H / 2 : CHART_H - ((e.weight - min) / (max - min)) * CHART_H;
       return `${x},${y}`;
     })
     .join(' ');
+  return { points, singlePoint: null };
+}
+
+/** Generate ~5 evenly spaced date labels across a time range. */
+function buildTimeXLabels(startMs: number, endMs: number): string[] {
+  const count = 5;
+  const step = (endMs - startMs) / (count - 1);
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date(startMs + i * step);
+    return formatShortDate(toDateKey(d));
+  });
 }
 
 // ── Component ──────────────────────────────────────────────────────
@@ -168,11 +190,32 @@ export default function ProgressScreen() {
 
   const weightChartData = useMemo(() => {
     const days = TIME_TAB_DAYS[timeTab];
-    const startKey = days === Infinity ? '' : daysAgoKey(days);
+    const today = new Date();
+    const todayKey = toDateKey(today);
+    const todayMs = dateToMs(todayKey);
 
-    const filtered = days === Infinity
-      ? [...allWeightEntries].reverse() // oldest first
-      : allWeightEntries.filter((e) => e.date >= startKey).reverse();
+    // Time range: today → future (today + N days)
+    const startMs = todayMs;
+    let endMs: number;
+    if (days === Infinity) {
+      // All time: project to estimated goal date, or at least 90 days
+      let goalDays = 90;
+      if (profile && profile.goal !== 'maintain' && profile.weeklyGoalSpeed > 0) {
+        const cw = latestWeight?.weight ?? profile.startWeight;
+        const diff = Math.abs(cw - profile.targetWeight);
+        goalDays = Math.max(90, Math.ceil(diff / profile.weeklyGoalSpeed) * 7);
+      }
+      endMs = todayMs + goalDays * 86400000;
+    } else {
+      const endDate = new Date(today);
+      endDate.setDate(endDate.getDate() + days);
+      endMs = dateToMs(toDateKey(endDate));
+    }
+
+    // Filter entries from today onward
+    const filtered = allWeightEntries
+      .filter((e) => e.date >= todayKey)
+      .reverse(); // oldest first
 
     if (filtered.length === 0) return null;
 
@@ -183,13 +226,15 @@ export default function ProgressScreen() {
     const chartMin = min - padding;
     const chartMax = max + padding;
 
+    const chart = toChartPoints(filtered, chartMin, chartMax, startMs, endMs);
     return {
-      points: toPolylinePoints(filtered, chartMin, chartMax),
+      points: chart.points,
+      singlePoint: chart.singlePoint,
       yLabels: yAxisLabels(chartMin, chartMax),
-      xLabels: buildWeightXLabels(filtered),
+      xLabels: buildTimeXLabels(startMs, endMs),
       count: filtered.length,
     };
-  }, [allWeightEntries, timeTab]);
+  }, [allWeightEntries, timeTab, profile, latestWeight]);
 
   // ── #13 Calorie chart data (filtered by week tab) ───────────────
 
@@ -309,7 +354,7 @@ export default function ProgressScreen() {
         {/* Goal Progress / Weight Chart */}
         <View style={styles.chartCard}>
           <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle} accessibilityRole="header">Goal Progress</Text>
+            <Text style={styles.chartTitle} accessibilityRole="header">Weight Progress</Text>
             <View style={styles.flagPill}>
               <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" accessible={false}>
                 <Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" stroke={Theme.colors.textDark} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
@@ -340,6 +385,14 @@ export default function ProgressScreen() {
                   strokeLinejoin="round"
                   strokeLinecap="round"
                 />
+                {weightChartData.singlePoint && (
+                  <Circle
+                    cx={weightChartData.singlePoint.x}
+                    cy={weightChartData.singlePoint.y}
+                    r={4}
+                    fill={Theme.colors.primary}
+                  />
+                )}
               </Svg>
             ) : (
               <View style={styles.emptyChartOverlay}>
@@ -348,7 +401,7 @@ export default function ProgressScreen() {
             )}
           </View>
           {weightChartData && weightChartData.xLabels.length > 0 && (
-            <View style={styles.xAxis}>
+            <View style={[styles.xAxis, styles.weightXAxis]}>
               {weightChartData.xLabels.map((label, i) => (
                 <Text key={`wx-${i}`} style={styles.xLabel}>{label}</Text>
               ))}
@@ -491,7 +544,9 @@ export default function ProgressScreen() {
               <View style={[styles.bmiSegment, { flex: 14, backgroundColor: Theme.colors.infoBlue }]} />
               <View style={[styles.bmiSegment, { flex: 26, backgroundColor: Theme.colors.success }]} />
               <View style={[styles.bmiSegment, { flex: 20, backgroundColor: Theme.colors.warning }]} />
-              <View style={[styles.bmiSegment, { flex: 40, backgroundColor: Theme.colors.calorieAlert }]} />
+              <View style={[styles.bmiSegment, { flex: 13, backgroundColor: Theme.colors.obeseLight }]} />
+              <View style={[styles.bmiSegment, { flex: 14, backgroundColor: Theme.colors.obeseMid }]} />
+              <View style={[styles.bmiSegment, { flex: 13, backgroundColor: Theme.colors.obeseDark }]} />
             </View>
             <View style={[styles.bmiIndicator, bmiIndicatorStyle]} />
           </View>
@@ -511,23 +566,14 @@ export default function ProgressScreen() {
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-function buildWeightXLabels(entries: { date: string }[]): string[] {
-  if (entries.length === 0) return [];
-  if (entries.length <= 5) return entries.map((e) => formatShortDate(e.date));
-  // Pick ~5 evenly spaced labels
-  const labels: string[] = [];
-  const step = (entries.length - 1) / 4;
-  for (let i = 0; i < 5; i++) {
-    const idx = Math.round(i * step);
-    labels.push(formatShortDate(entries[idx].date));
-  }
-  return labels;
-}
+
+const CURRENT_YEAR = new Date().getFullYear();
 
 function formatShortDate(dateKey: string): string {
   const d = new Date(dateKey + 'T00:00:00');
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${months[d.getMonth()]} ${d.getDate()}`;
+  const base = `${months[d.getMonth()]} ${d.getDate()}`;
+  return d.getFullYear() !== CURRENT_YEAR ? `${base} '${String(d.getFullYear()).slice(2)}` : base;
 }
 
 // ── Styles ─────────────────────────────────────────────────────────
@@ -633,6 +679,7 @@ const styles = StyleSheet.create({
 
   // X axis
   xAxis: { flexDirection: 'row', justifyContent: 'space-between', marginLeft: 35, marginTop: 5 },
+  weightXAxis: { paddingLeft: 6 },
   xLabel: { fontSize: 9, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
 
   // Photo
@@ -670,9 +717,9 @@ const styles = StyleSheet.create({
   },
 
   // BMI
-  bmiHeader: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginBottom: 15 },
-  bmiValue: { fontSize: 28, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark, lineHeight: 34 },
-  bmiLabel: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted, marginBottom: 4 },
+  bmiHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 15, flexWrap: 'wrap' },
+  bmiValue: { fontSize: 28, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
+  bmiLabel: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
   bmiBadge: {
     backgroundColor: Theme.colors.calorieAlert, paddingHorizontal: 10, paddingVertical: 4, borderRadius: Theme.borderRadius.small,
   },
