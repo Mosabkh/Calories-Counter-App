@@ -298,6 +298,24 @@ export default function ProgressScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle} accessibilityRole="header">Progress</Text>
+          <TouchableOpacity
+            style={styles.profileBtn}
+            onPress={() => router.push('/(tabs)/profile')}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="Profile"
+            accessibilityRole="button"
+          >
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
+              <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke={Theme.colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+              <Circle cx={12} cy={7} r={4} stroke={Theme.colors.primary} strokeWidth={2.5} />
+            </Svg>
+          </TouchableOpacity>
+        </View>
+
         {/* Top Cards */}
         <View style={styles.topCards}>
           {/* Weight Card */}
@@ -582,6 +600,30 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Theme.colors.accentBackground },
   container: { flex: 1, backgroundColor: Theme.colors.background, paddingHorizontal: 20 },
   scrollContent: { paddingBottom: 120 },
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 5,
+    marginBottom: 5,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontFamily: Theme.fonts.extraBold,
+    color: Theme.colors.textDark,
+  },
+  profileBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Theme.colors.accentBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Theme.colors.primary,
+  },
 
   // Top cards
   topCards: { flexDirection: 'row', gap: 12, marginBottom: 20, marginTop: 10 },

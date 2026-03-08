@@ -18,6 +18,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 No test runner is configured.
 
+### Editor
+
+VS Code with `fixAll`, `organizeImports`, and `sortMembers` auto-fix on save (`.vscode/settings.json`).
+
 ## Architecture
 
 ### Routing (expo-router, file-based)
@@ -91,7 +95,7 @@ RevenueCat is fully stubbed for Expo Go — no native SDK is imported. `utils/re
 - **Home** (`app/(tabs)/index.tsx`): Animated `DonutChart` using `react-native-reanimated`. Exercise burned calories adjust target. Uses latest weigh-in for goal prediction. Empty state when no profile.
 - **Progress** (`app/(tabs)/progress.tsx`): Time-based weight chart (SVG polyline, points positioned by actual date not index), calorie stacked bar chart, streak dots from actual logged days, progress photos with upload, BMI visualization. Weight chart X-axis projects forward from today; "All time" extends to estimated goal date. Single entry shows horizontal line from Y axis to data point with dot. Year suffix (`'27`) shown on labels crossing into a different year. Empty state when no profile.
 - **Profile** (`app/(tabs)/profile.tsx`): Settings list with `SettingItem` (wrapped in `memo()`). Dynamic subscription badge. Sign out with confirmation.
-- **CustomTabBar** (`components/CustomTabBar.tsx`): Clean tab bar with inline centered FAB. Layout: Home | Progress | (+) | Profile. FAB opens overlay with action rows (scan food, food database, log exercise, saved foods). Uses `useSafeAreaInsets` for dynamic bottom padding.
+- **CustomTabBar** (`components/CustomTabBar.tsx`): Inline-notch FAB tab bar. Layout: Home | Progress | (+) | Profile. SVG-based curved notch path with dynamic safe-area height calculation. FAB animates 45° rotation on press, overlay has staggered fade-in for action rows (scan food, food database, log exercise, saved foods). Notch geometry: `NOTCH_RADIUS = FAB_SIZE / 2 + 10`, `spread = r + 14`, `depth = r - 4`.
 
 ### BMI Bar Alignment
 
@@ -116,7 +120,7 @@ If you change the bar segments or percent mapping in one file, change both.
   - `calories.ts` — Mifflin-St Jeor BMR, TDEE, daily calorie target, macro split (activity-scaled protein: 1.2-2.2 g/kg), BMI, age calculation. `calculateDailyCalories` enforces a safety floor (`minCal`) for all goals including maintain.
   - `date.ts` — date key helpers (`toDateKey`, `yesterdayKey`, `daysAgoKey`, `weekKeys`, `dayLabel`, `inferMealType`). All use local timezone.
   - `target-date.ts` — `getTargetDate(currentWeight, targetWeight, weeklySpeed)` → formatted target date string. Used by onboarding `custom-plan` and home screen goal prediction.
-  - `recalculate-targets.ts` — shared utility for edit-profile and my-goals to recalculate BMR/TDEE/macros from profile changes
+  - `recalculate-targets.ts` — takes current `UserProfile` + partial patch, merges, recalculates BMR→TDEE→daily calories→macros, returns the patch with recalculated fields. Used by `edit-profile.tsx` and `my-goals.tsx` to keep targets in sync after profile edits.
   - `graduate-onboarding.ts` — one-time onboarding→persistent store migration
   - `auth.ts` — auth stubs (`signInAnonymously`, `signOut`); real OAuth deferred to Supabase integration
   - `food-search.ts` — hybrid food search (USDA offline + Open Food Facts online) and macro calculation
@@ -135,6 +139,16 @@ The onboarding path and in-app text adapt based on `goal` (lose/gain/maintain):
 - **Gain**: `goal-weight` picker starts at currentWeight+1, text adapted across screens, goal prediction says "reach" target.
 - **Lose**: default path, picker capped at currentWeight-1.
 - Encouragement messages in progress screen adapt per goal.
+
+### In-App Goal Editing (`my-goals.tsx`)
+
+Target weight is validated against `startWeight` (current weight at onboarding): must be less for "lose", more for "gain". Switching goal type auto-resets the target weight if it doesn't make sense for the new direction (e.g., switching from lose→gain resets target to `currentWeight + defaultStep`). Save button is disabled when validation fails, with inline error hint.
+
+### Progress Charts
+
+Weight chart uses **time-based positioning** — points are placed by actual date milliseconds, not array index. This ensures correct spacing for irregular logging. X-axis labels use `formatShortDate()` which appends year suffix (`'27`) when labels cross a year boundary. "All time" range extends forward to estimated goal date via `getTargetDate()`.
+
+Calorie stacked bar chart renders macro ratios as flex percentages of the daily total (protein/carbs/fat segments).
 
 ### Navigation Patterns
 

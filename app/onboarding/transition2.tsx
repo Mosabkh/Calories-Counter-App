@@ -30,6 +30,8 @@ export default function Transition2Screen() {
           <OnboardingButton
             title="Continue"
             onPress={() => router.push('/onboarding/roadblocks')}
+            style={{ backgroundColor: Theme.colors.white }}
+            textStyle={{ color: Theme.colors.primary }}
           />
         </View>
       </BouncyView>

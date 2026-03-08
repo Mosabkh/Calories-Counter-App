@@ -3,6 +3,18 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withSpring,
+  withTiming,
+  withSequence,
+  withRepeat,
+  interpolate,
+  interpolateColor,
+  Easing,
+} from 'react-native-reanimated';
 import { Theme } from '@/constants/theme';
 import { OnboardingButton } from '@/components/onboarding/OnboardingButton';
 import { OnboardingIcon } from '@/components/onboarding/OnboardingIcon';
@@ -39,9 +51,52 @@ export default function CustomPlanScreen() {
   const targetDate = isMaintain ? '' : getTargetDate(cw, tw, speed);
   const highDayCount = (eatsMoreOnWeekends && weekendDays) ? weekendDays.length : 0;
 
+  // Celebrative animation for goal badge
+  const badgeEntry = useSharedValue(0);
+  const badgeScale = useSharedValue(0);
+  const badgeGlow = useSharedValue(0);
+  const badgeShimmer = useSharedValue(0);
+
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, []);
+    // 1. Bounce in
+    badgeScale.value = withDelay(400, withSpring(1, { damping: 10, stiffness: 120, mass: 0.8 }));
+    badgeEntry.value = withDelay(400, withSpring(1, { damping: 12, stiffness: 100 }));
+    // 2. Glow pulse
+    badgeGlow.value = withDelay(900,
+      withSequence(
+        withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) }),
+        withTiming(0.3, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.6, { duration: 500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+      ),
+    );
+    // 3. Shimmer sweep
+    badgeShimmer.value = withDelay(1200,
+      withRepeat(
+        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+        2,
+        false,
+      ),
+    );
+  }, [badgeEntry, badgeScale, badgeGlow, badgeShimmer]);
+
+  const badgeAnimStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(badgeEntry.value, [0, 0.5, 1], [0, 0.8, 1]),
+    transform: [
+      { translateY: interpolate(badgeEntry.value, [0, 1], [20, 0]) },
+      { scale: interpolate(badgeScale.value, [0, 1], [0.85, 1]) },
+    ],
+  }));
+  const badgeGlowStyle = useAnimatedStyle(() => ({
+    shadowOpacity: interpolate(badgeGlow.value, [0, 1], [0.2, 0.6]),
+    shadowRadius: interpolate(badgeGlow.value, [0, 1], [8, 25]),
+  }));
+  const badgeTextAnimStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(badgeShimmer.value, [0, 0.4, 0.6, 1], [
+      Theme.colors.white, Theme.colors.accentBackground, Theme.colors.accentBackground, Theme.colors.white,
+    ]),
+  }));
 
   const plan = useMemo(() => {
     const weightKg = unit === 'lb' ? cw / 2.20462 : cw;
@@ -113,9 +168,9 @@ export default function CustomPlanScreen() {
           <OnboardingIcon name="sparkle" size={40} color={Theme.colors.primary} />
         </View>
         <Text style={styles.title}>Congratulations! Your plan is ready.</Text>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{badgeText}</Text>
-        </View>
+        <Animated.View style={[styles.badge, badgeAnimStyle, badgeGlowStyle]}>
+          <Animated.Text style={[styles.badgeText, badgeTextAnimStyle]}>{badgeText}</Animated.Text>
+        </Animated.View>
 
         <Text style={styles.sectionTitle}>Your BMI</Text>
         <View style={styles.bmiCard} accessible={true} accessibilityLabel={`BMI: ${plan.bmi}, ${plan.bmiCategory}`}>
@@ -213,6 +268,8 @@ const styles = StyleSheet.create({
   badge: {
     backgroundColor: Theme.colors.primary, paddingHorizontal: 18, paddingVertical: 10,
     borderRadius: Theme.borderRadius.card, marginTop: 10,
+    shadowColor: Theme.colors.primary, shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
   badgeText: {
     color: Theme.colors.white, fontFamily: Theme.fonts.bold, fontSize: 14, textAlign: 'center',

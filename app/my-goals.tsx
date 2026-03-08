@@ -46,16 +46,33 @@ export default function MyGoalsScreen() {
   const unit = profile?.weightUnit ?? 'kg';
   const isMaintain = goal === 'maintain';
   const speedOptions = goal === 'gain' ? GAIN_SPEED_OPTIONS : LOSE_SPEED_OPTIONS;
+  const currentWeight = profile?.startWeight ?? 70;
+  const defaultStep = unit === 'lb' ? 10 : 5;
+
+  const parsedTarget = parseFloat(targetWeight);
+  const isTargetValid = isMaintain || (
+    !isNaN(parsedTarget) && parsedTarget > 0 &&
+    (goal === 'lose' ? parsedTarget < currentWeight : parsedTarget > currentWeight)
+  );
 
   const handleGoalChange = useCallback((newGoal: 'lose' | 'maintain' | 'gain') => {
     setGoal(newGoal);
+    const tw = parseFloat(targetWeight) || currentWeight;
     // Reset speed to the "Recommended" middle option for the new goal
     if (newGoal === 'gain') {
       setSpeed(0.5);
+      // Reset target if it doesn't make sense for gaining
+      if (tw <= currentWeight) {
+        setTargetWeight(String(currentWeight + defaultStep));
+      }
     } else if (newGoal === 'lose') {
       setSpeed(1.0);
+      // Reset target if it doesn't make sense for losing
+      if (tw >= currentWeight) {
+        setTargetWeight(String(currentWeight - defaultStep));
+      }
     }
-  }, []);
+  }, [currentWeight, targetWeight, defaultStep]);
 
   const handleSave = useCallback(() => {
     if (!profile) return;
@@ -93,12 +110,14 @@ export default function MyGoalsScreen() {
           <Text style={styles.headerTitle}>My Goals</Text>
           <TouchableOpacity
             onPress={handleSave}
+            disabled={!isTargetValid}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityLabel="Save"
             accessibilityRole="button"
+            accessibilityState={{ disabled: !isTargetValid }}
             style={styles.backBtn}
           >
-            <Text style={styles.saveText}>Save</Text>
+            <Text style={[styles.saveText, !isTargetValid && styles.saveTextDisabled]}>Save</Text>
           </TouchableOpacity>
         </View>
 
@@ -127,13 +146,20 @@ export default function MyGoalsScreen() {
             <>
               <Text style={styles.label}>Target Weight ({unit})</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, !isTargetValid && targetWeight.length > 0 && styles.inputError]}
                 value={targetWeight}
                 onChangeText={setTargetWeight}
                 keyboardType="decimal-pad"
                 placeholder={String(profile?.targetWeight ?? '')}
                 placeholderTextColor={Theme.colors.textMuted}
               />
+              {!isTargetValid && targetWeight.length > 0 && (
+                <Text style={styles.errorHint}>
+                  {goal === 'lose'
+                    ? `Must be less than your current weight (${currentWeight} ${unit})`
+                    : `Must be more than your current weight (${currentWeight} ${unit})`}
+                </Text>
+              )}
             </>
           )}
 
@@ -193,6 +219,7 @@ const styles = StyleSheet.create({
   backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
   saveText: { fontSize: 15, fontFamily: Theme.fonts.extraBold, color: Theme.colors.primary },
+  saveTextDisabled: { opacity: 0.35 },
 
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
@@ -206,6 +233,11 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: Theme.colors.border, paddingHorizontal: 16,
     paddingVertical: 14, fontSize: 15, fontFamily: Theme.fonts.semiBold,
     color: Theme.colors.textDark,
+  },
+  inputError: { borderColor: Theme.colors.urgentRed },
+  errorHint: {
+    fontSize: 12, fontFamily: Theme.fonts.semiBold, color: Theme.colors.urgentRed,
+    marginTop: 6,
   },
 
   goalList: { gap: 8 },

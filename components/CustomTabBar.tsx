@@ -1,5 +1,5 @@
 import { useState, memo, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Pressable } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Svg, { Path, Line } from 'react-native-svg';
@@ -25,16 +25,12 @@ const TAB_ICONS = {
     paths: ['M22 12L18 12L15 21L9 3L6 12L2 12'],
     extraPath: null,
   },
-  profile: {
-    paths: ['M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'],
-    extraPath: 'M12 11A4 4 0 1 0 12 3A4 4 0 0 0 12 11Z',
-  },
 } as const;
 
 type TabName = keyof typeof TAB_ICONS;
 
-const TAB_NAMES: TabName[] = ['index', 'progress', 'profile'];
-const TAB_LABELS: Record<TabName, string> = { index: 'Home', progress: 'Progress', profile: 'Profile' };
+const TAB_NAMES: TabName[] = ['index', 'progress'];
+const TAB_LABELS: Record<TabName, string> = { index: 'Home', progress: 'Progress' };
 
 const isValidTabName = (name: string): name is TabName => name in TAB_ICONS;
 
@@ -57,7 +53,10 @@ const ACTION_ITEMS = [
   },
 ];
 
-const FAB_SIZE = 50;
+const FAB_SIZE = 56;
+const NOTCH_RADIUS = FAB_SIZE / 2 + 10; // curve radius around FAB
+const BAR_CORNER = 24; // top corner radius of the bar
+const BAR_TOP_PADDING = 10;
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -66,10 +65,34 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
   const [showOverlay, setShowOverlay] = useState(false);
   const fabRotation = useSharedValue(0);
   const { bottom: bottomInset } = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
   const safeBottom = Math.max(bottomInset, 10);
 
+  const barHeight = BAR_TOP_PADDING + 4 + 8 + 28 + 3 + 14 + 8 + safeBottom; // paddingTop + tabItem padding + icon + gap + label + padding + safe area
+
+  const barPath = useMemo(() => {
+    const w = screenWidth;
+    const h = barHeight;
+    const cx = w / 2; // center x
+    const r = NOTCH_RADIUS;
+    const cr = BAR_CORNER;
+    const spread = r + 14; // wider mouth for gentle entry
+    const depth = r - 4;   // how deep the notch dips
+    return [
+      `M 0 ${cr}`,
+      `Q 0 0 ${cr} 0`,                                        // top-left rounded corner
+      `L ${cx - spread} 0`,                                    // straight to notch entry
+      `C ${cx - spread + 16} 0 ${cx - r + 4} ${depth} ${cx} ${depth}`, // left: gentle S-curve into notch
+      `C ${cx + r - 4} ${depth} ${cx + spread - 16} 0 ${cx + spread} 0`, // right: gentle S-curve out
+      `L ${w - cr} 0`,                                        // straight to top-right corner
+      `Q ${w} 0 ${w} ${cr}`,                                  // top-right rounded corner
+      `L ${w} ${h}`,                                           // down right side
+      `L 0 ${h}`,                                              // across bottom
+      `Z`,
+    ].join(' ');
+  }, [screenWidth, barHeight]);
+
   const dynamicStyles = useMemo(() => ({
-    bar: { paddingBottom: safeBottom } as const,
     overlay: { paddingBottom: 70 + safeBottom } as const,
   }), [safeBottom]);
 
@@ -120,7 +143,7 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
         accessibilityRole="tab"
         accessibilityState={{ selected: isFocused }}>
         <View style={styles.iconWrap}>
-          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" accessible={false}>
+          <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" accessible={false}>
             <Path
               d={icon.paths[0]}
               stroke={isFocused ? Theme.colors.primary : Theme.colors.textMuted}
@@ -190,43 +213,51 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
       )}
 
       <View style={[styles.container, showOverlay && styles.containerOnTop]}>
-        <View style={[styles.bar, dynamicStyles.bar]}>
-          {/* Home */}
+        {/* FAB positioned inside the notch curve */}
+        <Animated.View style={[styles.fabWrap, { bottom: barHeight - FAB_SIZE / 2 + 2 }, fabAnimatedStyle, showOverlay && styles.fabActive]}>
+          <TouchableOpacity
+            onPress={toggleOverlay}
+            activeOpacity={0.8}
+            style={styles.fabInner}
+            accessibilityLabel={showOverlay ? 'Close menu' : 'Add item'}
+            accessibilityRole="button"
+            accessibilityHint="Opens menu with food logging options">
+            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" accessible={false}>
+              <Line
+                x1={12} y1={5} x2={12} y2={19}
+                stroke={showOverlay ? Theme.colors.textDark : Theme.colors.white}
+                strokeWidth={2.5}
+                strokeLinecap="round"
+              />
+              <Line
+                x1={5} y1={12} x2={19} y2={12}
+                stroke={showOverlay ? Theme.colors.textDark : Theme.colors.white}
+                strokeWidth={2.5}
+                strokeLinecap="round"
+              />
+            </Svg>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* SVG bar background with notch */}
+        <Svg
+          width={screenWidth}
+          height={barHeight + NOTCH_RADIUS}
+          style={styles.barSvg}
+          accessible={false}
+        >
+          <Path
+            d={barPath}
+            fill={Theme.colors.surface}
+            translateY={NOTCH_RADIUS}
+          />
+        </Svg>
+
+        {/* Tab content overlaid on the SVG bar */}
+        <View style={[styles.tabRow, { paddingBottom: safeBottom }]}>
           {renderTab(state.routes[0], 0)}
-
-          {/* Progress */}
+          <View style={styles.fabSpacer} />
           {renderTab(state.routes[1], 1)}
-
-          {/* Center FAB as inline tab item */}
-          <View style={styles.fabSlot}>
-            <Animated.View style={[styles.fab, fabAnimatedStyle, showOverlay && styles.fabActive]}>
-              <TouchableOpacity
-                onPress={toggleOverlay}
-                activeOpacity={0.8}
-                style={styles.fabInner}
-                accessibilityLabel={showOverlay ? 'Close menu' : 'Add item'}
-                accessibilityRole="button"
-                accessibilityHint="Opens menu with food logging options">
-                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" accessible={false}>
-                  <Line
-                    x1={12} y1={5} x2={12} y2={19}
-                    stroke={showOverlay ? Theme.colors.textDark : Theme.colors.white}
-                    strokeWidth={2.5}
-                    strokeLinecap="round"
-                  />
-                  <Line
-                    x1={5} y1={12} x2={19} y2={12}
-                    stroke={showOverlay ? Theme.colors.textDark : Theme.colors.white}
-                    strokeWidth={2.5}
-                    strokeLinecap="round"
-                  />
-                </Svg>
-              </TouchableOpacity>
-            </Animated.View>
-          </View>
-
-          {/* Profile */}
-          {renderTab(state.routes[2], 2)}
         </View>
       </View>
     </>
@@ -240,32 +271,35 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
+    shadowColor: Theme.colors.textDark,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 10,
   },
   containerOnTop: {
     zIndex: 30,
   },
-  bar: {
+  barSvg: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+  },
+  tabRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    backgroundColor: Theme.colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 10,
-    shadowColor: Theme.colors.textDark,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 10,
+    alignItems: 'center',
+    paddingTop: BAR_TOP_PADDING + 4,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 8,
     gap: 3,
   },
   iconWrap: {
-    width: 24,
-    height: 24,
+    width: 30,
+    height: 30,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -279,36 +313,35 @@ const styles = StyleSheet.create({
     fontFamily: Theme.fonts.extraBold,
   },
 
-  // FAB inline slot
-  fabSlot: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingBottom: 8,
-  },
-  fab: {
+  // FAB — positioned to sit inside the notch curve
+  fabWrap: {
+    position: 'absolute',
+    alignSelf: 'center',
+    zIndex: 20,
     width: FAB_SIZE,
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,
     backgroundColor: Theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
     shadowColor: Theme.colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 12,
   },
   fabActive: {
     backgroundColor: Theme.colors.surface,
     borderWidth: 2,
     borderColor: Theme.colors.border,
     shadowColor: Theme.colors.textDark,
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  fabSpacer: {
+    width: FAB_SIZE + 16,
   },
   fabInner: {
     width: '100%',

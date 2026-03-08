@@ -36,15 +36,16 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 function getWeekDays() {
   const today = new Date();
   const todayKey = toDateKey(today);
+  const dayOfWeek = today.getDay(); // 0=Sun
   const days = [];
-  for (let i = -3; i <= 3; i++) {
+  for (let i = 0; i < 7; i++) {
     const d = new Date(today);
-    d.setDate(today.getDate() + i);
+    d.setDate(today.getDate() - dayOfWeek + i); // start from Sunday
     days.push({
       name: DAY_NAMES[d.getDay()],
       num: d.getDate(),
       dateKey: toDateKey(d),
-      isToday: i === 0,
+      isToday: toDateKey(d) === todayKey,
     });
   }
   return { days, todayKey };
@@ -172,8 +173,11 @@ export default function HomeScreen() {
     const isLose = profile.goal === 'lose';
     if (isLose && currentWeight <= profile.targetWeight) return null;
     if (!isLose && currentWeight >= profile.targetWeight) return null;
+    const diff = Math.abs(currentWeight - profile.targetWeight).toFixed(1);
+    const unit = profile.weightUnit;
+    const action = isLose ? 'Lose' : 'Gain';
     const dateStr = getTargetDate(currentWeight, profile.targetWeight, profile.weeklyGoalSpeed);
-    return { weight: `${profile.targetWeight} ${profile.weightUnit}`, date: dateStr };
+    return { action, diff, unit, date: dateStr };
   }, [profile, latestWeight]);
 
   // Goal prediction bar — celebrative entrance
@@ -262,13 +266,28 @@ export default function HomeScreen() {
             </Svg>
             <Text style={styles.logoText}>Calobite</Text>
           </View>
-          <View style={styles.streakPill} accessible={true} accessibilityLabel={`${streakCount} day streak`}>
-            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" accessible={false}>
-              <Circle cx={12} cy={8} r={6} stroke={Theme.colors.warning} strokeWidth={2.5} />
-              <Path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12" stroke={Theme.colors.warning} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-              <Path d="M12 5v6M9 8h6" stroke={Theme.colors.warning} strokeWidth={2.5} strokeLinecap="round" />
-            </Svg>
-            <Text style={styles.streakText}>{streakCount}</Text>
+          <View style={styles.headerRight}>
+            <View style={styles.streakPill} accessible={true} accessibilityLabel={`${streakCount} day streak`}>
+              <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" accessible={false}>
+                <Circle cx={12} cy={8} r={6} stroke={Theme.colors.warning} strokeWidth={2.5} />
+                <Path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12" stroke={Theme.colors.warning} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M12 5v6M9 8h6" stroke={Theme.colors.warning} strokeWidth={2.5} strokeLinecap="round" />
+              </Svg>
+              <Text style={styles.streakText}>{streakCount}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.profileBtn}
+              onPress={() => router.push('/(tabs)/profile')}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel="Profile"
+              accessibilityRole="button"
+            >
+              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
+                <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke={Theme.colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                <Circle cx={12} cy={7} r={4} stroke={Theme.colors.primary} strokeWidth={2.5} />
+              </Svg>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -276,7 +295,7 @@ export default function HomeScreen() {
         <Text style={styles.greeting} accessibilityRole="header">{greeting}</Text>
 
         {/* Calendar Strip */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.calendar} contentContainerStyle={styles.calendarContent}>
+        <View style={styles.calendarRow}>
           {weekDays.map((day) => {
             const isSelected = day.dateKey === selectedDateKey;
             return (
@@ -295,10 +314,11 @@ export default function HomeScreen() {
                 <View style={[styles.dayCircle, isSelected && styles.dayCircleActive]}>
                   <Text style={[styles.dayNum, isSelected && styles.dayNumActive]}>{day.num}</Text>
                 </View>
+                {day.isToday && !isSelected && <View style={styles.todayDot} />}
               </TouchableOpacity>
             );
           })}
-        </ScrollView>
+        </View>
 
         {/* Main Calorie Card */}
         <View style={styles.mainCard} accessible={true} accessibilityLabel={`${calRemaining} of ${calorieTarget} Calories left`}>
@@ -355,13 +375,13 @@ export default function HomeScreen() {
 
         {/* Goal Prediction */}
         {goalDateLabel && (
-          <Animated.View style={[styles.goalPredictionBar, goalBarStyle, goalGlowStyle]} accessible={true} accessibilityLabel={`You will reach ${goalDateLabel.weight} by ${goalDateLabel.date}`}>
+          <Animated.View style={[styles.goalPredictionBar, goalBarStyle, goalGlowStyle]} accessible={true} accessibilityLabel={`Target: ${goalDateLabel.action} ${goalDateLabel.diff} ${goalDateLabel.unit} by ${goalDateLabel.date}`}>
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
               <Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" stroke={Theme.colors.calorieAlert} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
               <Line x1={4} y1={22} x2={4} y2={15} stroke={Theme.colors.calorieAlert} strokeWidth={2.5} strokeLinecap="round" />
             </Svg>
             <Animated.Text style={[styles.goalPredictionText, goalTextStyle]}>
-              You{"'"}ll reach <Animated.Text style={[styles.goalPredictionBold, goalBoldTextStyle]}>{goalDateLabel.weight}</Animated.Text> by <Animated.Text style={[styles.goalPredictionBold, goalBoldTextStyle]}>{goalDateLabel.date}</Animated.Text>
+              Target: {goalDateLabel.action} <Animated.Text style={[styles.goalPredictionBold, goalBoldTextStyle]}>{goalDateLabel.diff} {goalDateLabel.unit}</Animated.Text> by <Animated.Text style={[styles.goalPredictionBold, goalBoldTextStyle]}>{goalDateLabel.date}</Animated.Text>
             </Animated.Text>
           </Animated.View>
         )}
@@ -436,9 +456,24 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   logoText: {
-    fontSize: 19,
+    fontSize: 20,
     fontFamily: Theme.fonts.extraBold,
     color: Theme.colors.textDark,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  profileBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Theme.colors.accentBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Theme.colors.primary,
   },
   streakPill: {
     backgroundColor: Theme.colors.surface,
@@ -470,22 +505,27 @@ const styles = StyleSheet.create({
   },
 
   // Calendar
-  calendar: { marginBottom: 12 },
-  calendarContent: { gap: 12 },
-  dayCol: { alignItems: 'center', gap: 8, minWidth: 45 },
-  dayName: { fontSize: 12, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textMuted },
-  dayNameActive: { color: Theme.colors.textDark },
+  calendarRow: {
+    flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12,
+  },
+  dayCol: { alignItems: 'center', gap: 6, flex: 1 },
+  dayName: { fontSize: 11, fontFamily: Theme.fonts.semiBold, color: Theme.colors.textMuted },
+  dayNameActive: { color: Theme.colors.primary, fontFamily: Theme.fonts.extraBold },
   dayCircle: {
-    width: 40, height: 40, borderRadius: Theme.borderRadius.button, borderWidth: 2, borderStyle: 'dashed',
-    borderColor: Theme.colors.border, alignItems: 'center', justifyContent: 'center',
+    width: 40, height: 40, borderRadius: 20, backgroundColor: Theme.colors.surface,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: Theme.colors.border,
   },
   dayCircleActive: {
-    backgroundColor: Theme.colors.primary, borderWidth: 0,
+    backgroundColor: Theme.colors.primary, borderColor: Theme.colors.primary,
     shadowColor: Theme.colors.primary, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4, shadowRadius: 10, elevation: 4,
+    shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
   dayNum: { fontFamily: Theme.fonts.extraBold, fontSize: 14, color: Theme.colors.textMuted },
   dayNumActive: { color: Theme.colors.white },
+  todayDot: {
+    width: 5, height: 5, borderRadius: 3, backgroundColor: Theme.colors.primary, marginTop: -2,
+  },
 
   // Main Card
   mainCard: {
@@ -499,7 +539,7 @@ const styles = StyleSheet.create({
     fontSize: 32, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
   },
   calorieLabel: {
-    fontSize: 12, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted, marginTop: 3,
+    fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted, marginTop: 3,
   },
   calorieLabelBold: { color: Theme.colors.textDark },
 
@@ -522,8 +562,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   macroLabel: {
-    fontSize: 11, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted,
-    textAlign: 'center', marginTop: 2, lineHeight: 14,
+    fontSize: 12, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted,
+    textAlign: 'center', marginTop: 2, lineHeight: 16,
   },
   macroLabelBold: { color: Theme.colors.textDark },
   donutContainer: { alignItems: 'center', justifyContent: 'center' },
@@ -538,13 +578,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.03, shadowRadius: 10, elevation: 1,
   },
   goalPredictionText: {
-    flex: 1, fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted, lineHeight: 18,
+    flex: 1, fontSize: 14, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted, lineHeight: 20,
   },
   goalPredictionBold: { fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
 
   // Recently uploaded — empty state
   sectionTitle: {
-    fontSize: 17, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
+    fontSize: 18, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
     marginBottom: 15, textAlign: 'left',
   },
   mealsListWrap: {
@@ -560,7 +600,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginBottom: 12,
   },
   emptyTitle: {
-    fontSize: 16, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
+    fontSize: 17, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
   },
   emptySubtitle: {
     fontSize: 13, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted,
