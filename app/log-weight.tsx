@@ -1,12 +1,26 @@
-import { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useState, useMemo, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
+import * as ImagePicker from 'expo-image-picker';
+import * as Crypto from 'expo-crypto';
 import { Theme } from '@/constants/theme';
-import { ScrollPicker, PICKER_ITEM_HEIGHT, PICKER_VISIBLE_ITEMS, PICKER_CENTER } from '@/components/onboarding/ScrollPicker';
+import {
+  ScrollPicker,
+  PICKER_ITEM_HEIGHT,
+  PICKER_VISIBLE_ITEMS,
+  PICKER_CENTER,
+} from '@/components/onboarding/ScrollPicker';
 import { useWeightStore } from '@/store/weight-store';
 import { useUserStore } from '@/store/user-store';
+import { usePhotoStore, type ProgressPhoto } from '@/store/photo-store';
 import { toDateKey } from '@/utils/date';
 import type { WeightEntry } from '@/types/data';
 
@@ -15,6 +29,9 @@ export default function LogWeightScreen() {
   const profile = useUserStore((s) => s.profile);
   const addEntry = useWeightStore((s) => s.addEntry);
   const latestWeight = useWeightStore((s) => s.getLatest());
+  const addPhoto = usePhotoStore((s) => s.addPhoto);
+
+  const todayKey = toDateKey();
 
   const unit = profile?.weightUnit ?? 'kg';
   const currentWeight = latestWeight?.weight ?? profile?.startWeight ?? 70;
@@ -39,24 +56,86 @@ export default function LogWeightScreen() {
   const initialWhole = Math.floor(currentWeight);
   const initialDecimal = Math.round((currentWeight - initialWhole) * 10);
 
+  const [photoAdded, setPhotoAdded] = useState(false);
+
   const [wholePart, setWholePart] = useState(
     Math.max(0, Math.min(wholeItems.length - 1, initialWhole - minWhole)),
   );
   const [decimalPart, setDecimalPart] = useState(initialDecimal);
 
-  const selectedWeight = (minWhole + wholePart) + decimalPart / 10;
+  const selectedWeight = minWhole + wholePart + decimalPart / 10;
+
+  const pickPhoto = useCallback(async (useCamera: boolean) => {
+    if (useCamera) {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Needed', 'Camera access is required to take a photo.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        quality: 0.8,
+        allowsEditing: true,
+        aspect: [3, 4],
+      });
+      if (result.canceled || !result.assets[0]) return;
+      return result.assets[0].uri;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    return result.assets[0].uri;
+  }, []);
+
+  const savePhoto = useCallback(async (useCamera: boolean) => {
+    const uri = await pickPhoto(useCamera);
+    if (!uri) return;
+    const photo: ProgressPhoto = {
+      id: Crypto.randomUUID(),
+      date: todayKey,
+      timestamp: Date.now(),
+      uri,
+    };
+    addPhoto(photo);
+    setPhotoAdded(true);
+    Alert.alert('Photo Saved', 'Progress photo added successfully.');
+  }, [addPhoto, todayKey, pickPhoto]);
+
+  const handleAddPhoto = useCallback(() => {
+    Alert.alert('Add Progress Photo', 'Choose a source', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Take Photo', onPress: () => savePhoto(true) },
+      { text: 'Choose from Library', onPress: () => savePhoto(false) },
+    ]);
+  }, [savePhoto]);
 
   const handleSave = () => {
-    const dateKey = toDateKey();
     const entry: WeightEntry = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      date: dateKey,
+      date: todayKey,
       timestamp: Date.now(),
       weight: selectedWeight,
       unit,
     };
     addEntry(entry);
-    router.back();
+
+    if (photoAdded) {
+      router.back();
+      return;
+    }
+
+    Alert.alert(
+      'Weight Saved',
+      `${selectedWeight.toFixed(1)} ${unit} logged.`,
+      [
+        { text: 'Done', onPress: () => router.back() },
+        {
+          text: 'Add Progress Photo',
+          onPress: () => handleAddPhoto(),
+        },
+      ],
+    );
   };
 
   return (
@@ -86,36 +165,70 @@ export default function LogWeightScreen() {
 
       <View style={styles.content}>
         <Text style={styles.valueDisplay}>
-          {selectedWeight.toFixed(1)} <Text style={styles.unitText}>{unit}</Text>
+          {selectedWeight.toFixed(1)}{' '}
+          <Text style={styles.unitText}>{unit}</Text>
         </Text>
 
-        <View style={styles.pickerRow}>
-          <View style={styles.pickerWrap}>
-            <ScrollPicker
-              items={wholeItems}
-              selectedIndex={wholePart}
-              onSelect={setWholePart}
-              hideLines
-            />
+        <View style={styles.pickerArea}>
+          <View style={styles.pickerRow}>
+            <View style={styles.pickerWrap}>
+              <ScrollPicker
+                items={wholeItems}
+                selectedIndex={wholePart}
+                onSelect={setWholePart}
+                hideLines
+              />
+            </View>
+            <Text style={styles.dot}>.</Text>
+            <View style={styles.pickerWrapSmall}>
+              <ScrollPicker
+                items={decimalItems}
+                selectedIndex={decimalPart}
+                onSelect={setDecimalPart}
+                hideLines
+              />
+            </View>
+            <Text style={styles.unitLabel}>{unit}</Text>
           </View>
-          <Text style={styles.dot}>.</Text>
-          <View style={styles.pickerWrapSmall}>
-            <ScrollPicker
-              items={decimalItems}
-              selectedIndex={decimalPart}
-              onSelect={setDecimalPart}
-              hideLines
-            />
-          </View>
-          <Text style={styles.unitLabel}>{unit}</Text>
-        </View>
 
-        {/* Shared separator lines */}
-        <View style={styles.separatorContainer} pointerEvents="none">
-          <View style={[styles.separatorLine, { top: PICKER_ITEM_HEIGHT * PICKER_CENTER }]} />
-          <View style={[styles.separatorLine, { top: PICKER_ITEM_HEIGHT * (PICKER_CENTER + 1) }]} />
+          {/* Shared separator lines */}
+          <View style={styles.separatorContainer} pointerEvents="none">
+            <View
+              style={[
+                styles.separatorLine,
+                { top: PICKER_ITEM_HEIGHT * PICKER_CENTER },
+              ]}
+            />
+            <View
+              style={[
+                styles.separatorLine,
+                { top: PICKER_ITEM_HEIGHT * (PICKER_CENTER + 1) },
+              ]}
+            />
+          </View>
         </View>
       </View>
+
+      {/* Add progress photo button */}
+      <TouchableOpacity
+        style={styles.photoBtn}
+        onPress={handleAddPhoto}
+        activeOpacity={0.7}
+        accessibilityLabel="Add progress photo"
+        accessibilityRole="button"
+      >
+        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
+          <Path
+            d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
+            stroke={Theme.colors.primary}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Circle cx="12" cy="13" r="4" stroke={Theme.colors.primary} strokeWidth={2} />
+        </Svg>
+        <Text style={styles.photoBtnText}>Add Progress Photo</Text>
+      </TouchableOpacity>
 
       {/* Save button */}
       <View style={styles.footer}>
@@ -142,7 +255,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  backBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
     fontSize: 18,
     fontFamily: Theme.fonts.extraBold,
@@ -165,6 +283,10 @@ const styles = StyleSheet.create({
     fontFamily: Theme.fonts.bold,
     color: Theme.colors.textMuted,
   },
+  pickerArea: {
+    position: 'relative',
+    alignItems: 'center',
+  },
   pickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -177,6 +299,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontFamily: Theme.fonts.extraBold,
     color: Theme.colors.textDark,
+    marginBottom: 2,
   },
   unitLabel: {
     fontSize: 18,
@@ -186,11 +309,10 @@ const styles = StyleSheet.create({
   },
   separatorContainer: {
     position: 'absolute',
-    left: 40,
-    right: 40,
+    left: 0,
+    right: 0,
+    top: 0,
     height: PICKER_ITEM_HEIGHT * PICKER_VISIBLE_ITEMS,
-    top: '50%',
-    marginTop: -(PICKER_ITEM_HEIGHT * PICKER_VISIBLE_ITEMS) / 2 + 50,
   },
   separatorLine: {
     position: 'absolute',
@@ -198,6 +320,23 @@ const styles = StyleSheet.create({
     right: 0,
     height: 1,
     backgroundColor: Theme.colors.separator,
+  },
+  photoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginHorizontal: 20,
+    paddingVertical: 14,
+    borderWidth: 2,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.borderRadius.button,
+    backgroundColor: Theme.colors.surface,
+  },
+  photoBtnText: {
+    fontSize: 15,
+    fontFamily: Theme.fonts.bold,
+    color: Theme.colors.primary,
   },
   footer: {
     paddingHorizontal: 20,

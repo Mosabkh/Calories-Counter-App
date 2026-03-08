@@ -93,9 +93,9 @@ RevenueCat is fully stubbed for Expo Go — no native SDK is imported. `utils/re
 ### In-App Screens
 
 - **Home** (`app/(tabs)/index.tsx`): Animated `DonutChart` using `react-native-reanimated`. Exercise burned calories adjust target. Uses latest weigh-in for goal prediction. Empty state when no profile.
-- **Progress** (`app/(tabs)/progress.tsx`): Time-based weight chart (SVG polyline, points positioned by actual date not index), calorie stacked bar chart, streak dots from actual logged days, progress photos with upload, BMI visualization. Weight chart X-axis projects forward from today; "All time" extends to estimated goal date. Single entry shows horizontal line from Y axis to data point with dot. Year suffix (`'27`) shown on labels crossing into a different year. Empty state when no profile.
+- **Progress** (`app/(tabs)/progress.tsx`): Time-based weight chart (SVG polyline, points positioned by actual date not index), calorie stacked bar chart, streak dots from actual logged days, progress photos preview (up to 3 thumbnails), today's weight entries with delete, BMI visualization. Weight chart X-axis projects forward from today; "All time" extends to estimated goal date. Single entry shows horizontal line from Y axis to data point with dot. Year suffix (`'27`) shown on labels crossing into a different year. Empty state when no profile.
 - **Profile** (`app/(tabs)/profile.tsx`): Settings list with `SettingItem` (wrapped in `memo()`). Dynamic subscription badge. Sign out with confirmation.
-- **CustomTabBar** (`components/CustomTabBar.tsx`): Inline-notch FAB tab bar. Layout: Home | Progress | (+) | Profile. SVG-based curved notch path with dynamic safe-area height calculation. FAB animates 45° rotation on press, overlay has staggered fade-in for action rows (scan food, food database, log exercise, saved foods). Notch geometry: `NOTCH_RADIUS = FAB_SIZE / 2 + 10`, `spread = r + 14`, `depth = r - 4`.
+- **CustomTabBar** (`components/CustomTabBar.tsx`): Inline-notch FAB tab bar. Layout: Home | Progress | (+) | Profile. SVG-based curved notch path with dynamic safe-area height calculation. FAB animates 45° rotation on press. Overlay is a 2-column card grid with staggered slide-up animation — 5 actions: Food database, Log weight, Log exercise, Saved foods, Scan food. Icons use Lucide SVG paths (`iconPaths` array + optional `circle`). Notch geometry: `NOTCH_RADIUS = FAB_SIZE / 2 + 10`, `spread = r + 14`, `depth = r - 4`.
 
 ### BMI Bar Alignment
 
@@ -128,9 +128,27 @@ If you change the bar segments or percent mapping in one file, change both.
   - `revenue-cat.ts` — stubbed RevenueCat wrapper
   - `premium.ts` — premium feature gating
 
+### Progress Photos Flow
+
+Progress photos can **only** be added through the log-weight screen (`app/log-weight.tsx`). There is no upload button in the progress screen or progress-photos library — this is intentional to tie photos to the weigh-in habit.
+
+- `app/log-weight.tsx` — "Add Progress Photo" button (camera or library choice via Alert) and post-save prompt (skipped if photo already added in session, tracked via `photoAdded` state)
+- `app/progress-photos.tsx` — View-only gallery. Each tile shows full date (day month year) + weight from that date. Tap opens full-screen modal viewer with date, weight, and delete button. Long-press on grid also offers delete.
+- `app/(tabs)/progress.tsx` — Photos card shows up to 3 recent thumbnails + "Tap to view all" text. No upload functionality.
+
+### Weight Log Entries
+
+Today's weight entries with delete are shown in the progress screen (`progress.tsx`) below the top cards, not in the log-weight modal. Uses `todayWeightEntries` filtered from the weight store, with confirmation alert before deletion.
+
+### Dev Skip Button
+
+`app/onboarding/index.tsx` has a "Skip Onboarding (DEV)" button (only visible when `__DEV__` is true). Creates a dummy 75kg male profile with calculated macros and seeds initial weight, then navigates to tabs. Styled with dashed red border to be clearly dev-only.
+
 ### ScrollPicker Component
 
 Uses scroll-offset-based selection (`Math.round(contentOffset.y / ITEM_HEIGHT)`). Do NOT use `onViewableItemsChanged` — it unreliably detects the center item. Apple-style design: thin separator lines, opacity fade, bold for selected. For multi-picker screens, use `hideLines` prop and render shared separator lines in the parent `pickerRow`. Exports `PICKER_ITEM_HEIGHT`, `PICKER_VISIBLE_ITEMS`, `PICKER_CENTER` for parent layout.
+
+**CRITICAL**: `ScrollPicker` uses `FlatList` internally — do NOT wrap it inside a `ScrollView` or you'll get "VirtualizedLists should never be nested" errors. If you need scrolling on a screen with `ScrollPicker`, either use a flat layout or build a lightweight wheel using plain `ScrollView` + `.map()` (see `app/reminders.tsx` `TimeWheel` pattern).
 
 ### Goal-dependent Flow
 

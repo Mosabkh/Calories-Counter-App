@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,18 +7,19 @@ import {
   FlatList,
   Dimensions,
   Alert,
+  Modal,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import Svg, { Path } from 'react-native-svg';
-import * as ImagePicker from 'expo-image-picker';
-import * as Crypto from 'expo-crypto';
 import { Theme } from '@/constants/theme';
 import { usePhotoStore, type ProgressPhoto } from '@/store/photo-store';
-import { toDateKey } from '@/utils/date';
+import { useWeightStore } from '@/store/weight-store';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 const GRID_GAP = 3;
 const NUM_COLS = 3;
 const TILE_SIZE = (SCREEN_WIDTH - 40 - GRID_GAP * (NUM_COLS - 1)) / NUM_COLS;
@@ -26,24 +27,23 @@ const TILE_SIZE = (SCREEN_WIDTH - 40 - GRID_GAP * (NUM_COLS - 1)) / NUM_COLS;
 export default function ProgressPhotosScreen() {
   const router = useRouter();
   const photos = usePhotoStore((s) => s.photos);
-  const addPhoto = usePhotoStore((s) => s.addPhoto);
   const removePhoto = usePhotoStore((s) => s.removePhoto);
+  const weightEntries = useWeightStore((s) => s.entries);
+  const [viewingPhoto, setViewingPhoto] = useState<ProgressPhoto | null>(null);
 
-  const handleAdd = useCallback(async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-    });
-    if (result.canceled || !result.assets[0]) return;
+  // Build a map of date → closest weight for that date
+  const weightByDate = useMemo(() => {
+    const map: Record<string, number | undefined> = {};
+    for (const e of weightEntries) {
+      // Keep the first (most recent) entry per date
+      if (!(e.date in map)) {
+        map[e.date] = e.weight;
+      }
+    }
+    return map;
+  }, [weightEntries]);
 
-    const photo: ProgressPhoto = {
-      id: Crypto.randomUUID(),
-      date: toDateKey(),
-      timestamp: Date.now(),
-      uri: result.assets[0].uri,
-    };
-    addPhoto(photo);
-  }, [addPhoto]);
+  const weightUnit = weightEntries[0]?.unit ?? 'kg';
 
   const handleLongPress = useCallback(
     (photo: ProgressPhoto) => {
@@ -60,25 +60,36 @@ export default function ProgressPhotosScreen() {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: ProgressPhoto }) => (
-      <TouchableOpacity
-        onLongPress={() => handleLongPress(item)}
-        activeOpacity={0.8}
-        accessibilityLabel={`Progress photo from ${item.date}`}
-        accessibilityRole="image"
-        accessibilityHint="Long press to delete"
-      >
-        <Image
-          source={{ uri: item.uri }}
-          style={styles.tile}
-          contentFit="cover"
-          transition={200}
-        />
-        <Text style={styles.tileDate}>{formatDate(item.date)}</Text>
-      </TouchableOpacity>
-    ),
-    [handleLongPress],
+    ({ item }: { item: ProgressPhoto }) => {
+      const w = weightByDate[item.date];
+      return (
+        <TouchableOpacity
+          onPress={() => setViewingPhoto(item)}
+          onLongPress={() => handleLongPress(item)}
+          activeOpacity={0.8}
+          accessibilityLabel={`Progress photo from ${item.date}`}
+          accessibilityRole="image"
+          accessibilityHint="Tap to view full size, long press to delete"
+        >
+          <Image
+            source={{ uri: item.uri }}
+            style={styles.tile}
+            contentFit="cover"
+            transition={200}
+          />
+          <View style={styles.tileOverlay}>
+            <Text style={styles.tileDate}>{formatFullDate(item.date)}</Text>
+            {w !== undefined && (
+              <Text style={styles.tileWeight}>{w.toFixed(1)} {weightUnit}</Text>
+            )}
+          </View>
+        </TouchableOpacity>
+      );
+    },
+    [handleLongPress, weightByDate, weightUnit],
   );
+
+  const viewingWeight = viewingPhoto ? weightByDate[viewingPhoto.date] : undefined;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -101,17 +112,7 @@ export default function ProgressPhotosScreen() {
           </Svg>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Progress Photos</Text>
-        <TouchableOpacity
-          onPress={handleAdd}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          accessibilityLabel="Add photo"
-          accessibilityRole="button"
-          style={styles.backBtn}
-        >
-          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-            <Path d="M12 5v14M5 12h14" stroke={Theme.colors.primary} strokeWidth={2.5} strokeLinecap="round" />
-          </Svg>
-        </TouchableOpacity>
+        <View style={styles.backBtn} />
       </View>
 
       <FlatList
@@ -137,28 +138,94 @@ export default function ProgressPhotosScreen() {
             </View>
             <Text style={styles.emptyTitle}>No photos yet</Text>
             <Text style={styles.emptySubtitle}>
-              Track your progress visually by adding photos over time
+              Add progress photos when you log your weight
             </Text>
-            <TouchableOpacity
-              style={styles.addBtn}
-              onPress={handleAdd}
-              activeOpacity={0.7}
-              accessibilityLabel="Add your first photo"
-              accessibilityRole="button"
-            >
-              <Text style={styles.addBtnText}>+ Add Photo</Text>
-            </TouchableOpacity>
           </View>
         }
       />
+
+      {/* Full-screen photo viewer */}
+      <Modal
+        visible={viewingPhoto !== null}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setViewingPhoto(null)}
+      >
+        <StatusBar barStyle="light-content" />
+        <View style={styles.modalBg}>
+          <TouchableOpacity
+            style={styles.modalClose}
+            onPress={() => setViewingPhoto(null)}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityLabel="Close photo"
+            accessibilityRole="button"
+          >
+            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+              <Path d="M18 6L6 18M6 6l12 12" stroke={Theme.colors.white} strokeWidth={2.5} strokeLinecap="round" />
+            </Svg>
+          </TouchableOpacity>
+
+          {viewingPhoto && (
+            <>
+              <Image
+                source={{ uri: viewingPhoto.uri }}
+                style={styles.modalImage}
+                contentFit="contain"
+                transition={200}
+              />
+              <View style={styles.modalInfo}>
+                <Text style={styles.modalDate}>{formatFullDate(viewingPhoto.date)}</Text>
+                {viewingWeight !== undefined && (
+                  <Text style={styles.modalWeight}>{viewingWeight.toFixed(1)} {weightUnit}</Text>
+                )}
+              </View>
+            </>
+          )}
+
+          <TouchableOpacity
+            style={styles.modalDeleteBtn}
+            onPress={() => {
+              if (!viewingPhoto) return;
+              Alert.alert(
+                'Delete Photo',
+                'Remove this progress photo?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: () => {
+                      removePhoto(viewingPhoto.id);
+                      setViewingPhoto(null);
+                    },
+                  },
+                ],
+              );
+            }}
+            accessibilityLabel="Delete photo"
+            accessibilityRole="button"
+          >
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14"
+                stroke={Theme.colors.white}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-function formatDate(dateKey: string): string {
+function formatFullDate(dateKey: string): string {
   const d = new Date(dateKey + 'T00:00:00');
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${months[d.getMonth()]} ${d.getDate()}`;
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 const styles = StyleSheet.create({
@@ -186,18 +253,27 @@ const styles = StyleSheet.create({
     height: TILE_SIZE * 1.3,
     borderRadius: Theme.borderRadius.small,
   },
-  tileDate: {
+  tileOverlay: {
     position: 'absolute',
-    bottom: 6,
-    left: 6,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 6,
+    paddingVertical: 5,
+    borderBottomLeftRadius: Theme.borderRadius.small,
+    borderBottomRightRadius: Theme.borderRadius.small,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  tileDate: {
+    fontSize: 9,
+    fontFamily: Theme.fonts.bold,
+    color: Theme.colors.white,
+  },
+  tileWeight: {
     fontSize: 10,
     fontFamily: Theme.fonts.extraBold,
     color: Theme.colors.white,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    overflow: 'hidden',
+    marginTop: 1,
   },
 
   empty: { paddingTop: 80, alignItems: 'center', paddingHorizontal: 40 },
@@ -222,16 +298,53 @@ const styles = StyleSheet.create({
     color: Theme.colors.textMuted,
     textAlign: 'center',
   },
-  addBtn: {
-    backgroundColor: Theme.colors.primary,
-    borderRadius: Theme.borderRadius.button,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    marginTop: 24,
+
+  // Full-screen modal
+  modalBg: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  addBtnText: {
-    fontSize: 15,
+  modalClose: {
+    position: 'absolute',
+    top: 54,
+    right: 20,
+    zIndex: 10,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalImage: {
+    width: SCREEN_WIDTH - 32,
+    height: SCREEN_HEIGHT * 0.65,
+  },
+  modalInfo: {
+    marginTop: 16,
+    alignItems: 'center',
+    gap: 4,
+  },
+  modalDate: {
+    fontSize: 16,
+    fontFamily: Theme.fonts.bold,
+    color: Theme.colors.white,
+  },
+  modalWeight: {
+    fontSize: 20,
     fontFamily: Theme.fonts.extraBold,
     color: Theme.colors.white,
+  },
+  modalDeleteBtn: {
+    position: 'absolute',
+    top: 54,
+    left: 20,
+    zIndex: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

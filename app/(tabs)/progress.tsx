@@ -1,11 +1,9 @@
 import { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import Svg, { Path, Line, Circle, Polyline } from 'react-native-svg';
-import * as ImagePicker from 'expo-image-picker';
-import * as Crypto from 'expo-crypto';
 import { Theme } from '@/constants/theme';
 import { useUserStore } from '@/store/user-store';
 import { useWeightStore } from '@/store/weight-store';
@@ -14,6 +12,7 @@ import { useDiaryStore } from '@/store/diary-store';
 import { usePhotoStore } from '@/store/photo-store';
 import { toDateKey, weekKeys, dayLabel, daysBetween } from '@/utils/date';
 import { calculateBMI, getBMICategory } from '@/utils/calories';
+import type { WeightEntry } from '@/types/data';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -119,10 +118,10 @@ export default function ProgressScreen() {
   const streakData = useStreakStore((s) => s.streak);
   const diaryEntries = useDiaryStore((s) => s.entries);
   const photos = usePhotoStore((s) => s.photos);
-  const addPhoto = usePhotoStore((s) => s.addPhoto);
 
+
+  const removeWeightEntry = useWeightStore((s) => s.removeEntry);
   const latestWeight = allWeightEntries[0] ?? null;
-  const latestPhoto = photos[0] ?? null;
 
   const todayKey = useMemo(() => toDateKey(), []);
 
@@ -267,19 +266,29 @@ export default function ProgressScreen() {
   const handleTimeTab = useCallback((i: number) => setTimeTab(i), []);
   const handleWeekTab = useCallback((i: number) => setWeekTab(i), []);
 
-  const handleUploadPhoto = useCallback(async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-    });
-    if (result.canceled || !result.assets[0]) return;
-    addPhoto({
-      id: Crypto.randomUUID(),
-      date: toDateKey(),
-      timestamp: Date.now(),
-      uri: result.assets[0].uri,
-    });
-  }, [addPhoto]);
+  // Today's weight entries for display + delete
+  const todayWeightEntries = useMemo(
+    () => allWeightEntries.filter((e) => e.date === todayKey),
+    [allWeightEntries, todayKey],
+  );
+
+  const handleDeleteWeight = useCallback(
+    (entry: WeightEntry) => {
+      Alert.alert(
+        'Delete Entry',
+        `Remove ${entry.weight.toFixed(1)} ${entry.unit} logged today?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => removeWeightEntry(entry.id),
+          },
+        ],
+      );
+    },
+    [removeWeightEntry],
+  );
 
   // No-profile empty state
   if (!profile) {
@@ -360,6 +369,46 @@ export default function ProgressScreen() {
           </View>
         </View>
 
+        {/* Today's Weight Entries */}
+        {todayWeightEntries.length > 0 && (
+          <View style={styles.weightEntriesCard}>
+            <Text style={styles.weightEntriesTitle}>Today&apos;s Weigh-ins</Text>
+            {todayWeightEntries.map((entry) => (
+              <View key={entry.id} style={styles.weightEntryRow}>
+                <View style={styles.weightEntryInfo}>
+                  <Text style={styles.weightEntryValue}>
+                    {entry.weight.toFixed(1)}{' '}
+                    <Text style={styles.weightEntryUnit}>{entry.unit}</Text>
+                  </Text>
+                  <Text style={styles.weightEntryTime}>
+                    {new Date(entry.timestamp).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => handleDeleteWeight(entry)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessibilityLabel={`Delete ${entry.weight.toFixed(1)} ${entry.unit} entry`}
+                  accessibilityRole="button"
+                  style={styles.weightEntryDeleteBtn}
+                >
+                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14"
+                      stroke={Theme.colors.urgentRed}
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Time Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={styles.tabsContent}>
           {TIME_TABS.map((t, i) => (
@@ -436,37 +485,34 @@ export default function ProgressScreen() {
           onPress={() => router.push('/progress-photos')}
         >
           <Text style={[styles.chartTitle, styles.chartTitleMb15]} accessibilityRole="header">Progress Photos</Text>
-          <View style={styles.photoCard}>
-            {latestPhoto ? (
-              <Image
-                source={{ uri: latestPhoto.uri }}
-                style={styles.photoThumbnail}
-                contentFit="cover"
-                transition={200}
-              />
-            ) : (
+          {photos.length > 0 ? (
+            <>
+              <View style={styles.photoRow}>
+                {photos.slice(0, 3).map((p) => (
+                  <Image
+                    key={p.id}
+                    source={{ uri: p.uri }}
+                    style={styles.photoThumb}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                ))}
+              </View>
+              <Text style={styles.photoHint}>Tap to view all progress photos</Text>
+            </>
+          ) : (
+            <View style={styles.photoCard}>
               <View style={styles.photoPlaceholder}>
                 <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" accessible={false}>
                   <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke={Theme.colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
                   <Circle cx={12} cy={7} r={4} stroke={Theme.colors.primary} strokeWidth={2.5} />
                 </Svg>
               </View>
-            )}
-            <View style={styles.photoTextContainer}>
-              <Text style={styles.photoText}>
-                {latestPhoto ? 'Tap to view all progress photos' : 'Want to add a photo to track your progress?'}
-              </Text>
-              <TouchableOpacity
-                style={styles.btnUpload}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessibilityLabel="Upload a photo"
-                accessibilityRole="button"
-                onPress={handleUploadPhoto}
-              >
-                <Text style={styles.btnUploadText}>+ Upload a Photo</Text>
-              </TouchableOpacity>
+              <View style={styles.photoTextContainer}>
+                <Text style={styles.photoText}>Add photos when you log your weight</Text>
+              </View>
             </View>
-          </View>
+          )}
         </TouchableOpacity>
 
         {/* Week Tabs */}
@@ -661,6 +707,38 @@ const styles = StyleSheet.create({
   streakDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Theme.colors.border },
   streakDotActive: { backgroundColor: Theme.colors.warning },
 
+  // Weight entries
+  weightEntriesCard: {
+    backgroundColor: Theme.colors.surface, borderRadius: Theme.borderRadius.card, padding: 16,
+    borderWidth: 2, borderColor: Theme.colors.border, marginBottom: 20,
+    shadowColor: Theme.colors.textDark, shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.04, shadowRadius: 15, elevation: 2,
+  },
+  weightEntriesTitle: {
+    fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted,
+    marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5,
+  },
+  weightEntryRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Theme.colors.background, borderRadius: Theme.borderRadius.small,
+    paddingHorizontal: 14, paddingVertical: 10, marginBottom: 6,
+  },
+  weightEntryInfo: {
+    flexDirection: 'row', alignItems: 'baseline', gap: 10,
+  },
+  weightEntryValue: {
+    fontSize: 16, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
+  },
+  weightEntryUnit: {
+    fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted,
+  },
+  weightEntryTime: {
+    fontSize: 12, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted,
+  },
+  weightEntryDeleteBtn: {
+    width: 40, height: 40, alignItems: 'center', justifyContent: 'center',
+  },
+
   // Tabs
   tabsScroll: { marginBottom: 15, paddingBottom: 5 },
   tabsContent: { gap: 8 },
@@ -725,25 +803,21 @@ const styles = StyleSheet.create({
   xLabel: { fontSize: 9, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
 
   // Photo
+  photoRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  photoThumb: {
+    flex: 1, height: 90, borderRadius: Theme.borderRadius.small,
+  },
+  photoHint: {
+    fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted, textAlign: 'center',
+  },
   photoCard: { flexDirection: 'row', gap: 15, alignItems: 'center' },
   photoPlaceholder: {
     width: 60, height: 75, backgroundColor: Theme.colors.primaryActive,
     borderWidth: 2, borderStyle: 'dashed', borderColor: Theme.colors.border, borderRadius: Theme.borderRadius.small,
     alignItems: 'center', justifyContent: 'center',
   },
-  photoThumbnail: {
-    width: 60, height: 75, borderRadius: Theme.borderRadius.small, overflow: 'hidden',
-  },
   photoTextContainer: { flex: 1 },
   photoText: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
-  btnUpload: {
-    backgroundColor: Theme.colors.surface, borderWidth: 2, borderColor: Theme.colors.border,
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: Theme.borderRadius.button, marginTop: 10,
-    alignSelf: 'flex-start', shadowColor: Theme.colors.textDark, shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02, shadowRadius: 5, elevation: 1,
-  },
-  btnUploadText: { fontSize: 12, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
-
   // Calories
   calValue: { fontSize: 32, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark, marginBottom: 15 },
   calUnit: { fontSize: 14, color: Theme.colors.textMuted },
