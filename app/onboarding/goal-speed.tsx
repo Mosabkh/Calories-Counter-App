@@ -58,13 +58,13 @@ const GAIN_OPTIONS: SpeedOption[] = [
   },
   {
     speed: 0.5, lbSpeed: '1.1', iconName: 'target',
-    label: 'Recommended',
-    desc: 'Ideal for beginners with high muscle growth potential. The sweet spot for most people.',
+    label: 'Moderate',
+    desc: 'Ideal for beginners with high muscle growth potential. Surplus capped for healthy gains.',
   },
   {
     speed: 0.75, lbSpeed: '1.65', iconName: 'lightning',
-    label: 'Aggressive',
-    desc: 'Faster results, but expect more fat gain alongside muscle.',
+    label: 'Max Surplus',
+    desc: 'Maximum healthy surplus. Same calorie cap as moderate — faster gains unlikely.',
     warning: 'Higher fat gain expected. Best for underweight individuals or experienced lifters.',
   },
 ];

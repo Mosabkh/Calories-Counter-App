@@ -1,4 +1,12 @@
 import { useUserStore } from '@/store/user-store';
+import { useDiaryStore } from '@/store/diary-store';
+import { useWeightStore } from '@/store/weight-store';
+import { useExerciseStore } from '@/store/exercise-store';
+import { useStreakStore } from '@/store/streak-store';
+import { useFavoritesStore } from '@/store/favorites-store';
+import { usePhotoStore } from '@/store/photo-store';
+import { useRemindersStore } from '@/store/reminders-store';
+import { useSubscriptionStore } from '@/store/subscription-store';
 import type { AuthState } from '@/types/data';
 
 /**
@@ -19,7 +27,16 @@ export function signInAnonymously(): void {
  * When a backend is added, this should also call the provider's sign-out.
  */
 export async function signOut(): Promise<void> {
-  useUserStore.getState().signOut();
+  useUserStore.getState().reset();
+  useDiaryStore.getState().reset();
+  useWeightStore.getState().reset();
+  useExerciseStore.getState().reset();
+  useStreakStore.getState().reset();
+  useFavoritesStore.getState().reset();
+  usePhotoStore.getState().reset();
+  useRemindersStore.getState().reset();
+  useSubscriptionStore.getState().reset();
+  // Intentionally NOT resetting onboarding — user should land on welcome screen, not redo 26 steps
 }
 
 // ── Google / Apple Sign-In ─────────────────────────────────────────

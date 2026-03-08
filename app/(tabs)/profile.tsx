@@ -1,10 +1,11 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { Theme } from '@/constants/theme';
 import { useUserStore } from '@/store/user-store';
+import { useOnboardingStore } from '@/store/onboarding-store';
 import { useSubscriptionStore } from '@/store/subscription-store';
 import { restorePurchases } from '@/utils/revenue-cat';
 import { signOut } from '@/utils/auth';
@@ -35,19 +36,34 @@ const SETTINGS = {
     label: 'Help Center',
     extraPaths: ['M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3', 'M12 17h0.01'],
   },
-} as const;
+};
 
 interface SettingItemProps {
   iconPath: string;
   label: string;
   badge?: string;
-  extraPaths?: string[];
+  badgeColor?: string;
+  extraPaths?: readonly string[];
+  isLast?: boolean;
   onPress?: () => void;
 }
 
-const SettingItem = memo(function SettingItem({ iconPath, label, badge, extraPaths, onPress }: SettingItemProps): React.ReactElement {
+const BADGE_STYLES = {
+  success: StyleSheet.create({ bg: { backgroundColor: Theme.colors.success } }),
+  textDark: StyleSheet.create({ bg: { backgroundColor: Theme.colors.textDark } }),
+};
+
+const SettingItem = memo(function SettingItem({ iconPath, label, badge, badgeColor, extraPaths, isLast, onPress }: SettingItemProps): React.ReactElement {
+  const badgeStyle = badgeColor === Theme.colors.success ? BADGE_STYLES.success.bg : BADGE_STYLES.textDark.bg;
+
   return (
-    <TouchableOpacity style={styles.settingItem} activeOpacity={0.6} accessibilityLabel={label} accessibilityRole="button" onPress={onPress}>
+    <TouchableOpacity
+      style={[styles.settingItem, isLast && styles.settingItemLast]}
+      activeOpacity={0.6}
+      accessibilityLabel={badge ? `${label}, ${badge}` : label}
+      accessibilityRole="button"
+      onPress={onPress}
+    >
       <View style={styles.settingLeft}>
         <View style={styles.settingIcon}>
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
@@ -59,17 +75,20 @@ const SettingItem = memo(function SettingItem({ iconPath, label, badge, extraPat
         </View>
         <Text style={styles.settingName}>{label}</Text>
         {badge && (
-          <View style={styles.settingBadge}>
+          <View style={[styles.settingBadge, badgeStyle]}>
             <Text style={styles.settingBadgeText}>{badge}</Text>
           </View>
         )}
       </View>
       <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" style={styles.chevron} accessible={false}>
-        <Path d="M9 18L15 12L9 6" stroke={Theme.colors.textMuted} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M9 18L15 12L9 6" stroke={Theme.colors.textDark} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
       </Svg>
     </TouchableOpacity>
   );
 });
+
+const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
+const AVATAR_SIZE = 65;
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -77,21 +96,40 @@ export default function ProfileScreen() {
   const authUser = useUserStore((s) => s.auth.user);
   const subPlan = useSubscriptionStore((s) => s.plan);
   const subIsActive = useSubscriptionStore((s) => s.isActive);
+  const subExpiresAt = useSubscriptionStore((s) => s.expiresAt);
+
   const name = profile?.name || 'User';
   const email = authUser?.email || 'No email linked';
+  const hasEmail = !!authUser?.email;
 
-  const subscriptionBadge = subIsActive
-    ? subPlan === 'yearly' ? 'YEARLY' : 'MONTHLY'
-    : 'FREE';
+  const { subscriptionBadge, badgeColor } = useMemo(() => {
+    if (subIsActive) {
+      if (subExpiresAt) {
+        const d = new Date(subExpiresAt);
+        if (!isNaN(d.getTime()) && d.getTime() < Date.now()) {
+          return { subscriptionBadge: 'EXPIRED', badgeColor: Theme.colors.textDark };
+        }
+      }
+      return {
+        subscriptionBadge: subPlan === 'yearly' ? 'YEARLY' : 'MONTHLY',
+        badgeColor: Theme.colors.success,
+      };
+    }
+    return { subscriptionBadge: 'FREE', badgeColor: Theme.colors.textDark };
+  }, [subIsActive, subPlan, subExpiresAt]);
 
   const handleRestore = useCallback(async () => {
-    const restored = await restorePurchases();
-    Alert.alert(
-      restored ? 'Restored!' : 'Nothing to Restore',
-      restored
-        ? 'Your subscription has been restored.'
-        : 'No previous purchases found.',
-    );
+    try {
+      const restored = await restorePurchases();
+      Alert.alert(
+        restored ? 'Restored!' : 'Nothing to Restore',
+        restored
+          ? 'Your subscription has been restored.'
+          : 'No previous purchases found.',
+      );
+    } catch {
+      Alert.alert('Error', 'Failed to restore purchases. Please try again.');
+    }
   }, []);
 
   const handleSignOut = useCallback(() => {
@@ -101,12 +139,69 @@ export default function ProfileScreen() {
         text: 'Sign Out',
         style: 'destructive',
         onPress: async () => {
-          await signOut();
-          router.replace('/');
+          try {
+            await signOut();
+            router.replace('/');
+          } catch {
+            Alert.alert('Error', 'Failed to sign out. Please try again.');
+          }
         },
       },
     ]);
   }, [router]);
+
+  const handleEmailLink = useCallback(() => {
+    Alert.alert('Coming Soon', 'Email linking will be available when cloud accounts are enabled.');
+  }, []);
+
+  const handleStartOver = useCallback(() => {
+    Alert.alert('Start Over', 'This will reset your onboarding data so you can set up a new profile.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Start Over',
+        style: 'destructive',
+        onPress: () => {
+          useOnboardingStore.getState().reset();
+          router.replace('/onboarding');
+        },
+      },
+    ]);
+  }, [router]);
+
+  const goToSubscription = useCallback(() => router.push('/subscription'), [router]);
+  const goToGoals = useCallback(() => router.push('/my-goals'), [router]);
+  const goToReminders = useCallback(() => router.push('/reminders'), [router]);
+  const goToUnits = useCallback(() => router.push('/units'), [router]);
+  const goToHelp = useCallback(() => router.push('/help'), [router]);
+  const goToEditProfile = useCallback(() => router.push('/edit-profile'), [router]);
+
+  if (!profile) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.pageTitle} accessibilityRole="header">Profile</Text>
+          <View style={styles.emptyState}>
+            <Svg width={48} height={48} viewBox="0 0 24 24" fill="none" accessible={false}>
+              <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke={Theme.colors.border} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+              <Circle cx={12} cy={7} r={4} stroke={Theme.colors.border} strokeWidth={2} />
+            </Svg>
+            <Text style={styles.emptyTitle}>No Profile</Text>
+            <Text style={styles.emptySubtitle}>Complete onboarding to set up your profile.</Text>
+            <TouchableOpacity
+              style={styles.btnStartOver}
+              onPress={handleStartOver}
+              activeOpacity={0.7}
+              accessibilityLabel="Start Over"
+              accessibilityRole="button"
+              accessibilityHint="Resets onboarding so you can create a new profile"
+            >
+              <Text style={styles.btnStartOverText}>Start Over</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -121,17 +216,25 @@ export default function ProfileScreen() {
               <Circle cx={12} cy={7} r={4} stroke={Theme.colors.primary} strokeWidth={2.5} />
             </Svg>
           </View>
-          <View>
-            <Text style={styles.userName}>{name}</Text>
+          <View style={styles.userInfo}>
+            <Text style={styles.userName} accessibilityRole="header">{name}</Text>
             <TouchableOpacity
-              disabled={!!authUser?.email}
-              onPress={() => Alert.alert('Coming Soon', 'Email linking will be available when cloud accounts are enabled.')}
-              accessibilityLabel={authUser?.email ? email : 'Link email'}
-              accessibilityRole={authUser?.email ? 'text' : 'button'}
+              disabled={hasEmail}
+              onPress={handleEmailLink}
+              accessibilityLabel={hasEmail ? email : 'Link email'}
+              accessibilityRole={hasEmail ? 'text' : 'button'}
+              accessibilityState={{ disabled: hasEmail }}
+              hitSlop={HIT_SLOP}
             >
-              <Text style={styles.userEmail}>{email}</Text>
+              <Text style={[styles.userEmail, !hasEmail && styles.userEmailLink]}>{email}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.btnEdit} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Edit Profile" accessibilityRole="button" onPress={() => router.push('/edit-profile')}>
+            <TouchableOpacity
+              style={styles.btnEdit}
+              hitSlop={HIT_SLOP}
+              accessibilityLabel="Edit Profile"
+              accessibilityRole="button"
+              onPress={goToEditProfile}
+            >
               <Text style={styles.btnEditText}>Edit Profile</Text>
             </TouchableOpacity>
           </View>
@@ -140,21 +243,21 @@ export default function ProfileScreen() {
         {/* Account */}
         <Text style={styles.groupTitle} accessibilityRole="header">Account</Text>
         <View style={styles.settingsCard}>
-          <SettingItem {...SETTINGS.subscription} badge={subscriptionBadge} onPress={() => router.push('/subscription')} />
-          <SettingItem {...SETTINGS.goals} onPress={() => router.push('/my-goals')} />
+          <SettingItem {...SETTINGS.subscription} badge={subscriptionBadge} badgeColor={badgeColor} onPress={goToSubscription} />
+          <SettingItem {...SETTINGS.goals} isLast onPress={goToGoals} />
         </View>
 
         {/* Preferences */}
         <Text style={styles.groupTitle} accessibilityRole="header">Preferences</Text>
         <View style={styles.settingsCard}>
-          <SettingItem {...SETTINGS.reminders} onPress={() => router.push('/reminders')} />
-          <SettingItem {...SETTINGS.units} onPress={() => router.push('/units')} />
+          <SettingItem {...SETTINGS.reminders} onPress={goToReminders} />
+          <SettingItem {...SETTINGS.units} isLast onPress={goToUnits} />
         </View>
 
         {/* Support */}
         <Text style={styles.groupTitle} accessibilityRole="header">Support</Text>
         <View style={styles.settingsCard}>
-          <SettingItem {...SETTINGS.help} onPress={() => router.push('/help')} />
+          <SettingItem {...SETTINGS.help} isLast onPress={goToHelp} />
         </View>
 
         {/* Restore Purchases */}
@@ -180,6 +283,15 @@ const styles = StyleSheet.create({
     textAlign: 'center', marginTop: 10, marginBottom: 25,
   },
 
+  // Empty state
+  emptyContainer: { flex: 1, backgroundColor: Theme.colors.background, paddingHorizontal: 20 },
+  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  emptyTitle: { fontSize: 18, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
+  emptySubtitle: {
+    fontSize: 14, fontFamily: Theme.fonts.regular, color: Theme.colors.textDark,
+    textAlign: 'center',
+  },
+
   // User Card
   userCard: {
     flexDirection: 'row', alignItems: 'center', gap: 15, backgroundColor: Theme.colors.surface,
@@ -188,20 +300,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04, shadowRadius: 15, elevation: 2,
   },
   avatar: {
-    width: 65, height: 65, borderRadius: 33, backgroundColor: Theme.colors.accentBackground,
+    width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2,
+    backgroundColor: Theme.colors.accentBackground,
     alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Theme.colors.primary,
   },
+  userInfo: { flex: 1 },
   userName: { fontSize: 20, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
-  userEmail: { fontSize: 12, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted, marginTop: 2 },
+  userEmail: { fontSize: 12, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark, marginTop: 2 },
+  userEmailLink: { color: Theme.colors.primaryHover, textDecorationLine: 'underline' },
   btnEdit: {
-    backgroundColor: Theme.colors.primaryActive, paddingHorizontal: 12, paddingVertical: 6,
+    backgroundColor: Theme.colors.accentBackground, paddingHorizontal: 14, paddingVertical: 10,
     borderRadius: Theme.borderRadius.small, marginTop: 8, alignSelf: 'flex-start',
   },
-  btnEditText: { fontSize: 11, fontFamily: Theme.fonts.extraBold, color: Theme.colors.primary },
+  btnEditText: { fontSize: 12, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
 
   // Settings
   groupTitle: {
-    fontSize: 14, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textMuted,
+    fontSize: 13, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
     textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, marginLeft: 5,
   },
   settingsCard: {
@@ -215,6 +330,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1,
     borderBottomColor: Theme.colors.border,
   },
+  settingItemLast: { borderBottomWidth: 0 },
   settingLeft: { flexDirection: 'row', alignItems: 'center', gap: 15 },
   settingIcon: {
     width: 36, height: 36, borderRadius: Theme.borderRadius.small, backgroundColor: Theme.colors.background,
@@ -223,18 +339,18 @@ const styles = StyleSheet.create({
   settingName: { fontSize: 15, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
   settingBadge: {
     backgroundColor: Theme.colors.textDark, paddingHorizontal: 8, paddingVertical: 4,
-    borderRadius: 8, marginLeft: 10,
+    borderRadius: Theme.borderRadius.tiny, marginLeft: 10,
   },
   settingBadgeText: { color: Theme.colors.white, fontSize: 10, fontFamily: Theme.fonts.extraBold },
-  chevron: { opacity: 0.5 },
+  chevron: { opacity: 0.7 },
 
   // Restore
   btnRestore: {
-    padding: 16, borderRadius: Theme.borderRadius.card,
-    marginBottom: 12, alignItems: 'center',
+    borderWidth: 2, borderColor: Theme.colors.border, padding: 16,
+    borderRadius: Theme.borderRadius.card, marginBottom: 12, alignItems: 'center',
   },
   btnRestoreText: {
-    fontSize: 14, fontFamily: Theme.fonts.bold, color: Theme.colors.primary,
+    fontSize: 14, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark,
   },
 
   // Logout
@@ -243,6 +359,15 @@ const styles = StyleSheet.create({
     marginBottom: 20, alignItems: 'center',
   },
   btnLogoutText: {
-    fontSize: 15, fontFamily: Theme.fonts.extraBold, color: Theme.colors.calorieAlert,
+    fontSize: 15, fontFamily: Theme.fonts.extraBold, color: Theme.colors.urgentRed,
+  },
+
+  // Start Over (empty state)
+  btnStartOver: {
+    backgroundColor: Theme.colors.primary, borderRadius: Theme.borderRadius.button,
+    paddingHorizontal: 24, paddingVertical: 14, marginTop: 16,
+  },
+  btnStartOverText: {
+    fontSize: 14, fontFamily: Theme.fonts.extraBold, color: Theme.colors.white,
   },
 });

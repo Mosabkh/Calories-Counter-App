@@ -53,9 +53,11 @@ export async function fetchOfferings(): Promise<StubOfferings | null> {
 // ── Purchase ─────────────────────────────────────────────────────
 
 export async function purchase(pkg: StubPackage): Promise<boolean> {
-  // Stub: simulate a successful purchase
+  // Stub: simulate a successful purchase with a realistic expiration date
   const plan: SubscriptionPlan = pkg.identifier.includes('annual') ? 'yearly' : 'monthly';
-  useSubscriptionStore.getState().activate(plan, '', pkg.product.identifier);
+  const expiresAt = new Date();
+  expiresAt.setMonth(expiresAt.getMonth() + (plan === 'yearly' ? 12 : 1));
+  useSubscriptionStore.getState().activate(plan, expiresAt.toISOString(), pkg.product.identifier);
   return true;
 }
 

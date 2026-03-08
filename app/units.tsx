@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptySubtitle: {
-    fontSize: 14, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted,
+    fontSize: 14, fontFamily: Theme.fonts.regular, color: Theme.colors.textDark,
     textAlign: 'center',
   },
 });

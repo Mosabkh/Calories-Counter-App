@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,18 +8,19 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { Theme } from '@/constants/theme';
 import { useUserStore } from '@/store/user-store';
 import { recalculateTargets } from '@/utils/recalculate-targets';
 
 const GOAL_OPTIONS = [
-  { value: 'lose' as const, label: 'Lose Weight', emoji: '' },
-  { value: 'maintain' as const, label: 'Maintain Weight', emoji: '' },
-  { value: 'gain' as const, label: 'Gain Weight', emoji: '' },
+  { value: 'lose' as const, label: 'Lose Weight' },
+  { value: 'maintain' as const, label: 'Maintain Weight' },
+  { value: 'gain' as const, label: 'Gain Weight' },
 ];
 
 const LOSE_SPEED_OPTIONS = [
@@ -30,9 +31,11 @@ const LOSE_SPEED_OPTIONS = [
 
 const GAIN_SPEED_OPTIONS = [
   { value: 0.25, label: '0.25 kg/week', lbLabel: '0.55 lb/week', desc: 'Lean gain' },
-  { value: 0.5, label: '0.5 kg/week', lbLabel: '1.1 lb/week', desc: 'Recommended' },
-  { value: 0.75, label: '0.75 kg/week', lbLabel: '1.65 lb/week', desc: 'Aggressive' },
+  { value: 0.5, label: '0.5 kg/week', lbLabel: '1.1 lb/week', desc: 'Moderate' },
+  { value: 0.75, label: '0.75 kg/week', lbLabel: '1.65 lb/week', desc: 'Max surplus' },
 ];
+
+const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };
 
 export default function MyGoalsScreen() {
   const router = useRouter();
@@ -45,7 +48,10 @@ export default function MyGoalsScreen() {
 
   const unit = profile?.weightUnit ?? 'kg';
   const isMaintain = goal === 'maintain';
-  const speedOptions = goal === 'gain' ? GAIN_SPEED_OPTIONS : LOSE_SPEED_OPTIONS;
+  const speedOptions = useMemo(
+    () => goal === 'gain' ? GAIN_SPEED_OPTIONS : LOSE_SPEED_OPTIONS,
+    [goal],
+  );
   const currentWeight = profile?.startWeight ?? 70;
   const defaultStep = unit === 'lb' ? 10 : 5;
 
@@ -55,9 +61,35 @@ export default function MyGoalsScreen() {
     (goal === 'lose' ? parsedTarget < currentWeight : parsedTarget > currentWeight)
   );
 
+  const hasChanged = useMemo(() => {
+    if (!profile) return false;
+    if (goal !== profile.goal) return true;
+    if (speed !== profile.weeklyGoalSpeed) return true;
+    if (!isMaintain && String(profile.targetWeight) !== targetWeight) return true;
+    return false;
+  }, [profile, goal, speed, isMaintain, targetWeight]);
+
+  const preview = useMemo(() => {
+    if (!profile) return null;
+    const parsedTw = parseFloat(targetWeight);
+    const tw = isMaintain ? profile.startWeight : (isNaN(parsedTw) ? profile.targetWeight : parsedTw);
+    const patch = recalculateTargets(profile, {
+      goal,
+      targetWeight: tw,
+      weeklyGoalSpeed: isMaintain ? 0 : speed,
+    });
+    return {
+      calories: patch.dailyCalorieTarget ?? profile.dailyCalorieTarget,
+      protein: patch.proteinTarget ?? profile.proteinTarget,
+      carbs: patch.carbsTarget ?? profile.carbsTarget,
+      fat: patch.fatTarget ?? profile.fatTarget,
+    };
+  }, [profile, goal, targetWeight, speed, isMaintain]);
+
   const handleGoalChange = useCallback((newGoal: 'lose' | 'maintain' | 'gain') => {
     setGoal(newGoal);
-    const tw = parseFloat(targetWeight) || currentWeight;
+    const parsed = parseFloat(targetWeight);
+    const tw = isNaN(parsed) ? currentWeight : parsed;
     // Reset speed to the "Recommended" middle option for the new goal
     if (newGoal === 'gain') {
       setSpeed(0.5);
@@ -76,9 +108,10 @@ export default function MyGoalsScreen() {
 
   const handleSave = useCallback(() => {
     if (!profile) return;
+    const parsed = parseFloat(targetWeight);
     const tw = isMaintain
       ? profile.startWeight
-      : parseFloat(targetWeight) || profile.targetWeight;
+      : (isNaN(parsed) ? profile.targetWeight : parsed);
 
     const patch = recalculateTargets(profile, {
       goal,
@@ -89,6 +122,52 @@ export default function MyGoalsScreen() {
     router.back();
   }, [profile, goal, targetWeight, speed, isMaintain, updateProfile, router]);
 
+  const handleBack = useCallback(() => {
+    if (hasChanged) {
+      Alert.alert('Discard Changes?', 'Your goal changes will not be saved.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: () => router.back() },
+      ]);
+    } else {
+      router.back();
+    }
+  }, [hasChanged, router]);
+
+  const handleTargetChange = useCallback((v: string) => {
+    setTargetWeight(v);
+  }, []);
+
+  if (!profile) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            hitSlop={HIT_SLOP}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+            style={styles.backBtn}
+          >
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
+              <Path d="M19 12H5M12 19l-7-7 7-7" stroke={Theme.colors.textDark} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle} accessibilityRole="header">My Goals</Text>
+          <View style={styles.backBtn} />
+        </View>
+        <View style={styles.emptyState}>
+          <Svg width={48} height={48} viewBox="0 0 24 24" fill="none" accessible={false}>
+            <Path d="M12 22A10 10 0 1 0 12 2A10 10 0 0 0 12 22Z" stroke={Theme.colors.border} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            <Circle cx={12} cy={12} r={6} stroke={Theme.colors.border} strokeWidth={2} />
+            <Circle cx={12} cy={12} r={2} stroke={Theme.colors.border} strokeWidth={2} />
+          </Svg>
+          <Text style={styles.emptyTitle}>No Profile</Text>
+          <Text style={styles.emptySubtitle}>Complete onboarding to set your goals.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <KeyboardAvoidingView
@@ -97,40 +176,41 @@ export default function MyGoalsScreen() {
       >
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => router.back()}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            onPress={handleBack}
+            hitSlop={HIT_SLOP}
             accessibilityLabel="Go back"
             accessibilityRole="button"
             style={styles.backBtn}
           >
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
               <Path d="M19 12H5M12 19l-7-7 7-7" stroke={Theme.colors.textDark} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>My Goals</Text>
+          <Text style={styles.headerTitle} accessibilityRole="header">My Goals</Text>
           <TouchableOpacity
             onPress={handleSave}
-            disabled={!isTargetValid}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            disabled={!isTargetValid || !hasChanged}
+            hitSlop={HIT_SLOP}
             accessibilityLabel="Save"
             accessibilityRole="button"
-            accessibilityState={{ disabled: !isTargetValid }}
+            accessibilityState={{ disabled: !isTargetValid || !hasChanged }}
             style={styles.backBtn}
           >
-            <Text style={[styles.saveText, !isTargetValid && styles.saveTextDisabled]}>Save</Text>
+            <Text style={[styles.saveText, (!isTargetValid || !hasChanged) && styles.saveTextDisabled]}>Save</Text>
           </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {/* Goal type */}
           <Text style={styles.label}>Goal</Text>
-          <View style={styles.goalList}>
+          <View style={styles.goalList} accessibilityRole="radiogroup" accessibilityLabel="Goal type">
             {GOAL_OPTIONS.map((opt) => (
               <TouchableOpacity
                 key={opt.value}
                 style={[styles.goalRow, goal === opt.value && styles.goalRowActive]}
                 onPress={() => handleGoalChange(opt.value)}
                 accessibilityRole="radio"
+                accessibilityLabel={opt.label}
                 accessibilityState={{ selected: goal === opt.value }}
               >
                 <View style={[styles.radio, goal === opt.value && styles.radioActive]} />
@@ -148,13 +228,15 @@ export default function MyGoalsScreen() {
               <TextInput
                 style={[styles.input, !isTargetValid && targetWeight.length > 0 && styles.inputError]}
                 value={targetWeight}
-                onChangeText={setTargetWeight}
+                onChangeText={handleTargetChange}
                 keyboardType="decimal-pad"
-                placeholder={String(profile?.targetWeight ?? '')}
+                placeholder={String(profile.targetWeight)}
                 placeholderTextColor={Theme.colors.textMuted}
+                accessibilityLabel={`Target weight in ${unit}`}
+                accessibilityState={!isTargetValid && targetWeight.length > 0 ? { invalid: true } : undefined}
               />
               {!isTargetValid && targetWeight.length > 0 && (
-                <Text style={styles.errorHint}>
+                <Text style={styles.errorHint} nativeID="target-weight-error" role="alert">
                   {goal === 'lose'
                     ? `Must be less than your current weight (${currentWeight} ${unit})`
                     : `Must be more than your current weight (${currentWeight} ${unit})`}
@@ -167,38 +249,47 @@ export default function MyGoalsScreen() {
           {!isMaintain && (
             <>
               <Text style={styles.label}>Weekly Goal Speed</Text>
-              <View style={styles.speedList}>
-                {speedOptions.map((opt) => (
-                  <TouchableOpacity
-                    key={opt.value}
-                    style={[styles.speedRow, speed === opt.value && styles.speedRowActive]}
-                    onPress={() => setSpeed(opt.value)}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected: speed === opt.value }}
-                  >
-                    <View style={styles.speedLeft}>
-                      <View style={[styles.radio, speed === opt.value && styles.radioActive]} />
-                      <Text style={[styles.speedLabel, speed === opt.value && styles.speedLabelActive]}>
-                        {unit === 'lb' ? opt.lbLabel : opt.label}
-                      </Text>
-                    </View>
-                    <Text style={styles.speedDesc}>{opt.desc}</Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.speedList} accessibilityRole="radiogroup" accessibilityLabel="Weekly goal speed">
+                {speedOptions.map((opt) => {
+                  const displayLabel = unit === 'lb' ? opt.lbLabel : opt.label;
+                  return (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={[styles.speedRow, speed === opt.value && styles.speedRowActive]}
+                      onPress={() => setSpeed(opt.value)}
+                      accessibilityRole="radio"
+                      accessibilityLabel={`${displayLabel}, ${opt.desc}`}
+                      accessibilityState={{ selected: speed === opt.value }}
+                    >
+                      <View style={styles.speedLeft}>
+                        <View style={[styles.radio, speed === opt.value && styles.radioActive]} />
+                        <Text style={[styles.speedLabel, speed === opt.value && styles.speedLabelActive]}>
+                          {displayLabel}
+                        </Text>
+                      </View>
+                      <Text style={styles.speedDesc}>{opt.desc}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </>
           )}
 
           {/* Summary */}
-          {profile && (
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryTitle}>Updated Targets Preview</Text>
-              <Text style={styles.summaryLine}>
-                Daily calories: {(() => {
-                  const tw = isMaintain ? profile.startWeight : parseFloat(targetWeight) || profile.targetWeight;
-                  const patch = recalculateTargets(profile, { goal, targetWeight: tw, weeklyGoalSpeed: isMaintain ? 0 : speed });
-                  return patch.dailyCalorieTarget;
-                })()} kcal
+          {preview && (
+            <View
+              style={styles.summaryCard}
+              accessible
+              accessibilityLabel={`Daily target preview: ${preview.calories} calories, ${preview.protein}g protein, ${preview.carbs}g carbs, ${preview.fat}g fat`}
+              accessibilityRole="summary"
+              accessibilityLiveRegion="polite"
+            >
+              <Text style={styles.summaryTitle} accessible={false}>Daily Target Preview</Text>
+              <Text style={styles.summaryLine} accessible={false}>
+                Daily calories: {preview.calories} kcal
+              </Text>
+              <Text style={styles.summaryLine} accessible={false}>
+                Protein: {preview.protein}g  ·  Carbs: {preview.carbs}g  ·  Fat: {preview.fat}g
               </Text>
             </View>
           )}
@@ -224,8 +315,16 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
 
+  // Empty state
+  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  emptyTitle: { fontSize: 18, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
+  emptySubtitle: {
+    fontSize: 14, fontFamily: Theme.fonts.regular, color: Theme.colors.textDark,
+    textAlign: 'center',
+  },
+
   label: {
-    fontSize: 13, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textMuted,
+    fontSize: 13, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
     marginBottom: 8, marginTop: 24,
   },
   input: {
@@ -249,7 +348,7 @@ const styles = StyleSheet.create({
   },
   goalRowActive: { borderColor: Theme.colors.primary },
   goalText: { fontSize: 14, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark },
-  goalTextActive: { color: Theme.colors.primary },
+  goalTextActive: { color: Theme.colors.primary, fontFamily: Theme.fonts.extraBold },
 
   radio: {
     width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: Theme.colors.border,
@@ -266,18 +365,19 @@ const styles = StyleSheet.create({
   speedRowActive: { borderColor: Theme.colors.primary },
   speedLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   speedLabel: { fontSize: 14, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark },
-  speedLabelActive: { color: Theme.colors.primary },
-  speedDesc: { fontSize: 12, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted },
+  speedLabelActive: { color: Theme.colors.primary, fontFamily: Theme.fonts.extraBold },
+  speedDesc: { fontSize: 12, fontFamily: Theme.fonts.regular, color: Theme.colors.textDark },
 
   summaryCard: {
-    backgroundColor: Theme.colors.primaryActive, borderRadius: Theme.borderRadius.card,
+    backgroundColor: Theme.colors.accentBackground, borderRadius: Theme.borderRadius.card,
     padding: 16, marginTop: 28,
   },
   summaryTitle: {
-    fontSize: 13, fontFamily: Theme.fonts.extraBold, color: Theme.colors.primary,
+    fontSize: 13, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
     marginBottom: 6,
   },
   summaryLine: {
     fontSize: 14, fontFamily: Theme.fonts.semiBold, color: Theme.colors.textDark,
+    marginTop: 2,
   },
 });
