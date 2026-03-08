@@ -26,6 +26,8 @@ const ACTIVITY_OPTIONS: { value: ActivityLevel; label: string }[] = [
   { value: 'very_active', label: 'Very Active' },
 ];
 
+const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };
+
 export default function EditProfileScreen() {
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
@@ -33,21 +35,62 @@ export default function EditProfileScreen() {
 
   const [name, setName] = useState(profile?.name ?? '');
   const [gender, setGender] = useState<'male' | 'female'>(profile?.gender ?? 'male');
-  const [heightCm, setHeightCm] = useState(String(profile?.heightCm ?? 170));
+  const heightUnit: 'cm' | 'ft' = profile?.heightUnit ?? 'cm';
+  const [heightInput, setHeightInput] = useState(() => {
+    const cm = profile?.heightCm ?? 170;
+    if (heightUnit === 'ft') {
+      const totalInches = cm / 2.54;
+      let ft = Math.floor(totalInches / 12);
+      let inches = Math.round(totalInches % 12);
+      if (inches === 12) { ft += 1; inches = 0; }
+      return `${ft}'${inches}`;
+    }
+    return String(cm);
+  });
+  const [heightError, setHeightError] = useState('');
   const [activity, setActivity] = useState<ActivityLevel>(profile?.activityLevel ?? 'moderate');
 
   const handleSave = useCallback(() => {
     if (!profile) return;
-    const heightVal = parseInt(heightCm, 10) || profile.heightCm;
+
+    let heightCm: number;
+    if (heightUnit === 'ft') {
+      const match = heightInput.match(/^(\d+)'(\d+)$/);
+      if (match) {
+        const ft = parseInt(match[1], 10);
+        const inches = parseInt(match[2], 10);
+        if (inches > 11) {
+          setHeightError('Inches must be 0–11');
+          return;
+        }
+        if (ft < 3 || ft > 8) {
+          setHeightError('Height must be between 3\'0" and 8\'0"');
+          return;
+        }
+        heightCm = Math.round(ft * 30.48 + inches * 2.54);
+      } else {
+        setHeightError("Enter as 5'9 (feet'inches)");
+        return;
+      }
+    } else {
+      const parsed = parseInt(heightInput, 10);
+      if (!parsed || parsed < 90 || parsed > 250) {
+        setHeightError('Height must be 90–250 cm');
+        return;
+      }
+      heightCm = parsed;
+    }
+
+    setHeightError('');
     const patch = recalculateTargets(profile, {
       name: name.trim(),
       gender,
-      heightCm: heightVal,
+      heightCm,
       activityLevel: activity,
     });
     updateProfile(patch);
     router.back();
-  }, [profile, name, gender, heightCm, activity, updateProfile, router]);
+  }, [profile, name, gender, heightInput, heightUnit, activity, updateProfile, router]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -58,19 +101,19 @@ export default function EditProfileScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => router.back()}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            hitSlop={HIT_SLOP}
             accessibilityLabel="Go back"
             accessibilityRole="button"
             style={styles.backBtn}
           >
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
               <Path d="M19 12H5M12 19l-7-7 7-7" stroke={Theme.colors.textDark} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Edit Profile</Text>
           <TouchableOpacity
             onPress={handleSave}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            hitSlop={HIT_SLOP}
             accessibilityLabel="Save"
             accessibilityRole="button"
             style={styles.backBtn}
@@ -88,17 +131,19 @@ export default function EditProfileScreen() {
             onChangeText={setName}
             placeholder="Your name"
             placeholderTextColor={Theme.colors.textMuted}
+            accessibilityLabel="Name"
           />
 
           {/* Gender */}
           <Text style={styles.label}>Gender</Text>
-          <View style={styles.pillRow}>
+          <View style={styles.pillRow} accessibilityRole="radiogroup" accessibilityLabel="Gender">
             {GENDER_OPTIONS.map((g) => (
               <TouchableOpacity
                 key={g}
                 style={[styles.pill, gender === g && styles.pillActive]}
                 onPress={() => setGender(g)}
                 accessibilityRole="radio"
+                accessibilityLabel={g.charAt(0).toUpperCase() + g.slice(1)}
                 accessibilityState={{ selected: gender === g }}
               >
                 <Text style={[styles.pillText, gender === g && styles.pillTextActive]}>
@@ -109,25 +154,35 @@ export default function EditProfileScreen() {
           </View>
 
           {/* Height */}
-          <Text style={styles.label}>Height (cm)</Text>
+          <Text style={styles.label}>
+            {heightUnit === 'ft' ? 'Height (Feet & Inches)' : 'Height (cm)'}
+          </Text>
           <TextInput
-            style={styles.input}
-            value={heightCm}
-            onChangeText={setHeightCm}
-            keyboardType="number-pad"
-            placeholder="170"
+            style={[styles.input, heightError ? styles.inputError : null]}
+            value={heightInput}
+            onChangeText={(v) => { setHeightInput(v); setHeightError(''); }}
+            keyboardType={heightUnit === 'ft' ? 'default' : 'number-pad'}
+            placeholder={heightUnit === 'ft' ? "5'9" : '170'}
             placeholderTextColor={Theme.colors.textMuted}
+            accessibilityLabel={heightUnit === 'ft' ? "Height in feet and inches, enter as 5'9" : 'Height in centimeters'}
           />
+          {heightUnit === 'ft' && !heightError && (
+            <Text style={styles.inputHint}>{"Format: 5'9 (feet, then inches)"}</Text>
+          )}
+          {heightError !== '' && (
+            <Text style={styles.inputErrorText}>{heightError}</Text>
+          )}
 
           {/* Activity Level */}
           <Text style={styles.label}>Activity Level</Text>
-          <View style={styles.activityList}>
+          <View style={styles.activityList} accessibilityRole="radiogroup" accessibilityLabel="Activity level">
             {ACTIVITY_OPTIONS.map((opt) => (
               <TouchableOpacity
                 key={opt.value}
                 style={[styles.activityRow, activity === opt.value && styles.activityRowActive]}
                 onPress={() => setActivity(opt.value)}
                 accessibilityRole="radio"
+                accessibilityLabel={opt.label}
                 accessibilityState={{ selected: activity === opt.value }}
               >
                 <View style={[styles.radio, activity === opt.value && styles.radioActive]} />
@@ -159,7 +214,7 @@ const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
 
   label: {
-    fontSize: 13, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textMuted,
+    fontSize: 13, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
     marginBottom: 8, marginTop: 24,
   },
   input: {
@@ -167,6 +222,17 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: Theme.colors.border, paddingHorizontal: 16,
     paddingVertical: 14, fontSize: 15, fontFamily: Theme.fonts.semiBold,
     color: Theme.colors.textDark,
+  },
+  inputError: {
+    borderColor: Theme.colors.urgentRed,
+  },
+  inputHint: {
+    fontSize: 12, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted,
+    marginTop: 4, marginLeft: 4,
+  },
+  inputErrorText: {
+    fontSize: 12, fontFamily: Theme.fonts.semiBold, color: Theme.colors.urgentRed,
+    marginTop: 4, marginLeft: 4,
   },
 
   pillRow: { flexDirection: 'row', gap: 10 },
@@ -194,5 +260,5 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.primary, backgroundColor: Theme.colors.primary,
   },
   activityText: { fontSize: 14, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark },
-  activityTextActive: { color: Theme.colors.primary },
+  activityTextActive: { color: Theme.colors.textDark, fontFamily: Theme.fonts.extraBold },
 });

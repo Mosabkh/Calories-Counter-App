@@ -48,6 +48,7 @@ export function graduateOnboarding(): void {
     birthMonth: payload.birthMonth ?? '',
     birthDay: payload.birthDay ?? '',
     heightCm,
+    heightUnit: payload.heightUnit ?? 'cm',
     startWeight: cw,
     weightUnit: unit,
     activityLevel: activity,

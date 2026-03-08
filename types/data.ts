@@ -10,6 +10,7 @@ export interface UserProfile {
   birthDay: string;
 
   heightCm: number;
+  heightUnit: 'cm' | 'ft';
   startWeight: number;
   weightUnit: 'kg' | 'lb';
   activityLevel: ActivityLevel;

@@ -40,6 +40,7 @@ export default function WelcomeScreen() {
       birthMonth: '01',
       birthDay: '01',
       heightCm,
+      heightUnit: 'cm',
       startWeight: weightKg,
       weightUnit: 'kg',
       activityLevel: activity,

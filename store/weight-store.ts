@@ -10,6 +10,8 @@ interface WeightState {
   removeEntry: (id: string) => void;
   getLatest: () => WeightEntry | undefined;
   getEntriesInRange: (startDate: string, endDate: string) => WeightEntry[];
+  /** Convert all entries to a new unit using the provided conversion function */
+  convertAll: (toUnit: 'kg' | 'lb', convert: (v: number) => number) => void;
   reset: () => void;
 }
 
@@ -32,6 +34,15 @@ export const useWeightStore = create<WeightState>()(
 
       getEntriesInRange: (startDate, endDate) =>
         get().entries.filter((e) => e.date >= startDate && e.date <= endDate),
+
+      convertAll: (toUnit, convert) =>
+        set((s) => ({
+          entries: s.entries.map((e) => ({
+            ...e,
+            weight: convert(e.weight),
+            unit: toUnit,
+          })),
+        })),
 
       reset: () => set({ entries: [] }),
     }),
