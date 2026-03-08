@@ -2,7 +2,7 @@ import { useState, memo, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import Svg, { Path, Line } from 'react-native-svg';
+import Svg, { Path, Line, Circle } from 'react-native-svg';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -36,22 +36,34 @@ const isValidTabName = (name: string): name is TabName => name in TAB_ICONS;
 
 const ACTION_ITEMS = [
   {
-    label: 'Scan food',
-    iconPath: 'M4 7V4h3M4 17v3h3M20 7V4h-3M20 17v3h-3',
+    label: 'Food database',
+    iconPaths: ['M21 21L16.65 16.65M11 19A8 8 0 1 0 11 3A8 8 0 0 0 11 19Z'],
   },
   {
-    label: 'Food database',
-    iconPath: 'M21 21L16.65 16.65M11 19A8 8 0 1 0 11 3A8 8 0 0 0 11 19Z',
+    label: 'Log weight',
+    iconPaths: ['M6.5 8a2 2 0 0 0-1.905 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.925-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z'],
+    circle: { cx: 12, cy: 5, r: 3 },
   },
   {
     label: 'Log exercise',
-    iconPath: 'M18 6L6 18M6 8V6h2M18 16v2h-2',
+    iconPaths: [
+      'M12.409 13.017A5 5 0 0 1 22 15c0 3.866-4 7-9 7-4.077 0-8.153-.82-10.371-2.462-.426-.316-.631-.832-.62-1.362C2.118 12.723 2.627 2 10 2a3 3 0 0 1 3 3 2 2 0 0 1-2 2c-1.105 0-1.64-.444-2-1',
+      'M15 14a5 5 0 0 0-7.584 2',
+      'M9.964 6.825C8.019 7.977 9.5 13 8 15',
+    ],
   },
   {
     label: 'Saved foods',
-    iconPath: 'M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z',
+    iconPaths: ['M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z'],
+  },
+  {
+    label: 'Scan food',
+    iconPaths: ['M4 7V4h3M4 17v3h3M20 7V4h-3M20 17v3h-3M12 12h.01'],
   },
 ];
+
+const ACTION_GRID_GAP = 14;
+const ACTION_COLUMNS = 2;
 
 const FAB_SIZE = 56;
 const NOTCH_RADIUS = FAB_SIZE / 2 + 10; // curve radius around FAB
@@ -92,9 +104,16 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
     ].join(' ');
   }, [screenWidth, barHeight]);
 
+  const cardWidth = useMemo(() => {
+    const gridPadding = 20 * 2; // paddingHorizontal on actionGrid
+    const totalGap = ACTION_GRID_GAP;
+    return (screenWidth - gridPadding - totalGap) / ACTION_COLUMNS;
+  }, [screenWidth]);
+
   const dynamicStyles = useMemo(() => ({
-    overlay: { paddingBottom: 70 + safeBottom } as const,
-  }), [safeBottom]);
+    overlay: { paddingBottom: barHeight + FAB_SIZE / 2 + 20 } as const,
+    card: { width: cardWidth } as const,
+  }), [barHeight, cardWidth]);
 
   const toggleOverlay = useCallback(() => {
     setShowOverlay((prev) => {
@@ -117,6 +136,8 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
       if (uri) {
         router.push({ pathname: '/log-meal', params: { imageUri: uri } });
       }
+    } else if (label === 'Log weight') {
+      router.push('/log-weight');
     } else if (label === 'Log exercise') {
       router.push('/log-exercise');
     } else if (label === 'Saved foods') {
@@ -183,26 +204,39 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
             accessibilityLabel="Close menu"
             accessibilityRole="button"
           />
-          <View style={[styles.actionColumn, dynamicStyles.overlay]}>
+          <View style={[styles.actionGrid, dynamicStyles.overlay]}>
             {ACTION_ITEMS.map((item, i) => (
               <AnimatedTouchable
                 key={item.label}
-                entering={FadeIn.delay(i * 50).duration(200).withInitialValues({ transform: [{ translateY: 20 }] })}
-                style={styles.actionRow}
-                activeOpacity={0.8}
+                entering={FadeIn.delay(i * 60).duration(250).withInitialValues({ transform: [{ translateY: 24 }] })}
+                style={[styles.actionCard, dynamicStyles.card]}
+                activeOpacity={0.75}
                 accessibilityLabel={item.label}
                 accessibilityRole="button"
                 onPress={() => handleAction(item.label)}
               >
-                <View style={styles.actionIcon}>
-                  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
-                    <Path
-                      d={item.iconPath}
-                      stroke={Theme.colors.white}
-                      strokeWidth={2.5}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
+                <View style={styles.actionIconCircle}>
+                  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" accessible={false}>
+                    {item.iconPaths.map((d, pi) => (
+                      <Path
+                        key={pi}
+                        d={d}
+                        stroke={Theme.colors.primary}
+                        strokeWidth={2.2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    ))}
+                    {'circle' in item && item.circle && (
+                      <Circle
+                        cx={item.circle.cx}
+                        cy={item.circle.cy}
+                        r={item.circle.r}
+                        stroke={Theme.colors.primary}
+                        strokeWidth={2.2}
+                        fill="none"
+                      />
+                    )}
                   </Svg>
                 </View>
                 <Text style={styles.actionLabel}>{item.label}</Text>
@@ -362,34 +396,38 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
   },
-  actionColumn: {
-    alignItems: 'center',
-    gap: 10,
-  },
-  actionRow: {
+  actionGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.textDark,
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 22,
-    gap: 14,
-    width: 200,
-    shadowColor: Theme.colors.textDark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 6,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    gap: ACTION_GRID_GAP,
   },
-  actionIcon: {
-    width: 20,
-    height: 20,
+  actionCard: {
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius.card,
+    paddingVertical: 22,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: Theme.colors.textDark,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  actionIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Theme.colors.accentBackground,
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionLabel: {
-    fontSize: 15,
-    fontFamily: Theme.fonts.bold,
-    color: Theme.colors.white,
+    fontSize: 14,
+    fontFamily: Theme.fonts.extraBold,
+    color: Theme.colors.textDark,
+    textAlign: 'center',
   },
 });
