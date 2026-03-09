@@ -143,7 +143,7 @@ export default function WeightHistoryScreen() {
           </Svg>
         </TouchableOpacity>
         <Text style={styles.headerTitle} accessibilityRole="header">Weight History</Text>
-        <View style={styles.backBtn} />
+        <View style={styles.backBtn} accessible={false} />
       </View>
 
       {entries.length === 0 ? (
