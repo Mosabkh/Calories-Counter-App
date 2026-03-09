@@ -249,6 +249,13 @@ export default function HomeScreen() {
   const photoCount = photos.length;
   const firstPhoto = useMemo(() => (photos.length > 0 ? photos[photos.length - 1] : null), [photos]);
   const latestPhoto = useMemo(() => (photos.length >= 2 ? photos[0] : null), [photos]);
+  const weightByDate = useMemo(() => {
+    const map: Record<string, { weight: number; unit: string } | undefined> = {};
+    for (const e of weightEntries) {
+      if (!(e.date in map)) map[e.date] = { weight: e.weight, unit: e.unit };
+    }
+    return map;
+  }, [weightEntries]);
 
   const greeting = profile?.name ? `Hi, ${profile.name}` : 'Hi there';
 
@@ -420,6 +427,9 @@ export default function HomeScreen() {
             {/* Title row */}
             <View style={styles.thenNowTitleRow} accessible={false}>
               <Text style={styles.thenNowTitle}>Your Transformation</Text>
+              {photoCount < 5 && (
+                <Text style={styles.thenNowSubtitle}>Latest side updates automatically with each new photo</Text>
+              )}
             </View>
 
             {/* Photos row */}
@@ -431,6 +441,9 @@ export default function HomeScreen() {
                     <Image source={{ uri: firstPhoto.uri }} style={styles.thenNowPhoto} contentFit="cover" transition={200} accessible={false} />
                     <View style={styles.thenNowDateBadge}>
                       <Text style={styles.thenNowDateText}>{formatPhotoDate(firstPhoto.date)}</Text>
+                      {weightByDate[firstPhoto.date] && (
+                        <Text style={styles.thenNowWeightText}>{weightByDate[firstPhoto.date]!.weight.toFixed(1)} {weightByDate[firstPhoto.date]!.unit}</Text>
+                      )}
                     </View>
                   </View>
                 ) : (
@@ -463,6 +476,9 @@ export default function HomeScreen() {
                     <Image source={{ uri: latestPhoto.uri }} style={styles.thenNowPhoto} contentFit="cover" transition={200} accessible={false} />
                     <View style={styles.thenNowDateBadge}>
                       <Text style={styles.thenNowDateText}>{formatPhotoDate(latestPhoto.date)}</Text>
+                      {weightByDate[latestPhoto.date] && (
+                        <Text style={styles.thenNowWeightText}>{weightByDate[latestPhoto.date]!.weight.toFixed(1)} {weightByDate[latestPhoto.date]!.unit}</Text>
+                      )}
                     </View>
                   </View>
                 ) : (
@@ -701,6 +717,10 @@ const styles = StyleSheet.create({
   thenNowTitle: {
     fontSize: 16, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
   },
+  thenNowSubtitle: {
+    fontSize: 11, fontFamily: Theme.fonts.semiBold, color: Theme.colors.textDark,
+    marginTop: 3,
+  },
   thenNowPhotosRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
   },
@@ -726,9 +746,13 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 6, left: 6,
     backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 6,
     paddingHorizontal: 6, paddingVertical: 2,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
   },
   thenNowDateText: {
-    fontSize: 10, fontFamily: Theme.fonts.bold, color: Theme.colors.white,
+    fontSize: 8, fontFamily: Theme.fonts.bold, color: Theme.colors.white,
+  },
+  thenNowWeightText: {
+    fontSize: 8, fontFamily: Theme.fonts.extraBold, color: Theme.colors.white,
   },
   thenNowLabel: {
     fontSize: 12, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
