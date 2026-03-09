@@ -249,12 +249,21 @@ export default function HomeScreen() {
   const photoCount = photos.length;
   const firstPhoto = useMemo(() => (photos.length > 0 ? photos[photos.length - 1] : null), [photos]);
   const latestPhoto = useMemo(() => (photos.length >= 2 ? photos[0] : null), [photos]);
-  const weightByDate = useMemo(() => {
-    const map: Record<string, { weight: number; unit: string } | undefined> = {};
-    for (const e of weightEntries) {
-      if (!(e.date in map)) map[e.date] = { weight: e.weight, unit: e.unit };
-    }
-    return map;
+  // Match each photo to the closest weight entry by timestamp
+  const getWeightForPhoto = useMemo(() => {
+    return (photoTimestamp: number): { weight: number; unit: string } | null => {
+      if (weightEntries.length === 0) return null;
+      let closest = weightEntries[0];
+      let closestDiff = Math.abs(photoTimestamp - closest.timestamp);
+      for (let i = 1; i < weightEntries.length; i++) {
+        const diff = Math.abs(photoTimestamp - weightEntries[i].timestamp);
+        if (diff < closestDiff) {
+          closest = weightEntries[i];
+          closestDiff = diff;
+        }
+      }
+      return { weight: closest.weight, unit: closest.unit };
+    };
   }, [weightEntries]);
 
   const greeting = profile?.name ? `Hi, ${profile.name}` : 'Hi there';
@@ -441,9 +450,7 @@ export default function HomeScreen() {
                     <Image source={{ uri: firstPhoto.uri }} style={styles.thenNowPhoto} contentFit="cover" transition={200} accessible={false} />
                     <View style={styles.thenNowDateBadge}>
                       <Text style={styles.thenNowDateText}>{formatPhotoDate(firstPhoto.date)}</Text>
-                      {weightByDate[firstPhoto.date] && (
-                        <Text style={styles.thenNowWeightText}>{weightByDate[firstPhoto.date]!.weight.toFixed(1)} {weightByDate[firstPhoto.date]!.unit}</Text>
-                      )}
+                      {(() => { const w = getWeightForPhoto(firstPhoto.timestamp); return w ? <Text style={styles.thenNowWeightText}>{w.weight.toFixed(1)} {w.unit}</Text> : null; })()}
                     </View>
                   </View>
                 ) : (
@@ -476,9 +483,7 @@ export default function HomeScreen() {
                     <Image source={{ uri: latestPhoto.uri }} style={styles.thenNowPhoto} contentFit="cover" transition={200} accessible={false} />
                     <View style={styles.thenNowDateBadge}>
                       <Text style={styles.thenNowDateText}>{formatPhotoDate(latestPhoto.date)}</Text>
-                      {weightByDate[latestPhoto.date] && (
-                        <Text style={styles.thenNowWeightText}>{weightByDate[latestPhoto.date]!.weight.toFixed(1)} {weightByDate[latestPhoto.date]!.unit}</Text>
-                      )}
+                      {(() => { const w = getWeightForPhoto(latestPhoto.timestamp); return w ? <Text style={styles.thenNowWeightText}>{w.weight.toFixed(1)} {w.unit}</Text> : null; })()}
                     </View>
                   </View>
                 ) : (
