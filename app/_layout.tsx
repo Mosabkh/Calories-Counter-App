@@ -108,6 +108,7 @@ export default function RootLayout() {
         <Stack.Screen name="reminders" options={{ animation: 'fade_from_bottom', gestureEnabled: true, fullScreenSwipeEnabled: true }} />
         <Stack.Screen name="units" options={{ animation: 'fade_from_bottom', gestureEnabled: true, fullScreenSwipeEnabled: true }} />
         <Stack.Screen name="help" options={{ animation: 'fade_from_bottom', gestureEnabled: true, fullScreenSwipeEnabled: true }} />
+        <Stack.Screen name="weight-history" options={{ animation: 'fade_from_bottom', gestureEnabled: true, fullScreenSwipeEnabled: true }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>
       <StatusBar style="dark" />

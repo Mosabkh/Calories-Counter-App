@@ -7,7 +7,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import * as Crypto from 'expo-crypto';
@@ -26,15 +26,27 @@ import type { WeightEntry } from '@/types/data';
 
 export default function LogWeightScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ editEntryId?: string }>();
   const profile = useUserStore((s) => s.profile);
   const addEntry = useWeightStore((s) => s.addEntry);
-  const latestWeight = useWeightStore((s) => s.getLatest());
+  const updateEntry = useWeightStore((s) => s.updateEntry);
+  const allEntries = useWeightStore((s) => s.entries);
+  const latestWeight = useMemo(() => allEntries[0], [allEntries]);
   const addPhoto = usePhotoStore((s) => s.addPhoto);
 
   const todayKey = toDateKey();
 
-  const unit = profile?.weightUnit ?? 'kg';
-  const currentWeight = latestWeight?.weight ?? profile?.startWeight ?? 70;
+  // Editing an existing entry?
+  const existingEntry = useMemo(() => {
+    if (!params.editEntryId) return null;
+    return allEntries.find((e) => e.id === params.editEntryId) ?? null;
+  }, [params.editEntryId, allEntries]);
+
+  const isEditing = existingEntry !== null;
+
+  // Preserve original entry's unit when editing to prevent unit corruption
+  const unit = existingEntry?.unit ?? profile?.weightUnit ?? 'kg';
+  const currentWeight = existingEntry?.weight ?? latestWeight?.weight ?? profile?.startWeight ?? 70;
 
   // Build picker data: whole part + decimal part
   const isLb = unit === 'lb';
@@ -54,7 +66,7 @@ export default function LogWeightScreen() {
   }, []);
 
   const initialWhole = Math.floor(currentWeight);
-  const initialDecimal = Math.round((currentWeight - initialWhole) * 10);
+  const initialDecimal = Math.round((currentWeight - initialWhole) * 10) % 10;
 
   const [photoAdded, setPhotoAdded] = useState(false);
 
@@ -63,7 +75,7 @@ export default function LogWeightScreen() {
   );
   const [decimalPart, setDecimalPart] = useState(initialDecimal);
 
-  const selectedWeight = minWhole + wholePart + decimalPart / 10;
+  const selectedWeight = Math.round((minWhole + wholePart + decimalPart / 10) * 10) / 10;
 
   const pickPhoto = useCallback(async (useCamera: boolean) => {
     if (useCamera) {
@@ -110,7 +122,46 @@ export default function LogWeightScreen() {
     ]);
   }, [savePhoto]);
 
+  // Guard: editEntryId provided but entry not found (deleted between navigation)
+  if (params.editEntryId && !existingEntry) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+            style={styles.backBtn}
+          >
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
+              <Path
+                d="M19 12H5M12 19l-7-7 7-7"
+                stroke={Theme.colors.textDark}
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Edit Weight</Text>
+          <View style={styles.backBtn} />
+        </View>
+        <View style={styles.notFound}>
+          <Text style={styles.notFoundTitle}>Entry Not Found</Text>
+          <Text style={styles.notFoundSubtitle}>This entry may have been deleted.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const handleSave = () => {
+    if (isEditing && existingEntry) {
+      updateEntry(existingEntry.id, { weight: selectedWeight, unit });
+      router.back();
+      return;
+    }
+
     const entry: WeightEntry = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       date: todayKey,
@@ -149,7 +200,7 @@ export default function LogWeightScreen() {
           accessibilityRole="button"
           style={styles.backBtn}
         >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
             <Path
               d="M19 12H5M12 19l-7-7 7-7"
               stroke={Theme.colors.textDark}
@@ -159,7 +210,7 @@ export default function LogWeightScreen() {
             />
           </Svg>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Log Weight</Text>
+        <Text style={styles.headerTitle}>{isEditing ? 'Edit Weight' : 'Log Weight'}</Text>
         <View style={styles.backBtn} />
       </View>
 
@@ -209,8 +260,8 @@ export default function LogWeightScreen() {
         </View>
       </View>
 
-      {/* Add progress photo button */}
-      <TouchableOpacity
+      {/* Add progress photo button (hidden in edit mode) */}
+      {!isEditing && <TouchableOpacity
         style={styles.photoBtn}
         onPress={handleAddPhoto}
         activeOpacity={0.7}
@@ -228,7 +279,7 @@ export default function LogWeightScreen() {
           <Circle cx="12" cy="13" r="4" stroke={Theme.colors.primary} strokeWidth={2} />
         </Svg>
         <Text style={styles.photoBtnText}>Add Progress Photo</Text>
-      </TouchableOpacity>
+      </TouchableOpacity>}
 
       {/* Save button */}
       <View style={styles.footer}>
@@ -239,7 +290,7 @@ export default function LogWeightScreen() {
           accessibilityLabel={`Save weight ${selectedWeight.toFixed(1)} ${unit}`}
           accessibilityRole="button"
         >
-          <Text style={styles.saveBtnText}>Save</Text>
+          <Text style={styles.saveBtnText}>{isEditing ? 'Update' : 'Save'}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -353,5 +404,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: Theme.fonts.extraBold,
     color: Theme.colors.white,
+  },
+  notFound: {
+    flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40,
+  },
+  notFoundTitle: {
+    fontSize: 18, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
+    marginBottom: 8, textAlign: 'center',
+  },
+  notFoundSubtitle: {
+    fontSize: 14, fontFamily: Theme.fonts.regular, color: Theme.colors.textDark,
+    textAlign: 'center', lineHeight: 20,
   },
 });

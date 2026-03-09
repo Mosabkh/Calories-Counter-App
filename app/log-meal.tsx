@@ -15,7 +15,6 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { Theme } from '@/constants/theme';
 import { useDiaryStore } from '@/store/diary-store';
-import { useStreakStore } from '@/store/streak-store';
 import { toDateKey, inferMealType } from '@/utils/date';
 import { getFoodById, calculateMacros } from '@/utils/food-search';
 import type { MealEntry } from '@/types/data';
@@ -42,7 +41,6 @@ export default function LogMealScreen() {
   const addMeal = useDiaryStore((s) => s.addMeal);
   const updateMeal = useDiaryStore((s) => s.updateMeal);
   const removeMeal = useDiaryStore((s) => s.removeMeal);
-  const recordActivity = useStreakStore((s) => s.recordActivity);
 
   // Editing an existing meal?
   const existingMeal = useMemo(() => {
@@ -109,8 +107,7 @@ export default function LogMealScreen() {
         imageUri: params.imageUri || undefined,
         servingSize: servingSize || undefined,
       };
-      addMeal(meal);
-      recordActivity(dateKey);
+      addMeal(meal); // addMeal auto-triggers recordActivity via diary store
     }
     router.back();
   };

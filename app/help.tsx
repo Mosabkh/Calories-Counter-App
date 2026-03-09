@@ -40,7 +40,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'How do streaks work?',
-    a: 'Your streak increases for each consecutive calendar day you log at least one meal. If you miss a day, the streak resets to zero. Your longest streak is always saved.',
+    a: 'Your streak increases for each consecutive calendar day you log at least one meal. If you miss a day, the streak resets to 1 and starts counting again. Your longest streak is always saved.',
   },
   {
     q: 'How often should I weigh in?',

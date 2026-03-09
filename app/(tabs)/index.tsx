@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect, memo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Image } from 'expo-image';
 import Svg, { Circle, Path, Line } from 'react-native-svg';
 import Animated, {
   useSharedValue,
@@ -22,6 +23,7 @@ import { useDiaryStore } from '@/store/diary-store';
 import { useStreakStore } from '@/store/streak-store';
 import { useExerciseStore } from '@/store/exercise-store';
 import { useWeightStore } from '@/store/weight-store';
+import { usePhotoStore } from '@/store/photo-store';
 import { toDateKey } from '@/utils/date';
 import { getTargetDate } from '@/utils/target-date';
 import { launchMealCamera } from '@/utils/camera';
@@ -49,6 +51,14 @@ function getWeekDays() {
     });
   }
   return { days, todayKey };
+}
+
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const CURRENT_YEAR = new Date().getFullYear();
+function formatPhotoDate(dateKey: string): string {
+  const d = new Date(dateKey + 'T00:00:00');
+  const base = `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}`;
+  return d.getFullYear() !== CURRENT_YEAR ? `${base} '${String(d.getFullYear()).slice(2)}` : base;
 }
 
 const DonutChart = memo(function DonutChart({
@@ -234,6 +244,12 @@ export default function HomeScreen() {
     ]),
   }));
 
+  // Before & After card (0 photos → sketch, 1 photo → half-filled, 2+ → both real)
+  const photos = usePhotoStore((s) => s.photos);
+  const photoCount = photos.length;
+  const firstPhoto = useMemo(() => (photos.length > 0 ? photos[photos.length - 1] : null), [photos]);
+  const latestPhoto = useMemo(() => (photos.length >= 2 ? photos[0] : null), [photos]);
+
   const greeting = profile?.name ? `Hi, ${profile.name}` : 'Hi there';
 
   if (!profile) {
@@ -384,6 +400,97 @@ export default function HomeScreen() {
               Target: {goalDateLabel.action} <Animated.Text style={[styles.goalPredictionBold, goalBoldTextStyle]}>{goalDateLabel.diff} {goalDateLabel.unit}</Animated.Text> by <Animated.Text style={[styles.goalPredictionBold, goalBoldTextStyle]}>{goalDateLabel.date}</Animated.Text>
             </Animated.Text>
           </Animated.View>
+        )}
+
+        {/* Before & After card — hidden for maintain goal */}
+        {profile.goal !== 'maintain' && (
+          <TouchableOpacity
+            style={styles.thenNowCard}
+            activeOpacity={0.7}
+            onPress={() => router.push(photoCount >= 2 ? '/progress-photos' : '/log-weight')}
+            accessibilityLabel={
+              photoCount >= 2
+                ? 'View your progress photos, day 1 versus latest'
+                : photoCount === 1
+                  ? 'Weigh in to add another progress photo'
+                  : 'Weigh in to capture your starting point'
+            }
+            accessibilityRole="button"
+          >
+            {/* Title row */}
+            <View style={styles.thenNowTitleRow} accessible={false}>
+              <Text style={styles.thenNowTitle}>Your Transformation</Text>
+            </View>
+
+            {/* Photos row */}
+            <View style={styles.thenNowPhotosRow}>
+              {/* Day 1 (left) */}
+              <View style={styles.thenNowPhotoWrap}>
+                {firstPhoto ? (
+                  <View style={styles.thenNowPhotoContainer}>
+                    <Image source={{ uri: firstPhoto.uri }} style={styles.thenNowPhoto} contentFit="cover" transition={200} accessible={false} />
+                    <View style={styles.thenNowDateBadge}>
+                      <Text style={styles.thenNowDateText}>{formatPhotoDate(firstPhoto.date)}</Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.thenNowPlaceholder}>
+                    <Svg width={36} height={36} viewBox="0 0 24 24" fill="none" accessible={false}>
+                      <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke={Theme.colors.textDark} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="3 3" />
+                      <Circle cx={12} cy={7} r={4} stroke={Theme.colors.textDark} strokeWidth={1.5} strokeDasharray="3 3" />
+                    </Svg>
+                    <View style={styles.thenNowAddBadge}>
+                      <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" accessible={false}>
+                        <Path d="M12 5v14M5 12h14" stroke={Theme.colors.white} strokeWidth={3} strokeLinecap="round" />
+                      </Svg>
+                    </View>
+                  </View>
+                )}
+                <Text style={styles.thenNowLabel}>Day 1</Text>
+              </View>
+
+              {/* Arrow */}
+              <View style={styles.thenNowArrow} accessible={false}>
+                <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" accessible={false}>
+                  <Path d="M5 12h14M12 5l7 7-7 7" stroke={photoCount >= 2 ? Theme.colors.primary : Theme.colors.textDark} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </View>
+
+              {/* Latest (right) — star icon for aspiration */}
+              <View style={styles.thenNowPhotoWrap}>
+                {latestPhoto ? (
+                  <View style={styles.thenNowPhotoContainer}>
+                    <Image source={{ uri: latestPhoto.uri }} style={styles.thenNowPhoto} contentFit="cover" transition={200} accessible={false} />
+                    <View style={styles.thenNowDateBadge}>
+                      <Text style={styles.thenNowDateText}>{formatPhotoDate(latestPhoto.date)}</Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.thenNowPlaceholder}>
+                    <Svg width={36} height={36} viewBox="0 0 24 24" fill="none" accessible={false}>
+                      <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke={Theme.colors.textDark} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="3 3" />
+                      <Circle cx={12} cy={7} r={4} stroke={Theme.colors.textDark} strokeWidth={1.5} strokeDasharray="3 3" />
+                    </Svg>
+                    {photoCount === 1 && (
+                      <View style={styles.thenNowAddBadge}>
+                        <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" accessible={false}>
+                          <Path d="M12 5v14M5 12h14" stroke={Theme.colors.white} strokeWidth={3} strokeLinecap="round" />
+                        </Svg>
+                      </View>
+                    )}
+                  </View>
+                )}
+                <Text style={styles.thenNowLabel}>Latest</Text>
+              </View>
+            </View>
+
+            {/* Hint for empty/partial states */}
+            {photoCount < 2 && (
+              <Text style={styles.thenNowHint}>
+                {photoCount === 0 ? 'Weigh in today to capture your starting point' : 'Add one more photo to unlock your progress view'}
+              </Text>
+            )}
+          </TouchableOpacity>
         )}
 
         {/* Meals list or empty state */}
@@ -582,6 +689,56 @@ const styles = StyleSheet.create({
   },
   goalPredictionBold: { fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
 
+  // Before & After
+  thenNowCard: {
+    backgroundColor: Theme.colors.surface, borderRadius: Theme.borderRadius.card,
+    paddingVertical: 16, paddingHorizontal: 18, marginBottom: 20,
+    borderWidth: 2, borderColor: Theme.colors.border,
+    shadowColor: Theme.colors.textDark, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03, shadowRadius: 10, elevation: 1,
+  },
+  thenNowTitleRow: { alignItems: 'center', marginBottom: 12 },
+  thenNowTitle: {
+    fontSize: 16, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
+  },
+  thenNowPhotosRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
+  },
+  thenNowPhotoWrap: { flex: 1, alignItems: 'center', gap: 6 },
+  thenNowPhotoContainer: { width: '100%' },
+  thenNowPhoto: {
+    width: '100%', aspectRatio: 3 / 4, borderRadius: Theme.borderRadius.small,
+    borderWidth: 2, borderColor: Theme.colors.border,
+  },
+  thenNowPlaceholder: {
+    width: '100%', aspectRatio: 3 / 4, borderRadius: Theme.borderRadius.small, overflow: 'hidden',
+    borderWidth: 2, borderColor: Theme.colors.border, borderStyle: 'dashed',
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Theme.colors.background,
+  },
+  thenNowAddBadge: {
+    position: 'absolute', top: 8, right: 8,
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: Theme.colors.primary,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  thenNowDateBadge: {
+    position: 'absolute', bottom: 6, left: 6,
+    backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 6,
+    paddingHorizontal: 6, paddingVertical: 2,
+  },
+  thenNowDateText: {
+    fontSize: 10, fontFamily: Theme.fonts.bold, color: Theme.colors.white,
+  },
+  thenNowLabel: {
+    fontSize: 12, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
+  },
+  thenNowArrow: { paddingHorizontal: 2 },
+  thenNowHint: {
+    fontSize: 12, fontFamily: Theme.fonts.semiBold, color: Theme.colors.textDark,
+    textAlign: 'center', marginTop: 12,
+  },
+
   // Recently uploaded — empty state
   sectionTitle: {
     fontSize: 18, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
@@ -603,7 +760,7 @@ const styles = StyleSheet.create({
     fontSize: 17, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
   },
   emptySubtitle: {
-    fontSize: 13, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted,
+    fontSize: 13, fontFamily: Theme.fonts.regular, color: Theme.colors.textDark,
     textAlign: 'center', marginTop: 4,
   },
 
@@ -616,7 +773,7 @@ const styles = StyleSheet.create({
     marginBottom: 10, textAlign: 'center',
   },
   emptyStateSubtitle: {
-    fontSize: 14, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted,
+    fontSize: 14, fontFamily: Theme.fonts.regular, color: Theme.colors.textDark,
     textAlign: 'center', lineHeight: 20,
   },
 });

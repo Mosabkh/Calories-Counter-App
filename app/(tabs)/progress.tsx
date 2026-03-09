@@ -14,27 +14,14 @@ import { toDateKey, weekKeys, dayLabel, daysBetween } from '@/utils/date';
 import { calculateBMI, getBMICategory } from '@/utils/calories';
 import type { WeightEntry } from '@/types/data';
 
-// ── Helpers ──────────────────────────────────────────────────────
-
-/** Returns dateKeys for the current week (Sun..Sat). */
-function currentWeekKeys(): string[] {
-  const today = new Date();
-  const dayOfWeek = today.getDay(); // 0=Sun
-  const keys: string[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - dayOfWeek + i);
-    keys.push(toDateKey(d));
-  }
-  return keys;
-}
-
 // ── Constants ──────────────────────────────────────────────────────
 
 const TIME_TABS = ['30 Days', '60 Days', '90 Days', '6 Months', '1 Year', 'All time'];
 const TIME_TAB_DAYS = [30, 60, 90, 180, 365, Infinity];
 const WEEK_TABS = ['This Week', 'Last Week', '2 wks. ago', '3 wks. ago'];
-const STREAK_DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as const;
+const STREAK_DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as const;
+
+const HIT_SLOP_ACTION = { top: 10, bottom: 10, left: 10, right: 10 };
 
 const BMI_LEGEND = [
   { label: 'Underweight', color: Theme.colors.infoBlue },
@@ -52,8 +39,30 @@ const MACRO_LEGEND = [
 const CHART_W = 200;
 const CHART_H = 100;
 const GRID_INDEXES = [0, 1, 2, 3, 4] as const;
+const CURRENT_YEAR = new Date().getFullYear();
 
 // ── Helpers ────────────────────────────────────────────────────────
+
+/** Returns dateKeys for the current week (Sun..Sat) based on a reference date key. */
+function currentWeekKeys(refDateKey: string): string[] {
+  const today = new Date(refDateKey + 'T00:00:00');
+  const dayOfWeek = today.getDay(); // 0=Sun
+  const keys: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - dayOfWeek + i);
+    keys.push(toDateKey(d));
+  }
+  return keys;
+}
+
+/** Format date key to short label, e.g. 'Mar 9' or "Mar 9 '27" if different year. */
+function formatShortDate(dateKey: string): string {
+  const d = new Date(dateKey + 'T00:00:00');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const base = `${months[d.getMonth()]} ${d.getDate()}`;
+  return d.getFullYear() !== CURRENT_YEAR ? `${base} '${String(d.getFullYear()).slice(2)}` : base;
+}
 
 /** Build 5 evenly-spaced Y-axis labels from min..max. */
 function yAxisLabels(min: number, max: number, decimals = 1): string[] {
@@ -119,23 +128,25 @@ export default function ProgressScreen() {
   const diaryEntries = useDiaryStore((s) => s.entries);
   const photos = usePhotoStore((s) => s.photos);
 
-
   const removeWeightEntry = useWeightStore((s) => s.removeEntry);
   const latestWeight = allWeightEntries[0] ?? null;
 
   const todayKey = useMemo(() => toDateKey(), []);
 
   // Which days this week have logged meals (for streak dots)
-  const thisWeekKeys = useMemo(() => currentWeekKeys(), []);
+  const thisWeekKeys = useMemo(() => currentWeekKeys(todayKey), [todayKey]);
   const weekLogged = useMemo(
     () => thisWeekKeys.map((k) => !!(diaryEntries[k] && diaryEntries[k].length > 0)),
     [thisWeekKeys, diaryEntries],
   );
 
+  // NOTE: These use optional chaining because hooks must run before the
+  // `!profile` early return (Rules of Hooks). Fallbacks are only hit when
+  // profile is null; the values are discarded by the early return below.
   const cw = latestWeight?.weight ?? profile?.startWeight ?? 70;
   const tw = profile?.targetWeight ?? cw;
   const unit = profile?.weightUnit ?? 'kg';
-  const goal = profile?.goal;
+  const goal = profile?.goal ?? 'maintain';
   const weightKg = unit === 'lb' ? cw / 2.20462 : cw;
   const heightCm = profile?.heightCm ?? 170;
 
@@ -159,15 +170,14 @@ export default function ProgressScreen() {
 
   const sw = profile?.startWeight ?? cw;
   const weightProgress = useMemo(() => {
-    if (goal === 'maintain' || sw === tw) return 1;
-    const totalChange = tw - sw;
-    if (totalChange === 0) return 0;
-    return Math.max(0, Math.min(1, (cw - sw) / totalChange));
+    if (goal === 'maintain' || Math.abs(tw - sw) < 0.01) return 1;
+    return Math.max(0, Math.min(1, (cw - sw) / (tw - sw)));
   }, [cw, sw, tw, goal]);
 
+  const progressPercent = Math.round(weightProgress * 100);
   const weightProgressStyle = useMemo(
-    () => ({ width: `${Math.round(weightProgress * 100)}%` as const }),
-    [weightProgress],
+    () => ({ width: `${progressPercent}%` as const }),
+    [progressPercent],
   );
   const bmiIndicatorStyle = useMemo(
     () => ({ left: `${Math.round(bmiPercent)}%` as const }),
@@ -181,7 +191,7 @@ export default function ProgressScreen() {
     const daysSince = daysBetween(latestWeight.date, todayKey);
     if (daysSince === 0) return 'Logged today';
     const nextIn = Math.max(0, 7 - daysSince);
-    if (nextIn === 0) return 'Weigh-in due!';
+    if (nextIn === 0) return 'Time to weigh in';
     return `Next weigh-in: ${nextIn}d`;
   }, [latestWeight, todayKey]);
 
@@ -190,8 +200,8 @@ export default function ProgressScreen() {
   const weightChartData = useMemo(() => {
     const days = TIME_TAB_DAYS[timeTab];
     const today = new Date();
-    const todayKey = toDateKey(today);
-    const todayMs = dateToMs(todayKey);
+    const todayStr = toDateKey(today);
+    const todayMs = dateToMs(todayStr);
 
     // Time range: today → future (today + N days)
     const startMs = todayMs;
@@ -200,8 +210,8 @@ export default function ProgressScreen() {
       // All time: project to estimated goal date, or at least 90 days
       let goalDays = 90;
       if (profile && profile.goal !== 'maintain' && profile.weeklyGoalSpeed > 0) {
-        const cw = latestWeight?.weight ?? profile.startWeight;
-        const diff = Math.abs(cw - profile.targetWeight);
+        const currentW = latestWeight?.weight ?? profile.startWeight;
+        const diff = Math.abs(currentW - profile.targetWeight);
         goalDays = Math.max(90, Math.ceil(diff / profile.weeklyGoalSpeed) * 7);
       }
       endMs = todayMs + goalDays * 86400000;
@@ -213,7 +223,7 @@ export default function ProgressScreen() {
 
     // Filter entries from today onward
     const filtered = allWeightEntries
-      .filter((e) => e.date >= todayKey)
+      .filter((e) => e.date >= todayStr)
       .reverse(); // oldest first
 
     if (filtered.length === 0) return null;
@@ -266,17 +276,12 @@ export default function ProgressScreen() {
   const handleTimeTab = useCallback((i: number) => setTimeTab(i), []);
   const handleWeekTab = useCallback((i: number) => setWeekTab(i), []);
 
-  // Today's weight entries for display + delete
-  const todayWeightEntries = useMemo(
-    () => allWeightEntries.filter((e) => e.date === todayKey),
-    [allWeightEntries, todayKey],
-  );
-
   const handleDeleteWeight = useCallback(
     (entry: WeightEntry) => {
+      const dateStr = formatShortDate(entry.date);
       Alert.alert(
         'Delete Entry',
-        `Remove ${entry.weight.toFixed(1)} ${entry.unit} logged today?`,
+        `Remove ${entry.weight.toFixed(1)} ${entry.unit} from ${dateStr}?`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -289,6 +294,24 @@ export default function ProgressScreen() {
     },
     [removeWeightEntry],
   );
+
+  const handleEditWeight = useCallback(
+    (entry: WeightEntry) => {
+      router.push({ pathname: '/log-weight', params: { editEntryId: entry.id } });
+    },
+    [router],
+  );
+
+  const RECENT_LIMIT = 3;
+  const recentWeightEntries = useMemo(
+    () => allWeightEntries.slice(0, RECENT_LIMIT),
+    [allWeightEntries],
+  );
+  const hasMoreEntries = allWeightEntries.length > RECENT_LIMIT;
+
+  const handleSeeAllWeighIns = useCallback(() => {
+    router.push('/weight-history');
+  }, [router]);
 
   // No-profile empty state
   if (!profile) {
@@ -328,16 +351,20 @@ export default function ProgressScreen() {
         {/* Top Cards */}
         <View style={styles.topCards}>
           {/* Weight Card */}
-          <TouchableOpacity
+          <View
             style={[styles.progCard, styles.progCardNoPadBottom]}
             accessible={true}
-            accessibilityLabel={`My weight: ${cw} ${unit}, Goal: ${tw} ${unit}. ${nextWeighInLabel}`}
-            activeOpacity={0.7}
-            onPress={() => router.push('/log-weight')}
+            accessibilityLabel={`My weight: ${cw} ${unit}, ${progressPercent}% of goal. Goal: ${tw} ${unit}. ${nextWeighInLabel}`}
           >
             <Text style={styles.cardLabel}>My Weight</Text>
             <Text style={styles.weightValue}>{cw} {unit}</Text>
-            <View style={styles.weightProgressBg}>
+            <View
+              style={styles.weightProgressBg}
+              accessible={true}
+              accessibilityRole="progressbar"
+              accessibilityValue={{ min: 0, max: 100, now: progressPercent }}
+              accessibilityLabel={`Weight progress: ${progressPercent}% of goal`}
+            >
               <View style={[styles.weightProgressFill, weightProgressStyle]} />
             </View>
             <Text style={styles.goalText}>
@@ -346,10 +373,14 @@ export default function ProgressScreen() {
             <View style={styles.weightFooter}>
               <Text style={styles.footerText}>{nextWeighInLabel}</Text>
             </View>
-          </TouchableOpacity>
+          </View>
 
           {/* Streak Card */}
-          <View style={styles.progCard}>
+          <View
+            style={styles.progCard}
+            accessible={true}
+            accessibilityLabel={`${streakData.currentStreak > 0 ? `${streakData.currentStreak} day streak` : 'No streak yet'}. This week: ${STREAK_DAYS.map((d, i) => `${d} ${weekLogged[i] ? 'logged' : 'not logged'}`).join(', ')}.`}
+          >
             <View style={styles.streakIconWrap} accessible={false}>
               <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
                 <Circle cx={12} cy={8} r={6} stroke={Theme.colors.warning} strokeWidth={2} />
@@ -357,8 +388,12 @@ export default function ProgressScreen() {
                 <Path d="M12 5v6M9 8h6" stroke={Theme.colors.warning} strokeWidth={2} strokeLinecap="round" />
               </Svg>
             </View>
-            <Text style={styles.streakTitle}>{streakData.currentStreak} Day streak</Text>
-            <View style={styles.streakDays} accessible={true} accessibilityLabel={`${streakData.currentStreak} day streak`}>
+            <Text style={streakData.currentStreak > 0 ? styles.streakTitle : styles.streakTitleEmpty}>
+              {streakData.currentStreak > 0
+                ? `${streakData.currentStreak}-day streak`
+                : 'Log a meal to start!'}
+            </Text>
+            <View style={styles.streakDays}>
               {STREAK_DAYS.map((d, i) => (
                 <View key={`${d}-${i}`} style={styles.streakDay}>
                   <Text style={styles.streakDayLabel}>{d}</Text>
@@ -369,45 +404,44 @@ export default function ProgressScreen() {
           </View>
         </View>
 
-        {/* Today's Weight Entries */}
-        {todayWeightEntries.length > 0 && (
-          <View style={styles.weightEntriesCard}>
-            <Text style={styles.weightEntriesTitle}>Today&apos;s Weigh-ins</Text>
-            {todayWeightEntries.map((entry) => (
-              <View key={entry.id} style={styles.weightEntryRow}>
-                <View style={styles.weightEntryInfo}>
-                  <Text style={styles.weightEntryValue}>
-                    {entry.weight.toFixed(1)}{' '}
-                    <Text style={styles.weightEntryUnit}>{entry.unit}</Text>
-                  </Text>
-                  <Text style={styles.weightEntryTime}>
-                    {new Date(entry.timestamp).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => handleDeleteWeight(entry)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  accessibilityLabel={`Delete ${entry.weight.toFixed(1)} ${entry.unit} entry`}
-                  accessibilityRole="button"
-                  style={styles.weightEntryDeleteBtn}
-                >
-                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14"
-                      stroke={Theme.colors.urgentRed}
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                </TouchableOpacity>
+        {/* Progress Photos */}
+        <TouchableOpacity
+          style={styles.chartCard}
+          accessible={true}
+          accessibilityLabel="Progress Photos section"
+          activeOpacity={0.7}
+          onPress={() => router.push('/progress-photos')}
+        >
+          <Text style={[styles.chartTitle, styles.chartTitleMb15]} accessibilityRole="header">Progress Photos</Text>
+          {photos.length > 0 ? (
+            <>
+              <View style={styles.photoRow}>
+                {photos.slice(0, 3).map((p) => (
+                  <Image
+                    key={p.id}
+                    source={{ uri: p.uri }}
+                    style={styles.photoThumb}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                ))}
               </View>
-            ))}
-          </View>
-        )}
+              <Text style={styles.photoHint}>Tap to view all progress photos</Text>
+            </>
+          ) : (
+            <View style={styles.photoCard}>
+              <View style={styles.photoPlaceholder}>
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" accessible={false}>
+                  <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke={Theme.colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                  <Circle cx={12} cy={7} r={4} stroke={Theme.colors.primary} strokeWidth={2.5} />
+                </Svg>
+              </View>
+              <View style={styles.photoTextContainer}>
+                <Text style={styles.photoText}>Add photos when you log your weight</Text>
+              </View>
+            </View>
+          )}
+        </TouchableOpacity>
 
         {/* Time Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={styles.tabsContent}>
@@ -427,7 +461,7 @@ export default function ProgressScreen() {
                 <Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" stroke={Theme.colors.textDark} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
                 <Line x1={4} y1={22} x2={4} y2={15} stroke={Theme.colors.textDark} strokeWidth={2.5} strokeLinecap="round" />
               </Svg>
-              <Text style={styles.flagPillText}>{Math.round(weightProgress * 100)}% of goal</Text>
+              <Text style={styles.flagPillText}>{progressPercent}% of goal</Text>
             </View>
           </View>
 
@@ -475,45 +509,6 @@ export default function ProgressScreen() {
             </View>
           )}
         </View>
-
-        {/* Progress Photos */}
-        <TouchableOpacity
-          style={styles.chartCard}
-          accessible={true}
-          accessibilityLabel="Progress Photos section"
-          activeOpacity={0.7}
-          onPress={() => router.push('/progress-photos')}
-        >
-          <Text style={[styles.chartTitle, styles.chartTitleMb15]} accessibilityRole="header">Progress Photos</Text>
-          {photos.length > 0 ? (
-            <>
-              <View style={styles.photoRow}>
-                {photos.slice(0, 3).map((p) => (
-                  <Image
-                    key={p.id}
-                    source={{ uri: p.uri }}
-                    style={styles.photoThumb}
-                    contentFit="cover"
-                    transition={200}
-                  />
-                ))}
-              </View>
-              <Text style={styles.photoHint}>Tap to view all progress photos</Text>
-            </>
-          ) : (
-            <View style={styles.photoCard}>
-              <View style={styles.photoPlaceholder}>
-                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" accessible={false}>
-                  <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke={Theme.colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-                  <Circle cx={12} cy={7} r={4} stroke={Theme.colors.primary} strokeWidth={2.5} />
-                </Svg>
-              </View>
-              <View style={styles.photoTextContainer}>
-                <Text style={styles.photoText}>Add photos when you log your weight</Text>
-              </View>
-            </View>
-          )}
-        </TouchableOpacity>
 
         {/* Week Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={styles.tabsContent}>
@@ -623,21 +618,91 @@ export default function ProgressScreen() {
             ))}
           </View>
         </View>
+
+        {/* Recent Weigh-ins */}
+        {recentWeightEntries.length > 0 && (
+          <View style={styles.weightEntriesCard}>
+            <Text style={styles.weightEntriesTitle}>Weigh-ins</Text>
+            {recentWeightEntries.map((entry) => {
+              const dateStr = formatShortDate(entry.date);
+              return (
+                <View
+                  key={entry.id}
+                  style={styles.weightEntryRow}
+                  accessibilityLabel={`${entry.weight.toFixed(1)} ${entry.unit} on ${dateStr}`}
+                  accessibilityRole="summary"
+                >
+                  <View style={styles.weightEntryInfo} accessible={false}>
+                    <Text style={styles.weightEntryValue}>
+                      {entry.weight.toFixed(1)}{' '}
+                      <Text style={styles.weightEntryUnit}>{entry.unit}</Text>
+                    </Text>
+                    <Text style={styles.weightEntryDate}>{dateStr}</Text>
+                  </View>
+                  <View style={styles.weightEntryActions}>
+                    <TouchableOpacity
+                      onPress={() => handleEditWeight(entry)}
+                      hitSlop={HIT_SLOP_ACTION}
+                      accessibilityLabel={`Edit ${entry.weight.toFixed(1)} ${entry.unit} entry`}
+                      accessibilityRole="button"
+                      style={styles.weightEntryActionBtn}
+                    >
+                      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" accessible={false}>
+                        <Path
+                          d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"
+                          stroke={Theme.colors.textDark}
+                          strokeWidth={2}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </Svg>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteWeight(entry)}
+                      hitSlop={HIT_SLOP_ACTION}
+                      accessibilityLabel={`Delete ${entry.weight.toFixed(1)} ${entry.unit} entry`}
+                      accessibilityRole="button"
+                      style={styles.weightEntryActionBtn}
+                    >
+                      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" accessible={false}>
+                        <Path
+                          d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14"
+                          stroke={Theme.colors.urgentRed}
+                          strokeWidth={2}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </Svg>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
+            {hasMoreEntries && (
+              <TouchableOpacity
+                onPress={handleSeeAllWeighIns}
+                style={styles.seeAllBtn}
+                activeOpacity={0.7}
+                accessibilityLabel="See all weigh-ins"
+                accessibilityRole="button"
+              >
+                <Text style={styles.seeAllText}>See all</Text>
+                <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" accessible={false}>
+                  <Path
+                    d="M9 18l6-6-6-6"
+                    stroke={Theme.colors.primary}
+                    strokeWidth={2.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
-}
-
-// ── Helpers ────────────────────────────────────────────────────────
-
-
-const CURRENT_YEAR = new Date().getFullYear();
-
-function formatShortDate(dateKey: string): string {
-  const d = new Date(dateKey + 'T00:00:00');
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const base = `${months[d.getMonth()]} ${d.getDate()}`;
-  return d.getFullYear() !== CURRENT_YEAR ? `${base} '${String(d.getFullYear()).slice(2)}` : base;
 }
 
 // ── Styles ─────────────────────────────────────────────────────────
@@ -683,16 +748,18 @@ const styles = StyleSheet.create({
   cardLabel: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
   weightValue: { fontSize: 24, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark, marginVertical: 5 },
   weightProgressBg: {
-    width: '100%', height: 6, backgroundColor: Theme.colors.background, borderRadius: 3,
+    width: '100%', height: 6, backgroundColor: Theme.colors.accentBackground, borderRadius: 3,
     marginVertical: 8, overflow: 'hidden',
   },
   weightProgressFill: { height: '100%', backgroundColor: Theme.colors.primary, borderRadius: 3 },
-  goalText: { fontSize: 11, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
+  goalText: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
   goalValueText: { color: Theme.colors.textDark },
   weightFooter: {
     marginHorizontal: -16, marginTop: 10, paddingVertical: 12,
-    backgroundColor: Theme.colors.background,
-    borderBottomLeftRadius: 18, borderBottomRightRadius: 18, alignItems: 'center',
+    backgroundColor: Theme.colors.surface,
+    borderBottomLeftRadius: Theme.borderRadius.card - 2,
+    borderBottomRightRadius: Theme.borderRadius.card - 2,
+    alignItems: 'center',
   },
   footerText: { fontSize: 11, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
 
@@ -701,11 +768,12 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginBottom: 4,
   },
   streakTitle: { fontSize: 14, fontFamily: Theme.fonts.extraBold, color: Theme.colors.warningDark, marginBottom: 10 },
+  streakTitleEmpty: { fontSize: 14, fontFamily: Theme.fonts.extraBold, color: Theme.colors.primary, marginBottom: 10 },
   streakDays: { flexDirection: 'row', gap: 4, justifyContent: 'center', width: '100%' },
   streakDay: { alignItems: 'center', gap: 4 },
-  streakDayLabel: { fontSize: 10, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
-  streakDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Theme.colors.border },
-  streakDotActive: { backgroundColor: Theme.colors.warning },
+  streakDayLabel: { fontSize: 12, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
+  streakDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Theme.colors.border },
+  streakDotActive: { backgroundColor: Theme.colors.warning, borderWidth: 1.5, borderColor: Theme.colors.warningDark },
 
   // Weight entries
   weightEntriesCard: {
@@ -715,28 +783,38 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04, shadowRadius: 15, elevation: 2,
   },
   weightEntriesTitle: {
-    fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted,
+    fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark,
     marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5,
   },
   weightEntryRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: Theme.colors.background, borderRadius: Theme.borderRadius.small,
-    paddingHorizontal: 14, paddingVertical: 10, marginBottom: 6,
+    paddingHorizontal: 16, paddingVertical: 14, marginBottom: 6,
   },
   weightEntryInfo: {
-    flexDirection: 'row', alignItems: 'baseline', gap: 10,
+    flex: 1, flexDirection: 'row', alignItems: 'baseline', gap: 12,
   },
   weightEntryValue: {
-    fontSize: 16, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
+    fontSize: 17, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
   },
   weightEntryUnit: {
-    fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted,
+    fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark,
   },
-  weightEntryTime: {
-    fontSize: 12, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted,
+  weightEntryDate: {
+    fontSize: 13, fontFamily: Theme.fonts.semiBold, color: Theme.colors.textDark,
   },
-  weightEntryDeleteBtn: {
-    width: 40, height: 40, alignItems: 'center', justifyContent: 'center',
+  weightEntryActions: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+  },
+  weightEntryActionBtn: {
+    width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
+  },
+  seeAllBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 4, paddingVertical: 10, marginTop: 4,
+  },
+  seeAllText: {
+    fontSize: 14, fontFamily: Theme.fonts.bold, color: Theme.colors.primary,
   },
 
   // Tabs
@@ -817,10 +895,10 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   photoTextContainer: { flex: 1 },
-  photoText: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
+  photoText: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark },
   // Calories
   calValue: { fontSize: 32, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark, marginBottom: 15 },
-  calUnit: { fontSize: 14, color: Theme.colors.textMuted },
+  calUnit: { fontSize: 14, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
   macroLegend: { flexDirection: 'row', justifyContent: 'center', gap: 15, marginTop: 20 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot: { width: 14, height: 14, borderRadius: 7 },
@@ -870,7 +948,7 @@ const styles = StyleSheet.create({
     marginBottom: 10, textAlign: 'center',
   },
   emptyStateSubtitle: {
-    fontSize: 14, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted,
+    fontSize: 14, fontFamily: Theme.fonts.regular, color: Theme.colors.textDark,
     textAlign: 'center', lineHeight: 20,
   },
 });

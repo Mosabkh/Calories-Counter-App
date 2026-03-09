@@ -7,6 +7,7 @@ interface WeightState {
   entries: WeightEntry[]; // sorted by timestamp descending
 
   addEntry: (entry: WeightEntry) => void;
+  updateEntry: (id: string, patch: Partial<Pick<WeightEntry, 'weight' | 'unit'>>) => void;
   removeEntry: (id: string) => void;
   getLatest: () => WeightEntry | undefined;
   getEntriesInRange: (startDate: string, endDate: string) => WeightEntry[];
@@ -23,6 +24,11 @@ export const useWeightStore = create<WeightState>()(
       addEntry: (entry) =>
         set((s) => ({
           entries: [entry, ...s.entries].sort((a, b) => b.timestamp - a.timestamp),
+        })),
+
+      updateEntry: (id, patch) =>
+        set((s) => ({
+          entries: s.entries.map((e) => (e.id === id ? { ...e, ...patch } : e)),
         })),
 
       removeEntry: (id) =>

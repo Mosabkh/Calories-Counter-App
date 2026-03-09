@@ -89,12 +89,14 @@ RevenueCat is fully stubbed for Expo Go — no native SDK is imported. `utils/re
 - **Never hardcode border radii** — use `Theme.borderRadius.card` (20) / `Theme.borderRadius.button` (20).
 - Card-like elements use `borderWidth: 2` consistently (not 1 or 1.5).
 - Color contrast: `warning` (#E0B05C) fails WCAG AA on white backgrounds. Use `warningDark` (#996B00) for text, keep `warning` for icons/backgrounds only. Similarly, `warningLight` exists for light background fills.
+- **`textMuted` fails WCAG AA** on cream background — use `textDark` for all body text, subtitles, descriptions, and labels. Reserve `textMuted` only for decorative/secondary elements where contrast isn't critical.
+- **Destructive text**: use `urgentRed` (#DC2626) not `calorieAlert` — `calorieAlert` has insufficient contrast for text on light backgrounds.
 
 ### In-App Screens
 
 - **Home** (`app/(tabs)/index.tsx`): Animated `DonutChart` using `react-native-reanimated`. Exercise burned calories adjust target. Uses latest weigh-in for goal prediction. Empty state when no profile.
 - **Progress** (`app/(tabs)/progress.tsx`): Time-based weight chart (SVG polyline, points positioned by actual date not index), calorie stacked bar chart, streak dots from actual logged days, progress photos preview (up to 3 thumbnails), today's weight entries with delete, BMI visualization. Weight chart X-axis projects forward from today; "All time" extends to estimated goal date. Single entry shows horizontal line from Y axis to data point with dot. Year suffix (`'27`) shown on labels crossing into a different year. Empty state when no profile.
-- **Profile** (`app/(tabs)/profile.tsx`): Settings list with `SettingItem` (wrapped in `memo()`). Dynamic subscription badge. Sign out with confirmation.
+- **Profile** (`app/(tabs)/profile.tsx`): Settings list with `SettingItem` (wrapped in `memo()`). Dynamic subscription badge. Sign out with confirmation. Empty state has "Start Over" button that resets onboarding. All `SettingItem` onPress callbacks are extracted to `useCallback` to preserve `memo()` effectiveness.
 - **CustomTabBar** (`components/CustomTabBar.tsx`): Inline-notch FAB tab bar. Layout: Home | Progress | (+) | Profile. SVG-based curved notch path with dynamic safe-area height calculation. FAB animates 45° rotation on press. Overlay is a 2-column card grid with staggered slide-up animation — 5 actions: Food database, Log weight, Log exercise, Saved foods, Scan food. Icons use Lucide SVG paths (`iconPaths` array + optional `circle`). Notch geometry: `NOTCH_RADIUS = FAB_SIZE / 2 + 10`, `spread = r + 14`, `depth = r - 4`.
 
 ### BMI Bar Alignment
@@ -122,7 +124,7 @@ If you change the bar segments or percent mapping in one file, change both.
   - `target-date.ts` — `getTargetDate(currentWeight, targetWeight, weeklySpeed)` → formatted target date string. Used by onboarding `custom-plan` and home screen goal prediction.
   - `recalculate-targets.ts` — takes current `UserProfile` + partial patch, merges, recalculates BMR→TDEE→daily calories→macros, returns the patch with recalculated fields. Used by `edit-profile.tsx` and `my-goals.tsx` to keep targets in sync after profile edits.
   - `graduate-onboarding.ts` — one-time onboarding→persistent store migration
-  - `auth.ts` — auth stubs (`signInAnonymously`, `signOut`); real OAuth deferred to Supabase integration
+  - `auth.ts` — auth stubs (`signInAnonymously`, `signOut`); real OAuth deferred to Supabase integration. `signOut()` resets all stores **except** onboarding — intentional so users land on welcome screen without redoing 26 steps.
   - `food-search.ts` — hybrid food search (USDA offline + Open Food Facts online) and macro calculation
   - `camera.ts` — camera/image picker utilities
   - `revenue-cat.ts` — stubbed RevenueCat wrapper
@@ -139,6 +141,10 @@ Progress photos can **only** be added through the log-weight screen (`app/log-we
 ### Weight Log Entries
 
 Today's weight entries with delete are shown in the progress screen (`progress.tsx`) below the top cards, not in the log-weight modal. Uses `todayWeightEntries` filtered from the weight store, with confirmation alert before deletion.
+
+### Settings Screen Empty States
+
+Settings screens that depend on `UserProfile` (edit-profile, my-goals, units) show an empty state when `!profile`. Profile screen's empty state includes a "Start Over" button (resets onboarding store, navigates to `/onboarding`). Empty subtitle text uses `textDark` (not `textMuted`) for WCAG compliance. All settings screens with unsaved changes show a "Discard Changes?" confirmation on back press.
 
 ### Dev Skip Button
 
@@ -160,7 +166,7 @@ The onboarding path and in-app text adapt based on `goal` (lose/gain/maintain):
 
 ### In-App Goal Editing (`my-goals.tsx`)
 
-Target weight is validated against `startWeight` (current weight at onboarding): must be less for "lose", more for "gain". Switching goal type auto-resets the target weight if it doesn't make sense for the new direction (e.g., switching from lose→gain resets target to `currentWeight + defaultStep`). Save button is disabled when validation fails, with inline error hint.
+Target weight is validated against `startWeight` (current weight at onboarding): must be less for "lose", more for "gain". Switching goal type auto-resets the target weight if it doesn't make sense for the new direction (e.g., switching from lose→gain resets target to `currentWeight + defaultStep`). Save button is disabled when validation fails, with inline error hint. Daily Target Preview card shows recalculated macros live as user changes settings. Gain speed labels ("Moderate" / "Max Surplus") match onboarding `goal-speed.tsx` — keep them in sync.
 
 ### Progress Charts
 
