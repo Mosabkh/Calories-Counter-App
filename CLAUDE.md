@@ -95,7 +95,7 @@ RevenueCat is fully stubbed for Expo Go — no native SDK is imported. `utils/re
 ### In-App Screens
 
 - **Home** (`app/(tabs)/index.tsx`): Animated `DonutChart` using `react-native-reanimated`. Exercise burned calories adjust target. Uses latest weigh-in for goal prediction. Empty state when no profile.
-- **Progress** (`app/(tabs)/progress.tsx`): Time-based weight chart (SVG polyline, points positioned by actual date not index), calorie stacked bar chart, streak dots from actual logged days, progress photos preview (up to 3 thumbnails), today's weight entries with delete, BMI visualization. Weight chart X-axis projects forward from today; "All time" extends to estimated goal date. Single entry shows horizontal line from Y axis to data point with dot. Year suffix (`'27`) shown on labels crossing into a different year. Empty state when no profile.
+- **Progress** (`app/(tabs)/progress.tsx`): Time-based weight chart (SVG polyline with `vectorEffect="non-scaling-stroke"`, points positioned by actual date not index, dots at each data point), calorie stacked bar chart, streak dots from actual logged days, progress photos preview (up to 3 thumbnails), recent weight entries with edit/delete, BMI visualization. Weight chart is backward-looking (past → today); time tabs control how far back to show (30/60/90/180/365 days); "All time" shows from earliest entry. Dashed green goal line at target weight for lose/gain goals. Single entry shows horizontal line from Y axis to data point with dot. Year suffix (`'27`) shown on labels crossing into a different year. Empty state when no profile.
 - **Profile** (`app/(tabs)/profile.tsx`): Settings list with `SettingItem` (wrapped in `memo()`). Dynamic subscription badge. Sign out with confirmation. Empty state has "Start Over" button that resets onboarding. All `SettingItem` onPress callbacks are extracted to `useCallback` to preserve `memo()` effectiveness.
 - **CustomTabBar** (`components/CustomTabBar.tsx`): Inline-notch FAB tab bar. Layout: Home | Progress | (+) | Profile. SVG-based curved notch path with dynamic safe-area height calculation. FAB animates 45° rotation on press. Overlay is a 2-column card grid with staggered slide-up animation — 5 actions: Food database, Log weight, Log exercise, Saved foods, Scan food. Icons use Lucide SVG paths (`iconPaths` array + optional `circle`). Notch geometry: `NOTCH_RADIUS = FAB_SIZE / 2 + 10`, `spread = r + 14`, `depth = r - 4`.
 
@@ -126,7 +126,7 @@ If you change the bar segments or percent mapping in one file, change both.
   - `graduate-onboarding.ts` — one-time onboarding→persistent store migration
   - `auth.ts` — auth stubs (`signInAnonymously`, `signOut`); real OAuth deferred to Supabase integration. `signOut()` resets all stores **except** onboarding — intentional so users land on welcome screen without redoing 26 steps.
   - `food-search.ts` — hybrid food search (USDA offline + Open Food Facts online) and macro calculation
-  - `camera.ts` — camera/image picker utilities
+  - `camera.ts` — `launchMealCamera()` for meal photo capture (1:1 aspect ratio)
   - `revenue-cat.ts` — stubbed RevenueCat wrapper
   - `premium.ts` — premium feature gating
 
@@ -134,8 +134,8 @@ If you change the bar segments or percent mapping in one file, change both.
 
 Progress photos can **only** be added through the log-weight screen (`app/log-weight.tsx`). There is no upload button in the progress screen or progress-photos library — this is intentional to tie photos to the weigh-in habit.
 
-- `app/log-weight.tsx` — "Add Progress Photo" button (camera or library choice via Alert) and post-save prompt (skipped if photo already added in session, tracked via `photoAdded` state)
-- `app/progress-photos.tsx` — View-only gallery. Each tile shows full date (day month year) + weight from that date. Tap opens full-screen modal viewer with date, weight, and delete button. Long-press on grid also offers delete.
+- `app/log-weight.tsx` — Photo thumbnail strip below the weight picker (hidden in edit mode). "Add Progress Photo" button triggers Alert with camera or library choice. Photo URI is stored in `sessionPhotoUri` state during the session — the photo is **deferred to the store** and only committed via `addPhoto()` inside `handleSave()` when the weight entry is actually saved. This prevents orphan photos if the user backs out. Haptic feedback fires on successful save.
+- `app/progress-photos.tsx` — View-only gallery with FlatList grid. Each tile shows full date + weight from closest weight entry (matched by timestamp proximity, max 24h). Tap opens full-screen modal viewer with date, weight, and delete button. Long-press on grid also offers delete. Empty state includes a "Log Weight" navigation button.
 - `app/(tabs)/progress.tsx` — Photos card shows up to 3 recent thumbnails + "Tap to view all" text. No upload functionality.
 
 ### Weight Log Entries
@@ -170,7 +170,7 @@ Target weight is validated against `startWeight` (current weight at onboarding):
 
 ### Progress Charts
 
-Weight chart uses **time-based positioning** — points are placed by actual date milliseconds, not array index. This ensures correct spacing for irregular logging. X-axis labels use `formatShortDate()` which appends year suffix (`'27`) when labels cross a year boundary. "All time" range extends forward to estimated goal date via `getTargetDate()`.
+Weight chart uses **time-based positioning** — points are placed by actual date milliseconds, not array index. This ensures correct spacing for irregular logging. The chart is **backward-looking** (past → today): time tabs control how far back to display (30/60/90/180/365 days, All time). "All time" shows from the earliest entry (min 30 days). X-axis labels use `formatShortDate()` which appends year suffix (`'27`) when labels cross a year boundary. A dashed green goal line shows the target weight for lose/gain goals. SVG uses `vectorEffect="non-scaling-stroke"` to prevent stroke distortion from `preserveAspectRatio="none"`. Data point dots are rendered at each weigh-in.
 
 Calorie stacked bar chart renders macro ratios as flex percentages of the daily total (protein/carbs/fat segments).
 
@@ -190,6 +190,10 @@ Calorie stacked bar chart renders macro ratios as flex percentages of the daily 
 - `ProgressHeader` bar uses `accessibilityRole="progressbar"` with `accessibilityValue`
 - Data cards (calories, macros, BMI) should have consolidated `accessibilityLabel` combining their values
 - Overlay dismiss pressables need `accessibilityLabel="Close menu"` and `accessibilityRole="button"`
+- Screen header titles need `accessibilityRole="header"` for VoiceOver navigation landmarks
+- Header spacer views (used for centering titles) must have `accessible={false}`
+- Modal containers should include `accessibilityViewIsModal` to trap VoiceOver focus
+- Images inside touchable containers should have `accessible={false}` (parent carries the label)
 
 ### Zustand Selector Pattern (CRITICAL)
 

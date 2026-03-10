@@ -5,11 +5,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import Svg, { Path, Circle } from 'react-native-svg';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import * as Crypto from 'expo-crypto';
 import * as Haptics from 'expo-haptics';
@@ -27,6 +29,13 @@ import { toDateKey } from '@/utils/date';
 import type { WeightEntry } from '@/types/data';
 
 const DECIMAL_ITEMS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function formatDisplayDate(dateKey: string, todayKey: string): string {
+  if (dateKey === todayKey) return 'Today';
+  const [y, m, d] = dateKey.split('-').map(Number);
+  return `${MONTH_NAMES[m - 1]} ${d}, ${y}`;
+}
 
 export default function LogWeightScreen() {
   const router = useRouter();
@@ -38,6 +47,9 @@ export default function LogWeightScreen() {
   const latestWeight = allEntries[0];
   const addPhoto = usePhotoStore((s) => s.addPhoto);
   const todayKey = useMemo(() => toDateKey(), []);
+  const [selectedDate, setSelectedDate] = useState(todayKey);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const formattedDate = useMemo(() => formatDisplayDate(selectedDate, todayKey), [selectedDate, todayKey]);
 
   // Editing an existing entry?
   const existingEntry = useMemo((): WeightEntry | null => {
@@ -114,16 +126,22 @@ export default function LogWeightScreen() {
     ]);
   }, [pickPhoto]);
 
+  const handleDateChange = useCallback((_event: unknown, date: Date | undefined) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (date) setSelectedDate(toDateKey(date));
+  }, []);
+
   const handleSave = useCallback(() => {
     if (isEditing && existingEntry) {
       updateEntry(existingEntry.id, { weight: selectedWeight, unit });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
       return;
     }
 
     const entry: WeightEntry = {
       id: Crypto.randomUUID(),
-      date: todayKey,
+      date: selectedDate,
       timestamp: Date.now(),
       weight: selectedWeight,
       unit,
@@ -134,14 +152,14 @@ export default function LogWeightScreen() {
     if (sessionPhotoUri) {
       addPhoto({
         id: Crypto.randomUUID(),
-        date: todayKey,
+        date: selectedDate,
         timestamp: Date.now(),
         uri: sessionPhotoUri,
       });
     }
 
     router.back();
-  }, [isEditing, existingEntry, selectedWeight, unit, todayKey, updateEntry, addEntry, addPhoto, sessionPhotoUri, router]);
+  }, [isEditing, existingEntry, selectedWeight, unit, selectedDate, updateEntry, addEntry, addPhoto, sessionPhotoUri, router]);
 
   // Guard: editEntryId provided but entry not found (deleted between navigation)
   if (params.editEntryId && !existingEntry) {
@@ -197,14 +215,69 @@ export default function LogWeightScreen() {
             />
           </Svg>
         </TouchableOpacity>
-        <Text style={styles.headerTitle} accessibilityRole="header">{isEditing ? 'Edit Weight' : 'Log Weight'}</Text>
+        <Text style={styles.headerTitle} accessibilityRole="header">
+          {isEditing ? `Edit Weight · ${formatDisplayDate(existingEntry?.date ?? '', todayKey)}` : 'Log Weight'}
+        </Text>
         <View style={styles.backBtn} accessible={false} />
       </View>
 
+      {/* Date selector (hidden in edit mode) */}
+      {!isEditing && (
+        <TouchableOpacity
+          style={styles.dateRow}
+          onPress={() => setShowDatePicker((v) => !v)}
+          activeOpacity={0.7}
+          accessibilityLabel={`Date: ${formattedDate}. Tap to change.`}
+          accessibilityRole="button"
+        >
+          <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" accessible={false}>
+            <Path
+              d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"
+              stroke={Theme.colors.primary}
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+          <Text style={styles.dateText}>{formattedDate}</Text>
+          <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" accessible={false}>
+            <Path
+              d="M6 9l6 6 6-6"
+              stroke={Theme.colors.textDark}
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+        </TouchableOpacity>
+      )}
+      {showDatePicker && (
+        <>
+          <DateTimePicker
+            value={new Date(selectedDate + 'T12:00:00')}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'inline' : 'default'}
+            maximumDate={new Date()}
+            onChange={handleDateChange}
+            accentColor={Theme.colors.primary}
+          />
+          {Platform.OS === 'ios' && (
+            <TouchableOpacity
+              style={styles.datePickerDone}
+              onPress={() => setShowDatePicker(false)}
+              accessibilityLabel="Done selecting date"
+              accessibilityRole="button"
+            >
+              <Text style={styles.datePickerDoneText}>Done</Text>
+            </TouchableOpacity>
+          )}
+        </>
+      )}
+
       <View style={styles.content}>
-        <Text style={styles.valueDisplay}>
+        <Text style={styles.valueDisplay} accessibilityLiveRegion="polite" accessibilityRole="text">
           {selectedWeight.toFixed(1)}{' '}
-          <Text style={styles.unitText}>{unit}</Text>
+          <Text style={styles.unitText} accessible={false}>{unit}</Text>
         </Text>
 
         <View style={styles.pickerArea}>
@@ -215,6 +288,7 @@ export default function LogWeightScreen() {
                 selectedIndex={wholePart}
                 onSelect={setWholePart}
                 hideLines
+                accessibilityLabel={`Whole ${unit}`}
               />
             </View>
             <Text style={styles.dot} accessible={false}>.</Text>
@@ -224,6 +298,7 @@ export default function LogWeightScreen() {
                 selectedIndex={decimalPart}
                 onSelect={setDecimalPart}
                 hideLines
+                accessibilityLabel={`Decimal ${unit}`}
               />
             </View>
             <Text style={styles.unitLabel}>{unit}</Text>
@@ -304,7 +379,7 @@ export default function LogWeightScreen() {
           <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" accessible={false}>
             <Path
               d="M9 18l6-6-6-6"
-              stroke={Theme.colors.textMuted}
+              stroke={Theme.colors.textDark}
               strokeWidth={2.5}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -353,6 +428,35 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: Theme.fonts.extraBold,
     color: Theme.colors.textDark,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 8,
+    marginTop: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: Theme.borderRadius.small,
+    borderWidth: 2,
+    borderColor: Theme.colors.border,
+    backgroundColor: Theme.colors.surface,
+  },
+  dateText: {
+    fontSize: 15,
+    fontFamily: Theme.fonts.bold,
+    color: Theme.colors.textDark,
+  },
+  datePickerDone: {
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  datePickerDoneText: {
+    fontSize: 15,
+    fontFamily: Theme.fonts.bold,
+    color: Theme.colors.primary,
   },
   content: {
     flex: 1,

@@ -16,7 +16,7 @@ import type { WeightEntry } from '@/types/data';
 
 // ── Constants ──────────────────────────────────────────────────────
 
-const TIME_TABS = ['30 Days', '60 Days', '90 Days', '6 Months', '1 Year', 'All time'];
+const TIME_TABS = ['Last 30d', 'Last 60d', 'Last 90d', '6 Months', '1 Year', 'All time'];
 const TIME_TAB_DAYS = [30, 60, 90, 180, 365, Infinity];
 const WEEK_TABS = ['This Week', 'Last Week', '2 wks. ago', '3 wks. ago'];
 const STREAK_DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as const;
@@ -39,7 +39,7 @@ const MACRO_LEGEND = [
 const CHART_W = 200;
 const CHART_H = 100;
 const GRID_INDEXES = [0, 1, 2, 3, 4] as const;
-const CURRENT_YEAR = new Date().getFullYear();
+const BMI_LEGEND_LABEL = `BMI categories: ${['Underweight', 'Healthy', 'Overweight', 'Obese'].join(', ')}`;
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -61,7 +61,7 @@ function formatShortDate(dateKey: string): string {
   const d = new Date(dateKey + 'T00:00:00');
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const base = `${months[d.getMonth()]} ${d.getDate()}`;
-  return d.getFullYear() !== CURRENT_YEAR ? `${base} '${String(d.getFullYear()).slice(2)}` : base;
+  return d.getFullYear() !== new Date().getFullYear() ? `${base} '${String(d.getFullYear()).slice(2)}` : base;
 }
 
 /** Build 5 evenly-spaced Y-axis labels from min..max. */
@@ -85,25 +85,30 @@ function toChartPoints(
   max: number,
   startMs: number,
   endMs: number,
-): { points: string; singlePoint: { x: number; y: number } | null } {
-  if (entries.length === 0) return { points: '', singlePoint: null };
+): { points: string; dots: { x: number; y: number }[]; singlePoint: { x: number; y: number } | null } {
+  if (entries.length === 0) return { points: '', dots: [], singlePoint: null };
   const range = endMs - startMs || 1;
+
+  const yFor = (w: number) =>
+    Math.max(0, Math.min(CHART_H, max === min ? CHART_H / 2 : CHART_H - ((w - min) / ((max - min) || 1)) * CHART_H));
 
   if (entries.length === 1) {
     const xRatio = (dateToMs(entries[0].date) - startMs) / range;
     const x = Math.max(12, Math.min(CHART_W - 5, xRatio * CHART_W));
-    const y = max === min ? CHART_H / 2 : CHART_H - ((entries[0].weight - min) / (max - min)) * CHART_H;
-    return { points: `0,${y} ${x},${y}`, singlePoint: { x, y } };
+    const y = yFor(entries[0].weight);
+    return { points: `0,${y} ${x},${y}`, dots: [{ x, y }], singlePoint: { x, y } };
   }
 
+  const dots: { x: number; y: number }[] = [];
   const points = entries
     .map((e) => {
-      const x = ((dateToMs(e.date) - startMs) / range) * CHART_W;
-      const y = max === min ? CHART_H / 2 : CHART_H - ((e.weight - min) / (max - min)) * CHART_H;
+      const x = Math.max(0, Math.min(CHART_W - 5, ((dateToMs(e.date) - startMs) / range) * CHART_W));
+      const y = yFor(e.weight);
+      dots.push({ x, y });
       return `${x},${y}`;
     })
     .join(' ');
-  return { points, singlePoint: null };
+  return { points, dots, singlePoint: null };
 }
 
 /** Generate ~5 evenly spaced date labels across a time range. */
@@ -199,51 +204,72 @@ export default function ProgressScreen() {
 
   const weightChartData = useMemo(() => {
     const days = TIME_TAB_DAYS[timeTab];
-    const today = new Date();
-    const todayStr = toDateKey(today);
+    const todayStr = toDateKey(new Date());
     const todayMs = dateToMs(todayStr);
 
-    // Time range: today → future (today + N days)
-    const startMs = todayMs;
-    let endMs: number;
+    // Time range: past → today (backward-looking)
+    let startMs: number;
     if (days === Infinity) {
-      // All time: project to estimated goal date, or at least 90 days
-      let goalDays = 90;
-      if (profile && profile.goal !== 'maintain' && profile.weeklyGoalSpeed > 0) {
-        const currentW = latestWeight?.weight ?? profile.startWeight;
-        const diff = Math.abs(currentW - profile.targetWeight);
-        goalDays = Math.max(90, Math.ceil(diff / profile.weeklyGoalSpeed) * 7);
-      }
-      endMs = todayMs + goalDays * 86400000;
+      const oldest = allWeightEntries.length > 0
+        ? allWeightEntries[allWeightEntries.length - 1]
+        : null;
+      const thirtyDaysAgo = todayMs - 30 * 86400000;
+      startMs = oldest ? Math.min(dateToMs(oldest.date), thirtyDaysAgo) : thirtyDaysAgo;
     } else {
-      const endDate = new Date(today);
-      endDate.setDate(endDate.getDate() + days);
-      endMs = dateToMs(toDateKey(endDate));
+      startMs = todayMs - days * 86400000;
     }
 
-    // Filter entries from today onward
+    const startStr = toDateKey(new Date(startMs));
+
+    // Filter entries within the selected range (oldest → newest)
     const filtered = allWeightEntries
-      .filter((e) => e.date >= todayStr)
-      .reverse(); // oldest first
+      .filter((e) => e.date >= startStr && e.date <= todayStr)
+      .reverse();
 
     if (filtered.length === 0) return null;
 
-    const weights = filtered.map((e) => e.weight);
-    const min = Math.min(...weights);
-    const max = Math.max(...weights);
-    const padding = (max - min) * 0.1 || 0.5;
-    const chartMin = min - padding;
-    const chartMax = max + padding;
+    const { min, max } = filtered.reduce(
+      (acc, e) => ({ min: Math.min(acc.min, e.weight), max: Math.max(acc.max, e.weight) }),
+      { min: Infinity, max: -Infinity },
+    );
 
+    const hasGoal = profile && profile.goal !== 'maintain' && profile.targetWeight != null;
+
+    // Include target weight in Y range
+    let rangeMin = min;
+    let rangeMax = max;
+    if (hasGoal) {
+      rangeMin = Math.min(rangeMin, profile.targetWeight);
+      rangeMax = Math.max(rangeMax, profile.targetWeight);
+    }
+
+    const padding = (rangeMax - rangeMin) * 0.1 || 0.5;
+    const chartMin = rangeMin - padding;
+    const chartMax = rangeMax + padding;
+
+    const yForW = (w: number) => Math.max(0, Math.min(CHART_H,
+      chartMax === chartMin ? CHART_H / 2
+        : CHART_H - ((w - chartMin) / ((chartMax - chartMin) || 1)) * CHART_H));
+
+    const endMs = todayMs;
     const chart = toChartPoints(filtered, chartMin, chartMax, startMs, endMs);
+
+    // Goal line Y
+    let targetY: number | null = null;
+    if (hasGoal) {
+      targetY = yForW(profile.targetWeight);
+    }
+
     return {
       points: chart.points,
+      dots: chart.dots,
       singlePoint: chart.singlePoint,
       yLabels: yAxisLabels(chartMin, chartMax),
       xLabels: buildTimeXLabels(startMs, endMs),
       count: filtered.length,
+      targetY,
     };
-  }, [allWeightEntries, timeTab, profile, latestWeight]);
+  }, [allWeightEntries, timeTab, profile]);
 
   // ── #13 Calorie chart data (filtered by week tab) ───────────────
 
@@ -302,12 +328,22 @@ export default function ProgressScreen() {
     [router],
   );
 
+  const recentPhotos = useMemo(() => photos.slice(0, 3), [photos]);
+
   const RECENT_LIMIT = 3;
   const recentWeightEntries = useMemo(
     () => allWeightEntries.slice(0, RECENT_LIMIT),
     [allWeightEntries],
   );
   const hasMoreEntries = allWeightEntries.length > RECENT_LIMIT;
+
+  const chartA11yLabel = useMemo(() => {
+    if (!weightChartData) return 'Weight chart. No weight data yet.';
+    const goalInfo = weightChartData.targetY != null && profile
+      ? ` Goal weight: ${profile.targetWeight} ${unit}.`
+      : '';
+    return `Weight chart with ${weightChartData.count} entries. ${TIME_TABS[timeTab]} view.${goalInfo}`;
+  }, [weightChartData, timeTab, profile, unit]);
 
   const handleSeeAllWeighIns = useCallback(() => {
     router.push('/weight-history');
@@ -416,7 +452,7 @@ export default function ProgressScreen() {
           {photos.length > 0 ? (
             <>
               <View style={styles.photoRow}>
-                {photos.slice(0, 3).map((p) => (
+                {recentPhotos.map((p) => (
                   <Image
                     key={p.id}
                     source={{ uri: p.uri }}
@@ -446,7 +482,7 @@ export default function ProgressScreen() {
         {/* Time Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={styles.tabsContent}>
           {TIME_TABS.map((t, i) => (
-            <TouchableOpacity key={t} onPress={() => handleTimeTab(i)} style={[styles.tab, i === timeTab && styles.tabActive]} accessibilityRole="tab" accessibilityLabel={t} accessibilityState={{ selected: i === timeTab }}>
+            <TouchableOpacity key={t} onPress={() => handleTimeTab(i)} style={[styles.tab, i === timeTab && styles.tabActive]} hitSlop={{ top: 6, bottom: 6 }} accessibilityRole="tab" accessibilityLabel={t} accessibilityState={{ selected: i === timeTab }}>
               <Text style={[styles.tabText, i === timeTab && styles.tabTextActive]}>{t}</Text>
             </TouchableOpacity>
           ))}
@@ -455,7 +491,7 @@ export default function ProgressScreen() {
         {/* Goal Progress / Weight Chart */}
         <View style={styles.chartCard}>
           <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle} accessibilityRole="header">Weight Progress</Text>
+            <Text style={styles.chartTitle} accessibilityRole="header">Weight Progress ({unit})</Text>
             <View style={styles.flagPill}>
               <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" accessible={false}>
                 <Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" stroke={Theme.colors.textDark} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
@@ -465,7 +501,7 @@ export default function ProgressScreen() {
             </View>
           </View>
 
-          <View style={styles.lineChartArea} accessible={true} accessibilityLabel={`Weight chart with ${weightChartData?.count ?? 0} entries`} accessibilityRole="image">
+          <View style={styles.lineChartArea} accessible={true} accessibilityLabel={chartA11yLabel} accessibilityRole="image">
             <View style={styles.yAxis}>
               {(weightChartData?.yLabels ?? ['0', '0', '0', '0', '0']).map((v, i) => (
                 <Text key={`wy-${i}`} style={styles.yLabel}>{v}</Text>
@@ -477,15 +513,36 @@ export default function ProgressScreen() {
               ))}
             </View>
             {weightChartData ? (
-              <Svg style={styles.svgChart} viewBox={`0 0 ${CHART_W} ${CHART_H}`} preserveAspectRatio="none">
+              <Svg style={styles.svgChart} viewBox={`0 0 ${CHART_W} ${CHART_H}`} preserveAspectRatio="none" accessible={false}>
+                {weightChartData.targetY != null && (
+                  <Line
+                    x1={0}
+                    y1={weightChartData.targetY}
+                    x2={CHART_W}
+                    y2={weightChartData.targetY}
+                    stroke={Theme.colors.warningDark}
+                    strokeWidth={1}
+                    strokeDasharray={[4, 3]}
+                  />
+                )}
                 <Polyline
                   points={weightChartData.points}
                   stroke={Theme.colors.primary}
-                  strokeWidth={2.5}
+                  strokeWidth={2}
                   fill="none"
                   strokeLinejoin="round"
                   strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
                 />
+                {weightChartData.dots.map((dot, i) => (
+                  <Circle
+                    key={`wd-${i}`}
+                    cx={dot.x}
+                    cy={dot.y}
+                    r={3}
+                    fill={Theme.colors.primary}
+                  />
+                ))}
                 {weightChartData.singlePoint && (
                   <Circle
                     cx={weightChartData.singlePoint.x}
@@ -497,7 +554,7 @@ export default function ProgressScreen() {
               </Svg>
             ) : (
               <View style={styles.emptyChartOverlay}>
-                <Text style={styles.emptyChartText}>No weight data yet</Text>
+                <Text style={styles.emptyChartText}>No weight data yet. Tap + to log your first weight.</Text>
               </View>
             )}
           </View>
@@ -508,12 +565,26 @@ export default function ProgressScreen() {
               ))}
             </View>
           )}
+          {weightChartData?.targetY != null && (
+            <View style={styles.chartLegend}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: Theme.colors.primary }]} />
+                <Text style={styles.legendText}>Weight</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <Svg width={14} height={14} viewBox="0 0 14 14" accessible={false}>
+                  <Line x1={0} y1={7} x2={14} y2={7} stroke={Theme.colors.warningDark} strokeWidth={2} strokeDasharray={[4, 3]} />
+                </Svg>
+                <Text style={styles.legendText}>Goal</Text>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Week Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={styles.tabsContent}>
           {WEEK_TABS.map((t, i) => (
-            <TouchableOpacity key={t} onPress={() => handleWeekTab(i)} style={[styles.tab, i === weekTab && styles.tabActive]} accessibilityRole="tab" accessibilityLabel={t} accessibilityState={{ selected: i === weekTab }}>
+            <TouchableOpacity key={t} onPress={() => handleWeekTab(i)} style={[styles.tab, i === weekTab && styles.tabActive]} hitSlop={{ top: 6, bottom: 6 }} accessibilityRole="tab" accessibilityLabel={t} accessibilityState={{ selected: i === weekTab }}>
               <Text style={[styles.tabText, i === weekTab && styles.tabTextActive]}>{t}</Text>
             </TouchableOpacity>
           ))}
@@ -543,9 +614,13 @@ export default function ProgressScreen() {
               {calorieChartData.days.map((day) => {
                 const maxH = 120;
                 const totalH = calorieChartData.maxCal > 0 ? (day.calories / calorieChartData.maxCal) * maxH : 0;
-                const pRatio = day.calories > 0 ? day.protein * 4 / (day.calories || 1) : 0;
-                const cRatio = day.calories > 0 ? day.carbs * 4 / (day.calories || 1) : 0;
-                const fRatio = 1 - pRatio - cRatio;
+                const rawP = day.calories > 0 ? day.protein * 4 / day.calories : 0;
+                const rawC = day.calories > 0 ? day.carbs * 4 / day.calories : 0;
+                const rawF = Math.max(0, 1 - rawP - rawC);
+                const ratioSum = rawP + rawC + rawF || 1;
+                const pRatio = rawP / ratioSum;
+                const cRatio = rawC / ratioSum;
+                const fRatio = rawF / ratioSum;
 
                 return (
                   <View key={day.dateKey} style={styles.barCol}>
@@ -554,7 +629,7 @@ export default function ProgressScreen() {
                         <>
                           <View style={[styles.barSegment, { flex: Math.max(fRatio, 0), backgroundColor: Theme.colors.infoBlue }]} />
                           <View style={[styles.barSegment, { flex: Math.max(cRatio, 0), backgroundColor: Theme.colors.carbs }]} />
-                          <View style={[styles.barSegment, { flex: Math.max(pRatio, 0), backgroundColor: Theme.colors.protein, borderTopLeftRadius: 3, borderTopRightRadius: 3 }]} />
+                          <View style={[styles.barSegment, { flex: Math.max(pRatio, 0), backgroundColor: Theme.colors.protein, borderTopLeftRadius: Theme.borderRadius.tiny, borderTopRightRadius: Theme.borderRadius.tiny }]} />
                         </>
                       )}
                     </View>
@@ -609,7 +684,7 @@ export default function ProgressScreen() {
             </View>
             <View style={[styles.bmiIndicator, bmiIndicatorStyle]} />
           </View>
-          <View style={styles.bmiLegend} accessible={true} accessibilityLabel={`BMI categories: ${BMI_LEGEND.map((b) => b.label).join(', ')}`}>
+          <View style={styles.bmiLegend} accessible={true} accessibilityLabel={BMI_LEGEND_LABEL}>
             {BMI_LEGEND.map((b) => (
               <View key={b.label} style={styles.bmiLegendItem}>
                 <View style={[styles.bDot, { backgroundColor: b.color }]} accessible={false} />
@@ -821,7 +896,7 @@ const styles = StyleSheet.create({
   tabsScroll: { marginBottom: 15, paddingBottom: 5 },
   tabsContent: { gap: 8 },
   tab: {
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: Theme.borderRadius.button,
+    paddingHorizontal: 16, paddingVertical: 12, borderRadius: Theme.borderRadius.button,
     backgroundColor: Theme.colors.surface, borderWidth: 2, borderColor: Theme.colors.border,
   },
   tabActive: { backgroundColor: Theme.colors.textDark, borderColor: Theme.colors.textDark },
@@ -848,11 +923,11 @@ const styles = StyleSheet.create({
 
   lineChartArea: { position: 'relative', height: 140, width: '100%', marginTop: 10 },
   yAxis: {
-    position: 'absolute', left: 0, top: 0, height: '100%', justifyContent: 'space-between', width: 30,
+    position: 'absolute', left: 0, top: 5, bottom: 5, justifyContent: 'space-between', width: 30,
   },
-  yLabel: { fontSize: 9, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
+  yLabel: { fontSize: 9, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark },
   gridLines: {
-    position: 'absolute', left: 35, right: 0, top: 5, height: '100%', justifyContent: 'space-between',
+    position: 'absolute', left: 35, right: 0, top: 5, bottom: 5, justifyContent: 'space-between',
   },
   gridLine: { width: '100%', borderBottomWidth: 1, borderStyle: 'dashed', borderBottomColor: Theme.colors.border },
   svgChart: { position: 'absolute', left: 35, right: 0, top: 5, height: 130 },
@@ -861,7 +936,7 @@ const styles = StyleSheet.create({
     position: 'absolute', left: 35, right: 0, top: 0, height: '100%',
     alignItems: 'center', justifyContent: 'center',
   },
-  emptyChartText: { fontSize: 13, fontFamily: Theme.fonts.semiBold, color: Theme.colors.textMuted },
+  emptyChartText: { fontSize: 13, fontFamily: Theme.fonts.semiBold, color: Theme.colors.textDark },
 
   // Bar chart
   barChartArea: {
@@ -871,14 +946,15 @@ const styles = StyleSheet.create({
   },
   barCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: '100%' },
   barStack: {
-    width: 18, borderRadius: 3, overflow: 'hidden',
+    width: 18, borderRadius: Theme.borderRadius.tiny, overflow: 'hidden',
   },
   barSegment: { width: '100%' },
 
-  // X axis
+  // X axis & chart legend
   xAxis: { flexDirection: 'row', justifyContent: 'space-between', marginLeft: 35, marginTop: 5 },
   weightXAxis: { paddingLeft: 6 },
-  xLabel: { fontSize: 9, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
+  chartLegend: { flexDirection: 'row', justifyContent: 'center', gap: 15, marginTop: 12 },
+  xLabel: { fontSize: 9, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark },
 
   // Photo
   photoRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },

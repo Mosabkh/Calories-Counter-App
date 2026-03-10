@@ -124,7 +124,7 @@ export function calculateDaySplit(
 
 /**
  * BMI = weight(kg) / height(m)^2
- * WHO categories: Underweight <18.5, Normal 18.5-24.9, Overweight 25-29.9, Obese 30+
+ * WHO categories: Underweight <18.5, Healthy 18.5-24.9, Overweight 25-29.9, Obese 30+
  */
 export function calculateBMI(weightKg: number, heightCm: number): number {
   const heightM = heightCm / 100;
@@ -133,9 +133,9 @@ export function calculateBMI(weightKg: number, heightCm: number): number {
   return isNaN(result) ? 0 : result;
 }
 
-export function getBMICategory(bmi: number): 'Underweight' | 'Normal' | 'Overweight' | 'Obese' {
+export function getBMICategory(bmi: number): 'Underweight' | 'Healthy' | 'Overweight' | 'Obese' {
   if (bmi < 18.5) return 'Underweight';
-  if (bmi < 25) return 'Normal';
+  if (bmi < 25) return 'Healthy';
   if (bmi < 30) return 'Overweight';
   return 'Obese';
 }
