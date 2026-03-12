@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -82,7 +83,11 @@ export default function LogMealScreen() {
 
   const canSave = name.trim().length > 0 && Number(calories) > 0;
 
-  const handleSave = () => {
+  const isSavingRef = useRef(false);
+
+  const handleSave = useCallback(() => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
     if (isEditing && existingMeal) {
       updateMeal(existingMeal.date, existingMeal.id, {
         mealType,
@@ -110,13 +115,26 @@ export default function LogMealScreen() {
       addMeal(meal); // addMeal auto-triggers recordActivity via diary store
     }
     router.back();
-  };
+  }, [isEditing, existingMeal, updateMeal, addMeal, mealType, name, calories, protein, carbs, fat, servingSize, dateKey, params.imageUri, router]);
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     if (!existingMeal) return;
-    removeMeal(existingMeal.date, existingMeal.id);
-    router.back();
-  };
+    Alert.alert(
+      'Delete Meal',
+      `Delete "${existingMeal.name}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            removeMeal(existingMeal.date, existingMeal.id);
+            router.back();
+          },
+        },
+      ],
+    );
+  }, [existingMeal, removeMeal, router]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -133,7 +151,7 @@ export default function LogMealScreen() {
             accessibilityRole="button"
             style={styles.backBtn}
           >
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
               <Path
                 d="M19 12H5M12 19l-7-7 7-7"
                 stroke={Theme.colors.textDark}
@@ -143,8 +161,8 @@ export default function LogMealScreen() {
               />
             </Svg>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{isEditing ? 'Edit Meal' : 'Log Meal'}</Text>
-          <View style={styles.backBtn} />
+          <Text style={styles.headerTitle} accessibilityRole="header">{isEditing ? 'Edit Meal' : 'Log Meal'}</Text>
+          <View style={styles.backBtn} accessible={false} />
         </View>
 
         <ScrollView
@@ -155,7 +173,7 @@ export default function LogMealScreen() {
         >
           {/* Image preview */}
           {params.imageUri && (
-            <Image source={{ uri: params.imageUri }} style={styles.preview} />
+            <Image source={{ uri: params.imageUri }} style={styles.preview} accessible={false} />
           )}
 
           {/* Food name */}
@@ -167,16 +185,18 @@ export default function LogMealScreen() {
             placeholder="e.g. Grilled Chicken Breast"
             placeholderTextColor={Theme.colors.textMuted}
             returnKeyType="next"
+            accessibilityLabel="Food name"
           />
 
           {/* Meal type pills */}
           <Text style={styles.label}>Meal type</Text>
-          <View style={styles.pillRow}>
+          <View style={styles.pillRow} accessibilityRole="radiogroup">
             {MEAL_TYPES.map((mt) => (
               <TouchableOpacity
                 key={mt.value}
                 style={[styles.pill, mealType === mt.value && styles.pillActive]}
                 onPress={() => setMealType(mt.value)}
+                activeOpacity={0.7}
                 accessibilityRole="radio"
                 accessibilityState={{ selected: mealType === mt.value }}
               >
@@ -197,6 +217,7 @@ export default function LogMealScreen() {
             onChangeText={setServingSize}
             placeholder="e.g. 150g, 1 cup"
             placeholderTextColor={Theme.colors.textMuted}
+            accessibilityLabel="Serving size"
           />
 
           {/* Macros */}
@@ -211,6 +232,7 @@ export default function LogMealScreen() {
                 keyboardType="numeric"
                 placeholder="0"
                 placeholderTextColor={Theme.colors.textMuted}
+                accessibilityLabel="Calories"
               />
             </View>
             <View style={styles.macroInput}>
@@ -222,6 +244,7 @@ export default function LogMealScreen() {
                 keyboardType="numeric"
                 placeholder="0"
                 placeholderTextColor={Theme.colors.textMuted}
+                accessibilityLabel="Protein in grams"
               />
             </View>
           </View>
@@ -235,6 +258,7 @@ export default function LogMealScreen() {
                 keyboardType="numeric"
                 placeholder="0"
                 placeholderTextColor={Theme.colors.textMuted}
+                accessibilityLabel="Carbs in grams"
               />
             </View>
             <View style={styles.macroInput}>
@@ -246,6 +270,7 @@ export default function LogMealScreen() {
                 keyboardType="numeric"
                 placeholder="0"
                 placeholderTextColor={Theme.colors.textMuted}
+                accessibilityLabel="Fat in grams"
               />
             </View>
           </View>
@@ -311,7 +336,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontFamily: Theme.fonts.bold,
-    color: Theme.colors.textMuted,
+    color: Theme.colors.textDark,
     marginBottom: 8,
     marginTop: 16,
   },
@@ -347,7 +372,7 @@ const styles = StyleSheet.create({
   pillText: {
     fontSize: 13,
     fontFamily: Theme.fonts.bold,
-    color: Theme.colors.textMuted,
+    color: Theme.colors.textDark,
   },
   pillTextActive: {
     color: Theme.colors.white,
@@ -364,7 +389,7 @@ const styles = StyleSheet.create({
   macroLabel: {
     fontSize: 12,
     fontFamily: Theme.fonts.semiBold,
-    color: Theme.colors.textMuted,
+    color: Theme.colors.textDark,
     marginBottom: 6,
   },
   macroField: {
@@ -407,6 +432,6 @@ const styles = StyleSheet.create({
   deleteBtnText: {
     fontSize: 15,
     fontFamily: Theme.fonts.extraBold,
-    color: Theme.colors.calorieAlert,
+    color: Theme.colors.urgentRed,
   },
 });

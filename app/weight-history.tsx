@@ -17,10 +17,15 @@ import type { WeightEntry } from '@/types/data';
 const CURRENT_YEAR = new Date().getFullYear();
 
 function formatDate(dateKey: string): string {
-  const d = new Date(dateKey + 'T00:00:00');
+  const parts = dateKey.split('-');
+  if (parts.length !== 3) return dateKey;
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  const day = Number(parts[2]);
+  if (isNaN(y) || isNaN(m) || isNaN(day) || m < 1 || m > 12) return dateKey;
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const base = `${months[d.getMonth()]} ${d.getDate()}`;
-  return d.getFullYear() !== CURRENT_YEAR ? `${base} '${String(d.getFullYear()).slice(2)}` : base;
+  const base = `${months[m - 1]} ${day}`;
+  return y !== CURRENT_YEAR ? `${base} '${String(y).slice(2)}` : base;
 }
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
@@ -41,7 +46,7 @@ export default function WeightHistoryScreen() {
     (entry: WeightEntry) => {
       Alert.alert(
         'Delete Entry',
-        `Remove ${entry.weight.toFixed(1)} ${entry.unit} from ${formatDate(entry.date)}?`,
+        `Delete ${entry.weight.toFixed(1)} ${entry.unit} from ${formatDate(entry.date)}?`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -62,7 +67,6 @@ export default function WeightHistoryScreen() {
         <View
           style={styles.row}
           accessibilityLabel={`${item.weight.toFixed(1)} ${item.unit} on ${dateStr}`}
-          accessibilityRole="summary"
         >
           <View style={styles.rowInfo} accessible={false}>
             <Text style={styles.rowWeight}>
@@ -75,7 +79,8 @@ export default function WeightHistoryScreen() {
             <TouchableOpacity
               onPress={() => handleEdit(item)}
               hitSlop={HIT_SLOP}
-              accessibilityLabel={`Edit ${item.weight.toFixed(1)} ${item.unit} entry`}
+              activeOpacity={0.7}
+              accessibilityLabel={`Edit ${item.weight.toFixed(1)} ${item.unit} entry from ${dateStr}`}
               accessibilityRole="button"
               style={styles.actionBtn}
             >
@@ -92,7 +97,8 @@ export default function WeightHistoryScreen() {
             <TouchableOpacity
               onPress={() => handleDelete(item)}
               hitSlop={HIT_SLOP}
-              accessibilityLabel={`Delete ${item.weight.toFixed(1)} ${item.unit} entry`}
+              activeOpacity={0.7}
+              accessibilityLabel={`Delete ${item.weight.toFixed(1)} ${item.unit} entry from ${dateStr}`}
               accessibilityRole="button"
               style={styles.actionBtn}
             >
@@ -148,10 +154,30 @@ export default function WeightHistoryScreen() {
 
       {entries.length === 0 ? (
         <View style={styles.emptyState}>
+          <View style={styles.emptyIcon} accessible={false}>
+            <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" accessible={false}>
+              <Path
+                d="M12 20V10M18 20V4M6 20v-4"
+                stroke={Theme.colors.textMuted}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </View>
           <Text style={styles.emptyTitle}>No Weigh-ins Yet</Text>
           <Text style={styles.emptySubtitle}>
             Log your first weight to start tracking your progress.
           </Text>
+          <TouchableOpacity
+            style={styles.emptyBtn}
+            onPress={() => router.push('/log-weight')}
+            activeOpacity={0.8}
+            accessibilityLabel="Log weight"
+            accessibilityRole="button"
+          >
+            <Text style={styles.emptyBtnText}>Log Weight</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -200,7 +226,7 @@ const styles = StyleSheet.create({
     fontSize: 13, fontFamily: Theme.fonts.semiBold, color: Theme.colors.textDark,
   },
   rowActions: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
   },
   actionBtn: {
     width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
@@ -209,6 +235,12 @@ const styles = StyleSheet.create({
   emptyState: {
     flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40,
   },
+  emptyIcon: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: Theme.colors.primaryActive,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 16,
+  },
   emptyTitle: {
     fontSize: 18, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
     marginBottom: 8, textAlign: 'center',
@@ -216,5 +248,13 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     fontSize: 14, fontFamily: Theme.fonts.regular, color: Theme.colors.textDark,
     textAlign: 'center', lineHeight: 20,
+  },
+  emptyBtn: {
+    marginTop: 20, backgroundColor: Theme.colors.primary,
+    borderRadius: Theme.borderRadius.button,
+    paddingHorizontal: 28, paddingVertical: 12,
+  },
+  emptyBtnText: {
+    fontSize: 14, fontFamily: Theme.fonts.extraBold, color: Theme.colors.white,
   },
 });

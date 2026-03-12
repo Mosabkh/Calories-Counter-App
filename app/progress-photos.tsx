@@ -104,7 +104,7 @@ export default function ProgressPhotosScreen() {
           onPress={() => setViewingPhoto(item)}
           onLongPress={() => handleLongPress(item)}
           activeOpacity={0.8}
-          accessibilityLabel={`Progress photo from ${item.date}`}
+          accessibilityLabel={`Progress photo from ${item.date}${match ? `, ${match.weight.toFixed(1)} ${match.unit}` : ''}`}
           accessibilityRole="image"
           accessibilityHint="Tap to view full size, long press to delete"
         >
@@ -116,9 +116,9 @@ export default function ProgressPhotosScreen() {
             accessible={false}
           />
           <View style={styles.tileOverlay} accessible={false}>
-            <Text style={styles.tileDate}>{formatFullDate(item.date)}</Text>
+            <Text style={styles.tileDate} numberOfLines={1}>{formatFullDate(item.date)}</Text>
             {match && (
-              <Text style={styles.tileWeight}>{match.weight.toFixed(1)} {match.unit}</Text>
+              <Text style={styles.tileWeight} numberOfLines={1}>{match.weight.toFixed(1)} {match.unit}</Text>
             )}
           </View>
         </TouchableOpacity>
@@ -257,9 +257,14 @@ export default function ProgressPhotosScreen() {
 }
 
 function formatFullDate(dateKey: string): string {
-  const d = new Date(dateKey + 'T00:00:00');
+  const parts = dateKey.split('-');
+  if (parts.length !== 3) return dateKey;
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  const day = Number(parts[2]);
+  if (isNaN(y) || isNaN(m) || isNaN(day) || m < 1 || m > 12) return dateKey;
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  return `${day} ${months[m - 1]} ${y}`;
 }
 
 const styles = StyleSheet.create({
@@ -302,12 +307,18 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontFamily: Theme.fonts.bold,
     color: Theme.colors.white,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   tileWeight: {
     fontSize: 10,
     fontFamily: Theme.fonts.extraBold,
     color: Theme.colors.white,
     marginTop: 1,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 
   empty: { paddingTop: 80, alignItems: 'center', paddingHorizontal: 40 },

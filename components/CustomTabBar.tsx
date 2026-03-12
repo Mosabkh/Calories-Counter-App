@@ -1,4 +1,4 @@
-import { useState, memo, useCallback, useMemo } from 'react';
+import { useState, useRef, memo, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -69,18 +69,21 @@ const FAB_SIZE = 56;
 const NOTCH_RADIUS = FAB_SIZE / 2 + 10; // curve radius around FAB
 const BAR_CORNER = 24; // top corner radius of the bar
 const BAR_TOP_PADDING = 10;
+const ACTIVE_OPACITY = 0.7;
+const SPRING_CONFIG = { damping: 14, stiffness: 200 } as const;
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
   const router = useRouter();
   const [showOverlay, setShowOverlay] = useState(false);
+  const isNavigatingRef = useRef(false);
   const fabRotation = useSharedValue(0);
   const { bottom: bottomInset } = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const safeBottom = Math.max(bottomInset, 10);
 
-  const barHeight = BAR_TOP_PADDING + 4 + 8 + 28 + 3 + 14 + 8 + safeBottom; // paddingTop + tabItem padding + icon + gap + label + padding + safe area
+  const barHeight = BAR_TOP_PADDING + 4 + 8 + 30 + 3 + 14 + 8 + safeBottom;
 
   const barPath = useMemo(() => {
     const w = screenWidth;
@@ -110,6 +113,10 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
     return (screenWidth - gridPadding - totalGap) / ACTION_COLUMNS;
   }, [screenWidth]);
 
+  const fabPosition = useMemo(() => ({
+    bottom: barHeight - FAB_SIZE / 2 + 2,
+  }), [barHeight]);
+
   const dynamicStyles = useMemo(() => ({
     overlay: { paddingBottom: barHeight + FAB_SIZE / 2 + 20 } as const,
     card: { width: cardWidth } as const,
@@ -118,7 +125,7 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
   const toggleOverlay = useCallback(() => {
     setShowOverlay((prev) => {
       const next = !prev;
-      fabRotation.value = withSpring(next ? 45 : 0, { damping: 12, stiffness: 180 });
+      fabRotation.value = withSpring(next ? 45 : 0, SPRING_CONFIG);
       return next;
     });
   }, [fabRotation]);
@@ -128,21 +135,34 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
   }));
 
   const handleAction = useCallback(async (label: string) => {
-    toggleOverlay();
-    if (label === 'Food database') {
-      router.push('/food-search');
-    } else if (label === 'Scan food') {
-      const uri = await launchMealCamera();
-      if (uri) {
-        router.push({ pathname: '/log-meal', params: { imageUri: uri } });
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+
+    if (label === 'Scan food') {
+      // Keep overlay open during camera — close only on success
+      try {
+        const uri = await launchMealCamera();
+        if (uri) {
+          toggleOverlay();
+          router.push({ pathname: '/log-meal', params: { imageUri: uri } });
+        }
+      } catch {
+        // Camera failed — overlay stays open, user can retry
       }
-    } else if (label === 'Log weight') {
-      router.push('/log-weight');
-    } else if (label === 'Log exercise') {
-      router.push('/log-exercise');
-    } else if (label === 'Saved foods') {
-      router.push('/saved-foods');
+    } else {
+      toggleOverlay();
+      if (label === 'Food database') {
+        router.push('/food-search');
+      } else if (label === 'Log weight') {
+        router.push('/log-weight');
+      } else if (label === 'Log exercise') {
+        router.push('/log-exercise');
+      } else if (label === 'Saved foods') {
+        router.push('/saved-foods');
+      }
     }
+
+    isNavigatingRef.current = false;
   }, [toggleOverlay, router]);
 
   const renderTab = useCallback((route: (typeof state.routes)[number], index: number) => {
@@ -159,7 +179,7 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
           if (!isFocused) navigation.navigate(route.name);
         }}
         style={styles.tabItem}
-        activeOpacity={0.7}
+        activeOpacity={ACTIVE_OPACITY}
         accessibilityLabel={`${label} tab`}
         accessibilityRole="tab"
         accessibilityState={{ selected: isFocused }}>
@@ -167,7 +187,7 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
           <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" accessible={false}>
             <Path
               d={icon.paths[0]}
-              stroke={isFocused ? Theme.colors.primary : Theme.colors.textMuted}
+              stroke={isFocused ? Theme.colors.primaryHover : Theme.colors.textMuted}
               strokeWidth={2.5}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -175,7 +195,7 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
             {icon.extraPath && (
               <Path
                 d={icon.extraPath}
-                stroke={isFocused ? Theme.colors.primary : Theme.colors.textMuted}
+                stroke={isFocused ? Theme.colors.primaryHover : Theme.colors.textMuted}
                 strokeWidth={2.5}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -196,7 +216,8 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
         <Animated.View
           entering={FadeIn.duration(200)}
           exiting={FadeOut.duration(150)}
-          style={styles.overlayBg}>
+          style={styles.overlayBg}
+          accessibilityViewIsModal={true}>
           <Pressable
             style={StyleSheet.absoluteFill}
             onPress={toggleOverlay}
@@ -208,9 +229,9 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
             {ACTION_ITEMS.map((item, i) => (
               <AnimatedTouchable
                 key={item.label}
-                entering={FadeIn.delay(i * 60).duration(250).withInitialValues({ transform: [{ translateY: 24 }] })}
+                entering={FadeIn.delay(i * 40).duration(200).withInitialValues({ transform: [{ translateY: 24 }] })}
                 style={[styles.actionCard, dynamicStyles.card]}
-                activeOpacity={0.75}
+                activeOpacity={ACTIVE_OPACITY}
                 accessibilityLabel={item.label}
                 accessibilityRole="button"
                 onPress={() => handleAction(item.label)}
@@ -221,7 +242,7 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
                       <Path
                         key={pi}
                         d={d}
-                        stroke={Theme.colors.primary}
+                        stroke={Theme.colors.primaryHover}
                         strokeWidth={2.2}
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -232,7 +253,7 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
                         cx={item.circle.cx}
                         cy={item.circle.cy}
                         r={item.circle.r}
-                        stroke={Theme.colors.primary}
+                        stroke={Theme.colors.primaryHover}
                         strokeWidth={2.2}
                         fill="none"
                       />
@@ -248,14 +269,15 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
 
       <View style={[styles.container, showOverlay && styles.containerOnTop]}>
         {/* FAB positioned inside the notch curve */}
-        <Animated.View style={[styles.fabWrap, { bottom: barHeight - FAB_SIZE / 2 + 2 }, fabAnimatedStyle, showOverlay && styles.fabActive]}>
+        <Animated.View style={[styles.fabWrap, fabPosition, fabAnimatedStyle, showOverlay && styles.fabActive]}>
           <TouchableOpacity
             onPress={toggleOverlay}
-            activeOpacity={0.8}
+            activeOpacity={ACTIVE_OPACITY}
             style={styles.fabInner}
             accessibilityLabel={showOverlay ? 'Close menu' : 'Add item'}
             accessibilityRole="button"
-            accessibilityHint="Opens menu with food logging options">
+            accessibilityState={{ expanded: showOverlay }}
+            accessibilityHint={showOverlay ? 'Closes the menu' : 'Opens menu with food logging options'}>
             <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" accessible={false}>
               <Line
                 x1={12} y1={5} x2={12} y2={19}
@@ -288,9 +310,9 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
         </Svg>
 
         {/* Tab content overlaid on the SVG bar */}
-        <View style={[styles.tabRow, { paddingBottom: safeBottom }]}>
+        <View style={[styles.tabRow, { paddingBottom: safeBottom }]} accessibilityRole="tablist">
           {renderTab(state.routes[0], 0)}
-          <View style={styles.fabSpacer} />
+          <View style={styles.fabSpacer} accessible={false} />
           {renderTab(state.routes[1], 1)}
         </View>
       </View>
@@ -338,12 +360,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: Theme.fonts.semiBold,
     color: Theme.colors.textMuted,
+    lineHeight: 14,
   },
   tabLabelActive: {
-    color: Theme.colors.primary,
+    color: Theme.colors.primaryHover,
     fontFamily: Theme.fonts.extraBold,
   },
 
@@ -406,6 +429,8 @@ const styles = StyleSheet.create({
   actionCard: {
     backgroundColor: Theme.colors.surface,
     borderRadius: Theme.borderRadius.card,
+    borderWidth: 2,
+    borderColor: Theme.colors.border,
     paddingVertical: 22,
     paddingHorizontal: 12,
     alignItems: 'center',

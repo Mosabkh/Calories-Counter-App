@@ -30,7 +30,7 @@ export const Theme = {
     pricingCardActiveBg: 'rgba(84, 49, 40, 0.03)',
     flagPillBg: 'rgba(84, 49, 40, 0.05)',
     encouragementBg: 'rgba(123, 158, 135, 0.15)',
-    encouragementText: '#4A6B54',
+    encouragementText: '#2D4E37',
     protein: '#C76750',
     carbs: '#E89D88',
     warningLight: 'rgba(224, 176, 92, 0.15)',

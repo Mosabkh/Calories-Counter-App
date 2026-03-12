@@ -1,39 +1,159 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect, memo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  ScrollView,
   Alert,
   Platform,
+  KeyboardAvoidingView,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import Svg, { Path, Circle } from 'react-native-svg';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import * as Crypto from 'expo-crypto';
 import * as Haptics from 'expo-haptics';
 import { Theme } from '@/constants/theme';
-import {
-  ScrollPicker,
-  PICKER_ITEM_HEIGHT,
-  PICKER_VISIBLE_ITEMS,
-  PICKER_CENTER,
-} from '@/components/onboarding/ScrollPicker';
 import { useWeightStore } from '@/store/weight-store';
 import { useUserStore } from '@/store/user-store';
 import { usePhotoStore } from '@/store/photo-store';
+import { useStreakStore } from '@/store/streak-store';
 import { toDateKey } from '@/utils/date';
 import type { WeightEntry } from '@/types/data';
 
 const DECIMAL_ITEMS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+// Lightweight scroll-based picker (plain ScrollView, no FlatList) to avoid nesting errors
+const WHEEL_ITEM_H = 44;
+const WHEEL_VISIBLE = 5;
+const WHEEL_CENTER = Math.floor(WHEEL_VISIBLE / 2);
+
+interface WeightWheelProps {
+  items: string[];
+  selectedIndex: number;
+  onSelect: (index: number) => void;
+  width?: number;
+  accessibilityLabel?: string;
+}
+
+const WeightWheel = memo(function WeightWheel({
+  items,
+  selectedIndex,
+  onSelect,
+  width = 80,
+  accessibilityLabel,
+}: WeightWheelProps) {
+  const scrollRef = useRef<ScrollView>(null);
+  const hasScrolled = useRef(false);
+  const lastHapticIndex = useRef(selectedIndex);
+  const [liveIndex, setLiveIndex] = useState(selectedIndex);
+
+  useEffect(() => {
+    setLiveIndex(selectedIndex);
+  }, [selectedIndex]);
+
+  useEffect(() => {
+    if (!hasScrolled.current && scrollRef.current) {
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({ y: selectedIndex * WHEEL_ITEM_H, animated: false });
+      }, 100);
+      hasScrolled.current = true;
+    }
+  }, [selectedIndex]);
+
+  const getIndex = useCallback(
+    (offsetY: number) => Math.max(0, Math.min(Math.round(offsetY / WHEEL_ITEM_H), items.length - 1)),
+    [items.length],
+  );
+
+  const handleScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const idx = getIndex(e.nativeEvent.contentOffset.y);
+      setLiveIndex(idx);
+      if (lastHapticIndex.current !== idx) {
+        lastHapticIndex.current = idx;
+        if (Platform.OS !== 'web') Haptics.selectionAsync();
+        onSelect(idx);
+      }
+    },
+    [getIndex, onSelect],
+  );
+
+  const handleScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const idx = getIndex(e.nativeEvent.contentOffset.y);
+      setLiveIndex(idx);
+      if (idx !== selectedIndex) onSelect(idx);
+    },
+    [getIndex, selectedIndex, onSelect],
+  );
+
+  const listHeight = WHEEL_ITEM_H * WHEEL_VISIBLE;
+
+  return (
+    <View
+      style={{ width, height: listHeight }}
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel={accessibilityLabel ? `${accessibilityLabel}: ${items[selectedIndex] ?? ''}` : `${items[selectedIndex] ?? ''}`}
+      accessibilityHint="Swipe up or down to change value"
+    >
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={WHEEL_ITEM_H}
+        decelerationRate="normal"
+        bounces
+        overScrollMode="always"
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        onMomentumScrollEnd={handleScrollEnd}
+        onScrollEndDrag={handleScrollEnd}
+        contentContainerStyle={{ paddingVertical: WHEEL_ITEM_H * WHEEL_CENTER }}
+        nestedScrollEnabled
+      >
+        {items.map((item, index) => {
+          const distance = Math.abs(index - liveIndex);
+          const isSelected = distance === 0;
+          const opacity = isSelected ? 1 : distance === 1 ? 0.4 : 0.15;
+
+          return (
+            <View key={`${item}-${index}`} style={[wheelStyles.item, { width }]}>
+              <Text
+                style={[wheelStyles.itemText, isSelected && wheelStyles.activeText, { opacity }]}
+                numberOfLines={1}
+              >
+                {item}
+              </Text>
+            </View>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+});
+
+const wheelStyles = StyleSheet.create({
+  item: { height: WHEEL_ITEM_H, justifyContent: 'center', alignItems: 'center' },
+  itemText: { fontSize: 22, fontFamily: Theme.fonts.regular, color: Theme.colors.textDark },
+  activeText: { fontFamily: Theme.fonts.bold, color: Theme.colors.textDark },
+});
+
+const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };
+
 function formatDisplayDate(dateKey: string, todayKey: string): string {
   if (dateKey === todayKey) return 'Today';
-  const [y, m, d] = dateKey.split('-').map(Number);
+  const parts = dateKey.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(isNaN)) return dateKey;
+  const [y, m, d] = parts;
+  if (m < 1 || m > 12) return dateKey;
   return `${MONTH_NAMES[m - 1]} ${d}, ${y}`;
 }
 
@@ -75,9 +195,11 @@ export default function LogWeightScreen() {
   }, [minWhole, maxWhole]);
 
   const initialWhole = Math.floor(currentWeight);
-  const initialDecimal = Math.min(9, Math.floor((currentWeight - initialWhole) * 10));
+  const initialDecimal = Math.min(9, Math.round((currentWeight - initialWhole) * 10) % 10);
 
   const [sessionPhotoUri, setSessionPhotoUri] = useState<string | null>(null);
+  const [isPickingPhoto, setIsPickingPhoto] = useState(false);
+  const isSaving = useRef(false);
 
   const [wholePart, setWholePart] = useState(
     Math.max(0, Math.min(wholeItems.length - 1, initialWhole - minWhole)),
@@ -90,6 +212,8 @@ export default function LogWeightScreen() {
   const hasChanged = !isEditing || selectedWeight !== existingEntry?.weight;
 
   const pickPhoto = useCallback(async (useCamera: boolean) => {
+    if (isPickingPhoto) return;
+    setIsPickingPhoto(true);
     try {
       if (useCamera) {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -115,26 +239,41 @@ export default function LogWeightScreen() {
       }
     } catch {
       Alert.alert('Error', 'Could not access photos. Please try again.');
+    } finally {
+      setIsPickingPhoto(false);
     }
-  }, []);
+  }, [isPickingPhoto]);
 
   const handleAddPhoto = useCallback(() => {
+    if (isPickingPhoto) return;
     Alert.alert('Add Progress Photo', 'Choose a source', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Take Photo', onPress: () => pickPhoto(true) },
       { text: 'Choose from Library', onPress: () => pickPhoto(false) },
     ]);
-  }, [pickPhoto]);
+  }, [isPickingPhoto, pickPhoto]);
 
-  const handleDateChange = useCallback((_event: unknown, date: Date | undefined) => {
+  const handleDateChange = useCallback((_event: DateTimePickerEvent, date: Date | undefined) => {
     setShowDatePicker(Platform.OS === 'ios');
     if (date) setSelectedDate(toDateKey(date));
   }, []);
 
   const handleSave = useCallback(() => {
-    if (isEditing && existingEntry) {
-      updateEntry(existingEntry.id, { weight: selectedWeight, unit });
+    if (isSaving.current) return;
+    isSaving.current = true;
+
+    if (isEditing) {
+      // Guard: verify entry still exists (may have been deleted between navigation)
+      const currentEntry = allEntries.find((e) => e.id === params.editEntryId);
+      if (!currentEntry) {
+        isSaving.current = false;
+        Alert.alert('Entry Deleted', 'This entry no longer exists.');
+        router.back();
+        return;
+      }
+      updateEntry(currentEntry.id, { weight: selectedWeight, unit });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      isSaving.current = false;
       router.back();
       return;
     }
@@ -147,6 +286,7 @@ export default function LogWeightScreen() {
       unit,
     };
     addEntry(entry);
+    useStreakStore.getState().recordActivity(toDateKey());
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     if (sessionPhotoUri) {
@@ -158,8 +298,20 @@ export default function LogWeightScreen() {
       });
     }
 
+    isSaving.current = false;
     router.back();
-  }, [isEditing, existingEntry, selectedWeight, unit, selectedDate, updateEntry, addEntry, addPhoto, sessionPhotoUri, router]);
+  }, [isEditing, allEntries, params.editEntryId, selectedWeight, unit, selectedDate, updateEntry, addEntry, addPhoto, sessionPhotoUri, router]);
+
+  const handleBack = useCallback(() => {
+    if (sessionPhotoUri) {
+      Alert.alert('Discard Photo?', 'Your progress photo will not be saved.', [
+        { text: 'Keep Editing', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: () => router.back() },
+      ]);
+    } else {
+      router.back();
+    }
+  }, [sessionPhotoUri, router]);
 
   // Guard: editEntryId provided but entry not found (deleted between navigation)
   if (params.editEntryId && !existingEntry) {
@@ -168,7 +320,7 @@ export default function LogWeightScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => router.back()}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            hitSlop={HIT_SLOP}
             accessibilityLabel="Go back"
             accessibilityRole="button"
             style={styles.backBtn}
@@ -195,12 +347,13 @@ export default function LogWeightScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={['top']} accessibilityViewIsModal>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          onPress={handleBack}
+          hitSlop={HIT_SLOP}
           accessibilityLabel="Go back"
           accessibilityRole="button"
           style={styles.backBtn}
@@ -221,113 +374,118 @@ export default function LogWeightScreen() {
         <View style={styles.backBtn} accessible={false} />
       </View>
 
-      {/* Date selector (hidden in edit mode) */}
-      {!isEditing && (
-        <TouchableOpacity
-          style={styles.dateRow}
-          onPress={() => setShowDatePicker((v) => !v)}
-          activeOpacity={0.7}
-          accessibilityLabel={`Date: ${formattedDate}. Tap to change.`}
-          accessibilityRole="button"
-        >
-          <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" accessible={false}>
-            <Path
-              d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"
-              stroke={Theme.colors.primary}
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
+      <ScrollView
+        style={styles.scrollBody}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+      >
+        {/* Date selector (hidden in edit mode) */}
+        {!isEditing && (
+          <TouchableOpacity
+            style={styles.dateRow}
+            onPress={() => setShowDatePicker((v) => !v)}
+            activeOpacity={0.7}
+            accessibilityLabel={`Date: ${formattedDate}. Tap to change.`}
+            accessibilityRole="button"
+          >
+            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" accessible={false}>
+              <Path
+                d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"
+                stroke={Theme.colors.primary}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+            <Text style={styles.dateText}>{formattedDate}</Text>
+            <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" accessible={false}>
+              <Path
+                d="M6 9l6 6 6-6"
+                stroke={Theme.colors.textDark}
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </TouchableOpacity>
+        )}
+        {showDatePicker && (
+          <View style={styles.datePickerWrap}>
+            <DateTimePicker
+              value={new Date(selectedDate + 'T12:00:00')}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'inline' : 'default'}
+              maximumDate={new Date()}
+              onChange={handleDateChange}
+              accentColor={Theme.colors.primary}
             />
-          </Svg>
-          <Text style={styles.dateText}>{formattedDate}</Text>
-          <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" accessible={false}>
-            <Path
-              d="M6 9l6 6 6-6"
-              stroke={Theme.colors.textDark}
-              strokeWidth={2.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-        </TouchableOpacity>
-      )}
-      {showDatePicker && (
-        <>
-          <DateTimePicker
-            value={new Date(selectedDate + 'T12:00:00')}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'inline' : 'default'}
-            maximumDate={new Date()}
-            onChange={handleDateChange}
-            accentColor={Theme.colors.primary}
-          />
-          {Platform.OS === 'ios' && (
-            <TouchableOpacity
-              style={styles.datePickerDone}
-              onPress={() => setShowDatePicker(false)}
-              accessibilityLabel="Done selecting date"
-              accessibilityRole="button"
-            >
-              <Text style={styles.datePickerDoneText}>Done</Text>
-            </TouchableOpacity>
-          )}
-        </>
-      )}
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity
+                style={styles.datePickerDone}
+                onPress={() => setShowDatePicker(false)}
+                hitSlop={HIT_SLOP}
+                accessibilityLabel="Done selecting date"
+                accessibilityRole="button"
+              >
+                <Text style={styles.datePickerDoneText}>Done</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
-      <View style={styles.content}>
-        <Text style={styles.valueDisplay} accessibilityLiveRegion="polite" accessibilityRole="text">
-          {selectedWeight.toFixed(1)}{' '}
-          <Text style={styles.unitText} accessible={false}>{unit}</Text>
-        </Text>
+        <View style={styles.content}>
+          <Text style={styles.valueDisplay} accessibilityLiveRegion="polite" accessibilityRole="text">
+            {selectedWeight.toFixed(1)}{' '}
+            <Text style={styles.unitText} accessible={false}>{unit}</Text>
+          </Text>
 
-        <View style={styles.pickerArea}>
-          <View style={styles.pickerRow}>
-            <View style={styles.pickerWrap}>
-              <ScrollPicker
+          <View style={styles.pickerArea}>
+            <View style={styles.pickerRow}>
+              <WeightWheel
                 items={wholeItems}
                 selectedIndex={wholePart}
                 onSelect={setWholePart}
-                hideLines
+                width={80}
                 accessibilityLabel={`Whole ${unit}`}
               />
-            </View>
-            <Text style={styles.dot} accessible={false}>.</Text>
-            <View style={styles.pickerWrapSmall}>
-              <ScrollPicker
+              <Text style={styles.dot} accessible={false}>.</Text>
+              <WeightWheel
                 items={DECIMAL_ITEMS}
                 selectedIndex={decimalPart}
                 onSelect={setDecimalPart}
-                hideLines
+                width={50}
                 accessibilityLabel={`Decimal ${unit}`}
               />
+              <Text style={styles.unitLabel}>{unit}</Text>
             </View>
-            <Text style={styles.unitLabel}>{unit}</Text>
-          </View>
 
-          {/* Shared separator lines */}
-          <View style={styles.separatorContainer} pointerEvents="none" accessible={false}>
-            <View
-              style={[
-                styles.separatorLine,
-                { top: PICKER_ITEM_HEIGHT * PICKER_CENTER },
-              ]}
-            />
-            <View
-              style={[
-                styles.separatorLine,
-                { top: PICKER_ITEM_HEIGHT * (PICKER_CENTER + 1) },
-              ]}
-            />
+            {/* Shared separator lines */}
+            <View style={styles.separatorContainer} pointerEvents="none" accessible={false}>
+              <View
+                style={[
+                  styles.separatorLine,
+                  { top: WHEEL_ITEM_H * WHEEL_CENTER },
+                ]}
+              />
+              <View
+                style={[
+                  styles.separatorLine,
+                  { top: WHEEL_ITEM_H * (WHEEL_CENTER + 1) },
+                ]}
+              />
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* Photo thumbnail strip (hidden in edit mode) */}
-      {!isEditing && (
+        {/* Photo thumbnail strip (hidden in edit mode) */}
+        {!isEditing && (
         <TouchableOpacity
           style={styles.photoStrip}
           onPress={handleAddPhoto}
           activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 0, right: 0 }}
           accessibilityLabel={sessionPhotoUri ? 'Change progress photo' : 'Add progress photo'}
           accessibilityRole="button"
         >
@@ -387,6 +545,7 @@ export default function LogWeightScreen() {
           </Svg>
         </TouchableOpacity>
       )}
+      </ScrollView>
 
       {/* Save button */}
       <View style={styles.footer}>
@@ -399,18 +558,20 @@ export default function LogWeightScreen() {
           accessibilityRole="button"
           accessibilityState={{ disabled: isEditing && !hasChanged }}
         >
-          <Text style={[styles.saveBtnText, isEditing && !hasChanged && styles.saveBtnTextDisabled]}>
+          <Text style={styles.saveBtnText}>
             {isEditing ? 'Update' : 'Save'}
           </Text>
         </TouchableOpacity>
       </View>
 
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Theme.colors.background },
+  flex: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -447,16 +608,30 @@ const styles = StyleSheet.create({
     fontFamily: Theme.fonts.bold,
     color: Theme.colors.textDark,
   },
+  scrollBody: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 32,
+  },
+  datePickerWrap: {
+    marginBottom: 16,
+  },
   datePickerDone: {
     alignSelf: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    marginTop: 4,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    marginTop: 8,
+    minHeight: 44,
+    justifyContent: 'center' as const,
+    backgroundColor: Theme.colors.primary,
+    borderRadius: Theme.borderRadius.button,
   },
   datePickerDoneText: {
     fontSize: 15,
-    fontFamily: Theme.fonts.bold,
-    color: Theme.colors.primary,
+    fontFamily: Theme.fonts.extraBold,
+    color: Theme.colors.white,
   },
   content: {
     flex: 1,
@@ -482,11 +657,9 @@ const styles = StyleSheet.create({
   pickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: PICKER_ITEM_HEIGHT * PICKER_VISIBLE_ITEMS,
+    height: WHEEL_ITEM_H * WHEEL_VISIBLE,
     gap: 4,
   },
-  pickerWrap: { width: 80 },
-  pickerWrapSmall: { width: 50 },
   dot: {
     fontSize: 28,
     fontFamily: Theme.fonts.extraBold,
@@ -504,7 +677,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     top: 0,
-    height: PICKER_ITEM_HEIGHT * PICKER_VISIBLE_ITEMS,
+    height: WHEEL_ITEM_H * WHEEL_VISIBLE,
   },
   separatorLine: {
     position: 'absolute',
@@ -586,15 +759,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveBtnDisabled: {
-    opacity: 0.4,
+    opacity: 0.5,
   },
   saveBtnText: {
     fontSize: 16,
     fontFamily: Theme.fonts.extraBold,
     color: Theme.colors.white,
-  },
-  saveBtnTextDisabled: {
-    opacity: 0.7,
   },
   notFound: {
     flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40,

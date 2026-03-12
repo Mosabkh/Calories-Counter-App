@@ -153,7 +153,7 @@ export default function CustomPlanScreen() {
       ? Theme.colors.success
       : plan.bmi < 30
         ? Theme.colors.warning
-        : Theme.colors.urgentRed;
+        : Theme.colors.obeseDark;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -175,8 +175,8 @@ export default function CustomPlanScreen() {
         <Text style={styles.sectionTitle}>Your BMI</Text>
         <View style={styles.bmiCard} accessible={true} accessibilityLabel={`BMI: ${plan.bmi}, ${plan.bmiCategory}`}>
           <View style={styles.bmiHeader}>
-            <Text style={[styles.bmiValue, { color: bmiColor }]}>{plan.bmi}</Text>
-            <Text style={[styles.bmiCategory, { color: bmiColor }]}>{plan.bmiCategory}</Text>
+            <Text style={styles.bmiValue}>{plan.bmi}</Text>
+            <Text style={styles.bmiCategory}>{plan.bmiCategory}</Text>
           </View>
           <View style={styles.bmiBarContainer}>
             <View style={styles.bmiBar}>
@@ -194,19 +194,19 @@ export default function CustomPlanScreen() {
           <View style={styles.bmiRangeLabels}>
             <View style={[styles.bmiRangeItem, { flex: 20 }]}>
               <View style={[styles.bmiRangeDot, { backgroundColor: Theme.colors.infoBlue }]} />
-              <Text style={[styles.bmiRangeText, { color: Theme.colors.infoBlue }]}>Underweight</Text>
+              <Text style={styles.bmiRangeText}>Underweight</Text>
             </View>
             <View style={[styles.bmiRangeItem, { flex: 22 }]}>
               <View style={[styles.bmiRangeDot, { backgroundColor: Theme.colors.success }]} />
-              <Text style={[styles.bmiRangeText, { color: Theme.colors.success }]}>Healthy</Text>
+              <Text style={styles.bmiRangeText}>Healthy</Text>
             </View>
             <View style={[styles.bmiRangeItem, { flex: 22 }]}>
               <View style={[styles.bmiRangeDot, { backgroundColor: Theme.colors.warning }]} />
-              <Text style={[styles.bmiRangeText, { color: Theme.colors.warningDark }]}>Overweight</Text>
+              <Text style={styles.bmiRangeText}>Overweight</Text>
             </View>
             <View style={[styles.bmiRangeItem, { flex: 36 }]}>
               <View style={[styles.bmiRangeDot, { backgroundColor: Theme.colors.obeseDark }]} />
-              <Text style={[styles.bmiRangeText, { color: Theme.colors.obeseDark }]}>Obese</Text>
+              <Text style={styles.bmiRangeText}>Obese</Text>
             </View>
           </View>
         </View>
@@ -328,16 +328,16 @@ const styles = StyleSheet.create({
   bmiCard: {
     width: '100%', backgroundColor: Theme.colors.surface, borderRadius: Theme.borderRadius.card,
     padding: 16, marginTop: 12,
-    borderWidth: 1, borderColor: Theme.colors.border,
+    borderWidth: 2, borderColor: Theme.colors.border,
   },
   bmiHeader: {
     flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 14,
   },
   bmiValue: {
-    fontSize: 28, fontFamily: Theme.fonts.extraBold,
+    fontSize: 28, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
   },
   bmiCategory: {
-    fontSize: 14, fontFamily: Theme.fonts.bold,
+    fontSize: 14, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark,
   },
   bmiBarContainer: {
     position: 'relative', height: 14, marginBottom: 6,
@@ -347,6 +347,8 @@ const styles = StyleSheet.create({
   },
   bmiSegment: {
     height: '100%',
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(255,255,255,0.4)',
   },
   bmiMarker: {
     position: 'absolute', top: -2, marginLeft: -7,
@@ -365,7 +367,7 @@ const styles = StyleSheet.create({
     width: 6, height: 6, borderRadius: 3,
   },
   bmiRangeText: {
-    fontSize: 10, fontFamily: Theme.fonts.semiBold,
+    fontSize: 10, fontFamily: Theme.fonts.semiBold, color: Theme.colors.textDark,
   },
   reference: {
     fontSize: 11, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted,

@@ -163,7 +163,7 @@ export default function LogExerciseScreen() {
             accessibilityRole="button"
             accessibilityState={{ disabled: !canSave }}
           >
-            <Text style={[styles.saveBtnText, !canSave && styles.saveBtnTextDisabled]}>
+            <Text style={styles.saveBtnText}>
               Save Exercise
             </Text>
           </TouchableOpacity>
@@ -250,14 +250,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveBtnDisabled: {
-    backgroundColor: Theme.colors.border,
+    opacity: 0.5,
   },
   saveBtnText: {
     fontSize: 16,
     fontFamily: Theme.fonts.extraBold,
     color: Theme.colors.white,
-  },
-  saveBtnTextDisabled: {
-    color: Theme.colors.textMuted,
   },
 });

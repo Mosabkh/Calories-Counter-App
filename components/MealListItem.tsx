@@ -27,7 +27,7 @@ export const MealListItem = memo(function MealListItem({ meal, onPress }: MealLi
       accessibilityRole="button"
     >
       {meal.imageUri ? (
-        <Image source={{ uri: meal.imageUri }} style={styles.image} />
+        <Image source={{ uri: meal.imageUri }} style={styles.image} accessible={false} />
       ) : (
         <View style={styles.iconWrap}>
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   meta: {
     fontSize: 12,
     fontFamily: Theme.fonts.regular,
-    color: Theme.colors.textMuted,
+    color: Theme.colors.textDark,
   },
   calsBlock: {
     alignItems: 'flex-end',
@@ -107,6 +107,6 @@ const styles = StyleSheet.create({
   calsUnit: {
     fontSize: 11,
     fontFamily: Theme.fonts.regular,
-    color: Theme.colors.textMuted,
+    color: Theme.colors.textDark,
   },
 });

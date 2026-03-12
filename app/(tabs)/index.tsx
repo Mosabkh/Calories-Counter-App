@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, memo } from 'react';
+import { useMemo, useState, useEffect, useCallback, memo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -28,6 +28,7 @@ import { toDateKey } from '@/utils/date';
 import { getTargetDate } from '@/utils/target-date';
 import { launchMealCamera } from '@/utils/camera';
 import { MealListItem } from '@/components/MealListItem';
+import type { MealEntry } from '@/types/data';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -120,6 +121,8 @@ const DonutChart = memo(function DonutChart({
   );
 });
 
+const MAX_MATCH_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 export default function HomeScreen() {
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
@@ -136,6 +139,11 @@ export default function HomeScreen() {
   const exerciseEntries = useExerciseStore((s) => s.entries);
 
   const dayMeals = useMemo(() => diaryEntries[selectedDateKey] || [], [diaryEntries, selectedDateKey]);
+  const sortedMeals = useMemo(() => dayMeals.slice().sort((a, b) => b.timestamp - a.timestamp), [dayMeals]);
+
+  const handleMealPress = useCallback((m: MealEntry) => {
+    router.push({ pathname: '/log-meal', params: { editMealId: m.id, date: m.date } });
+  }, [router]);
   const daySummary = useMemo(() => {
     const meals = dayMeals;
     if (meals.length === 0) return { totalCalories: 0, totalProtein: 0, totalCarbs: 0, totalFat: 0, mealCount: 0 };
@@ -249,7 +257,7 @@ export default function HomeScreen() {
   const photoCount = photos.length;
   const firstPhoto = useMemo(() => (photos.length > 0 ? photos[photos.length - 1] : null), [photos]);
   const latestPhoto = useMemo(() => (photos.length >= 2 ? photos[0] : null), [photos]);
-  // Match each photo to the closest weight entry by timestamp
+  // Match each photo to the closest weight entry by timestamp (max 24h gap)
   const getWeightForPhoto = useMemo(() => {
     return (photoTimestamp: number): { weight: number; unit: string } | null => {
       if (weightEntries.length === 0) return null;
@@ -262,9 +270,19 @@ export default function HomeScreen() {
           closestDiff = diff;
         }
       }
+      if (closestDiff > MAX_MATCH_MS) return null;
       return { weight: closest.weight, unit: closest.unit };
     };
   }, [weightEntries]);
+
+  const firstPhotoWeight = useMemo(
+    () => (firstPhoto ? getWeightForPhoto(firstPhoto.timestamp) : null),
+    [firstPhoto, getWeightForPhoto],
+  );
+  const latestPhotoWeight = useMemo(
+    () => (latestPhoto ? getWeightForPhoto(latestPhoto.timestamp) : null),
+    [latestPhoto, getWeightForPhoto],
+  );
 
   const greeting = profile?.name ? `Hi, ${profile.name}` : 'Hi there';
 
@@ -450,7 +468,7 @@ export default function HomeScreen() {
                     <Image source={{ uri: firstPhoto.uri }} style={styles.thenNowPhoto} contentFit="cover" transition={200} accessible={false} />
                     <View style={styles.thenNowDateBadge}>
                       <Text style={styles.thenNowDateText}>{formatPhotoDate(firstPhoto.date)}</Text>
-                      {(() => { const w = getWeightForPhoto(firstPhoto.timestamp); return w ? <Text style={styles.thenNowWeightText}>{w.weight.toFixed(1)} {w.unit}</Text> : null; })()}
+                      {firstPhotoWeight && <Text style={styles.thenNowWeightText}>{firstPhotoWeight.weight.toFixed(1)} {firstPhotoWeight.unit}</Text>}
                     </View>
                   </View>
                 ) : (
@@ -483,7 +501,7 @@ export default function HomeScreen() {
                     <Image source={{ uri: latestPhoto.uri }} style={styles.thenNowPhoto} contentFit="cover" transition={200} accessible={false} />
                     <View style={styles.thenNowDateBadge}>
                       <Text style={styles.thenNowDateText}>{formatPhotoDate(latestPhoto.date)}</Text>
-                      {(() => { const w = getWeightForPhoto(latestPhoto.timestamp); return w ? <Text style={styles.thenNowWeightText}>{w.weight.toFixed(1)} {w.unit}</Text> : null; })()}
+                      {latestPhotoWeight && <Text style={styles.thenNowWeightText}>{latestPhotoWeight.weight.toFixed(1)} {latestPhotoWeight.unit}</Text>}
                     </View>
                   </View>
                 ) : (
@@ -516,20 +534,15 @@ export default function HomeScreen() {
 
         {/* Meals list or empty state */}
         <Text style={styles.sectionTitle} accessibilityRole="header">
-          {selectedDateKey === todayKey ? 'Recently uploaded' : `Meals on ${selectedDateKey}`}
+          {selectedDateKey === todayKey ? 'Recently uploaded' : `Meals on ${formatPhotoDate(selectedDateKey)}`}
         </Text>
-        {dayMeals.length > 0 ? (
+        {sortedMeals.length > 0 ? (
           <View style={styles.mealsListWrap}>
-            {dayMeals
-              .slice()
-              .sort((a, b) => b.timestamp - a.timestamp)
-              .map((meal) => (
+            {sortedMeals.map((meal) => (
                 <MealListItem
                   key={meal.id}
                   meal={meal}
-                  onPress={(m) =>
-                    router.push({ pathname: '/log-meal', params: { editMealId: m.id, date: m.date } })
-                  }
+                  onPress={handleMealPress}
                 />
               ))}
           </View>

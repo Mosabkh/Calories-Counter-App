@@ -4,7 +4,7 @@ import { zustandStorage } from './storage';
 import type { WeightEntry } from '@/types/data';
 
 interface WeightState {
-  entries: WeightEntry[]; // sorted by timestamp descending
+  entries: WeightEntry[]; // sorted by date descending, then timestamp descending
 
   addEntry: (entry: WeightEntry) => void;
   updateEntry: (id: string, patch: Partial<Pick<WeightEntry, 'weight' | 'unit'>>) => void;
@@ -23,7 +23,7 @@ export const useWeightStore = create<WeightState>()(
 
       addEntry: (entry) =>
         set((s) => ({
-          entries: [entry, ...s.entries].sort((a, b) => b.timestamp - a.timestamp),
+          entries: [entry, ...s.entries].sort((a, b) => a.date === b.date ? b.timestamp - a.timestamp : b.date.localeCompare(a.date)),
         })),
 
       updateEntry: (id, patch) =>

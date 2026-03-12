@@ -18,10 +18,11 @@ import type { WeightEntry } from '@/types/data';
 
 const TIME_TABS = ['Last 30d', 'Last 60d', 'Last 90d', '6 Months', '1 Year', 'All time'];
 const TIME_TAB_DAYS = [30, 60, 90, 180, 365, Infinity];
-const WEEK_TABS = ['This Week', 'Last Week', '2 wks. ago', '3 wks. ago'];
+const WEEK_TABS = ['This Week', 'Last Week', '2 weeks ago', '3 weeks ago'];
 const STREAK_DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as const;
 
 const HIT_SLOP_ACTION = { top: 10, bottom: 10, left: 10, right: 10 };
+const RECENT_WEIGHT_LIMIT = 3;
 
 const BMI_LEGEND = [
   { label: 'Underweight', color: Theme.colors.infoBlue },
@@ -40,6 +41,15 @@ const CHART_W = 200;
 const CHART_H = 100;
 const GRID_INDEXES = [0, 1, 2, 3, 4] as const;
 const BMI_LEGEND_LABEL = `BMI categories: ${['Underweight', 'Healthy', 'Overweight', 'Obese'].join(', ')}`;
+
+const BMI_SEGMENTS = [
+  { flex: 14, color: Theme.colors.infoBlue },
+  { flex: 26, color: Theme.colors.success },
+  { flex: 20, color: Theme.colors.warning },
+  { flex: 13, color: Theme.colors.obeseLight },
+  { flex: 14, color: Theme.colors.obeseMid },
+  { flex: 13, color: Theme.colors.obeseDark },
+] as const;
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -150,7 +160,7 @@ export default function ProgressScreen() {
   // profile is null; the values are discarded by the early return below.
   const cw = latestWeight?.weight ?? profile?.startWeight ?? 70;
   const tw = profile?.targetWeight ?? cw;
-  const unit = profile?.weightUnit ?? 'kg';
+  const unit = latestWeight?.unit ?? profile?.weightUnit ?? 'kg';
   const goal = profile?.goal ?? 'maintain';
   const weightKg = unit === 'lb' ? cw / 2.20462 : cw;
   const heightCm = profile?.heightCm ?? 170;
@@ -167,9 +177,10 @@ export default function ProgressScreen() {
     return Math.min(100, 60 + ((bmi - 30) / 10) * 40);
   }, [bmi]);
   const bmiColor = useMemo(() =>
-    bmi < 18.5 ? Theme.colors.infoBlue : bmi < 25 ? Theme.colors.success : bmi < 30 ? Theme.colors.warning : Theme.colors.calorieAlert,
+    bmi < 18.5 ? Theme.colors.infoBlue : bmi < 25 ? Theme.colors.success : bmi < 30 ? Theme.colors.warning : Theme.colors.obeseDark,
     [bmi],
   );
+  const bmiBadgeUseDarkText = bmi < 30; // infoBlue, success, warning need dark text for contrast
 
   // ── Weight progress ──────────────────────────────────────────────
 
@@ -280,10 +291,10 @@ export default function ProgressScreen() {
       return {
         dateKey: k,
         label: dayLabel(k),
-        calories: meals.reduce((s, m) => s + m.calories, 0),
-        protein: meals.reduce((s, m) => s + m.protein, 0),
-        carbs: meals.reduce((s, m) => s + m.carbs, 0),
-        fat: meals.reduce((s, m) => s + m.fat, 0),
+        calories: meals.reduce((s, m) => s + (m.calories ?? 0), 0),
+        protein: meals.reduce((s, m) => s + (m.protein ?? 0), 0),
+        carbs: meals.reduce((s, m) => s + (m.carbs ?? 0), 0),
+        fat: meals.reduce((s, m) => s + (m.fat ?? 0), 0),
       };
     });
 
@@ -291,7 +302,22 @@ export default function ProgressScreen() {
     const maxCal = Math.max(...cals, 1);
     const totalCals = cals.reduce((a, b) => a + b, 0);
 
-    return { days: dailyCals, maxCal, totalCals };
+    const bars = dailyCals.map((day) => {
+      const totalH = maxCal > 0 ? (day.calories / maxCal) * 120 : 0;
+      const rawP = day.calories > 0 ? (day.protein ?? 0) * 4 / day.calories : 0;
+      const rawC = day.calories > 0 ? (day.carbs ?? 0) * 4 / day.calories : 0;
+      const rawF = day.calories > 0 ? (day.fat ?? 0) * 9 / day.calories : 0;
+      const ratioSum = rawP + rawC + rawF || 1;
+      return {
+        dateKey: day.dateKey,
+        totalH: Math.max(totalH, 0),
+        pRatio: Math.max(0, rawP / ratioSum),
+        cRatio: Math.max(0, rawC / ratioSum),
+        fRatio: Math.max(0, rawF / ratioSum),
+      };
+    });
+
+    return { days: dailyCals, bars, maxCal, totalCals };
   }, [weekTab, diaryEntries]);
 
   const calYLabels = useMemo(() => {
@@ -307,7 +333,7 @@ export default function ProgressScreen() {
       const dateStr = formatShortDate(entry.date);
       Alert.alert(
         'Delete Entry',
-        `Remove ${entry.weight.toFixed(1)} ${entry.unit} from ${dateStr}?`,
+        `Delete ${entry.weight.toFixed(1)} ${entry.unit} from ${dateStr}?`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -330,12 +356,11 @@ export default function ProgressScreen() {
 
   const recentPhotos = useMemo(() => photos.slice(0, 3), [photos]);
 
-  const RECENT_LIMIT = 3;
   const recentWeightEntries = useMemo(
-    () => allWeightEntries.slice(0, RECENT_LIMIT),
+    () => allWeightEntries.slice(0, RECENT_WEIGHT_LIMIT),
     [allWeightEntries],
   );
-  const hasMoreEntries = allWeightEntries.length > RECENT_LIMIT;
+  const hasMoreEntries = allWeightEntries.length > RECENT_WEIGHT_LIMIT;
 
   const chartA11yLabel = useMemo(() => {
     if (!weightChartData) return 'Weight chart. No weight data yet.';
@@ -393,7 +418,7 @@ export default function ProgressScreen() {
             accessibilityLabel={`My weight: ${cw} ${unit}, ${progressPercent}% of goal. Goal: ${tw} ${unit}. ${nextWeighInLabel}`}
           >
             <Text style={styles.cardLabel}>My Weight</Text>
-            <Text style={styles.weightValue}>{cw} {unit}</Text>
+            <Text style={styles.weightValue}>{cw.toFixed(1)} {unit}</Text>
             <View
               style={styles.weightProgressBg}
               accessible={true}
@@ -482,7 +507,7 @@ export default function ProgressScreen() {
         {/* Time Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={styles.tabsContent}>
           {TIME_TABS.map((t, i) => (
-            <TouchableOpacity key={t} onPress={() => handleTimeTab(i)} style={[styles.tab, i === timeTab && styles.tabActive]} hitSlop={{ top: 6, bottom: 6 }} accessibilityRole="tab" accessibilityLabel={t} accessibilityState={{ selected: i === timeTab }}>
+            <TouchableOpacity key={t} onPress={() => handleTimeTab(i)} style={[styles.tab, i === timeTab && styles.tabActive]} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }} accessibilityRole="tab" accessibilityLabel={t} accessibilityState={{ selected: i === timeTab }}>
               <Text style={[styles.tabText, i === timeTab && styles.tabTextActive]}>{t}</Text>
             </TouchableOpacity>
           ))}
@@ -584,7 +609,7 @@ export default function ProgressScreen() {
         {/* Week Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={styles.tabsContent}>
           {WEEK_TABS.map((t, i) => (
-            <TouchableOpacity key={t} onPress={() => handleWeekTab(i)} style={[styles.tab, i === weekTab && styles.tabActive]} hitSlop={{ top: 6, bottom: 6 }} accessibilityRole="tab" accessibilityLabel={t} accessibilityState={{ selected: i === weekTab }}>
+            <TouchableOpacity key={t} onPress={() => handleWeekTab(i)} style={[styles.tab, i === weekTab && styles.tabActive]} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }} accessibilityRole="tab" accessibilityLabel={t} accessibilityState={{ selected: i === weekTab }}>
               <Text style={[styles.tabText, i === weekTab && styles.tabTextActive]}>{t}</Text>
             </TouchableOpacity>
           ))}
@@ -597,7 +622,7 @@ export default function ProgressScreen() {
             {calorieChartData.totalCals.toFixed(0)} <Text style={styles.calUnit}>cals</Text>
           </Text>
 
-          <View style={styles.lineChartArea} accessible={true} accessibilityLabel={`Calorie chart for ${WEEK_TABS[weekTab]}`} accessibilityRole="image">
+          <View style={styles.lineChartArea} accessible={true} accessibilityLabel={`Calorie chart for ${WEEK_TABS[weekTab]}: ${calorieChartData.totalCals.toFixed(0)} calories total`} accessibilityRole="image">
             <View style={styles.yAxis}>
               {calYLabels.map((v, i) => (
                 <Text key={`cy-${i}`} style={styles.yLabel}>{v}</Text>
@@ -610,44 +635,38 @@ export default function ProgressScreen() {
             </View>
 
             {/* Stacked bar chart */}
-            <View style={styles.barChartArea}>
-              {calorieChartData.days.map((day) => {
-                const maxH = 120;
-                const totalH = calorieChartData.maxCal > 0 ? (day.calories / calorieChartData.maxCal) * maxH : 0;
-                const rawP = day.calories > 0 ? day.protein * 4 / day.calories : 0;
-                const rawC = day.calories > 0 ? day.carbs * 4 / day.calories : 0;
-                const rawF = Math.max(0, 1 - rawP - rawC);
-                const ratioSum = rawP + rawC + rawF || 1;
-                const pRatio = rawP / ratioSum;
-                const cRatio = rawC / ratioSum;
-                const fRatio = rawF / ratioSum;
-
-                return (
-                  <View key={day.dateKey} style={styles.barCol}>
-                    <View style={[styles.barStack, { height: Math.max(totalH, 0) }]}>
-                      {totalH > 0 && (
-                        <>
-                          <View style={[styles.barSegment, { flex: Math.max(fRatio, 0), backgroundColor: Theme.colors.infoBlue }]} />
-                          <View style={[styles.barSegment, { flex: Math.max(cRatio, 0), backgroundColor: Theme.colors.carbs }]} />
-                          <View style={[styles.barSegment, { flex: Math.max(pRatio, 0), backgroundColor: Theme.colors.protein, borderTopLeftRadius: Theme.borderRadius.tiny, borderTopRightRadius: Theme.borderRadius.tiny }]} />
-                        </>
-                      )}
+            {calorieChartData.totalCals > 0 ? (
+              <View style={styles.barChartArea}>
+                {calorieChartData.bars.map((bar) => (
+                    <View key={bar.dateKey} style={styles.barCol}>
+                      <View style={[styles.barStack, { height: bar.totalH }]}>
+                        {bar.totalH > 0 && (
+                          <>
+                            <View style={[styles.barSegment, { flex: bar.fRatio, backgroundColor: Theme.colors.infoBlue }]} />
+                            <View style={[styles.barSegment, { flex: bar.cRatio, backgroundColor: Theme.colors.carbs }]} />
+                            <View style={[styles.barSegment, { flex: bar.pRatio, backgroundColor: Theme.colors.protein }]} />
+                          </>
+                        )}
+                      </View>
                     </View>
-                  </View>
-                );
-              })}
-            </View>
+                  ))}
+              </View>
+            ) : (
+              <View style={styles.emptyChartOverlay}>
+                <Text style={styles.emptyChartText}>No meals logged this week. Tap + to start tracking.</Text>
+              </View>
+            )}
           </View>
 
-          <View style={styles.xAxis}>
+          <View style={styles.calXAxis}>
             {calorieChartData.days.map((day) => (
-              <Text key={day.dateKey} style={styles.xLabel}>{day.label}</Text>
+              <Text key={day.dateKey} style={styles.calXLabel}>{day.label}</Text>
             ))}
           </View>
           <View style={styles.macroLegend}>
             {MACRO_LEGEND.map((m) => (
-              <View key={m.label} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: m.color }]} />
+              <View key={m.label} style={styles.legendItem} accessible={true} accessibilityLabel={`${m.label} macro`}>
+                <View style={[styles.legendDot, { backgroundColor: m.color }]} accessible={false} />
                 <Text style={styles.legendText}>{m.label}</Text>
               </View>
             ))}
@@ -666,23 +685,25 @@ export default function ProgressScreen() {
         {/* BMI Card */}
         <View style={styles.chartCard}>
           <Text style={[styles.chartTitle, styles.chartTitleMb10]} accessibilityRole="header">Your BMI</Text>
-          <View style={styles.bmiHeader}>
-            <Text style={[styles.bmiValue, { color: bmiColor }]}>{bmi}</Text>
-            <Text style={styles.bmiLabel}>Your weight is</Text>
-            <View style={[styles.bmiBadge, { backgroundColor: bmiColor }]}>
-              <Text style={styles.bmiBadgeText}>{bmiCategory}</Text>
+          <View style={styles.bmiHeader}
+            accessibilityLabel={`BMI ${bmi}, classified as ${bmiCategory}`}
+          >
+            <Text style={styles.bmiValue} accessible={false}>{bmi}</Text>
+            <Text style={styles.bmiLabel} accessible={false}>Classified as</Text>
+            <View style={[styles.bmiBadge, { backgroundColor: bmiColor }]} accessible={false}>
+              <Text style={[styles.bmiBadgeText, bmiBadgeUseDarkText && styles.bmiBadgeTextDark]}>{bmiCategory}</Text>
             </View>
           </View>
           <View style={styles.bmiBarContainer}>
             <View style={styles.bmiBar}>
-              <View style={[styles.bmiSegment, { flex: 14, backgroundColor: Theme.colors.infoBlue }]} />
-              <View style={[styles.bmiSegment, { flex: 26, backgroundColor: Theme.colors.success }]} />
-              <View style={[styles.bmiSegment, { flex: 20, backgroundColor: Theme.colors.warning }]} />
-              <View style={[styles.bmiSegment, { flex: 13, backgroundColor: Theme.colors.obeseLight }]} />
-              <View style={[styles.bmiSegment, { flex: 14, backgroundColor: Theme.colors.obeseMid }]} />
-              <View style={[styles.bmiSegment, { flex: 13, backgroundColor: Theme.colors.obeseDark }]} />
+              {BMI_SEGMENTS.map((seg, i) => (
+                <View key={i} style={[styles.bmiSegment, { flex: seg.flex, backgroundColor: seg.color }]} />
+              ))}
             </View>
-            <View style={[styles.bmiIndicator, bmiIndicatorStyle]} />
+            <View
+              style={[styles.bmiIndicator, bmiIndicatorStyle]}
+              accessibilityLabel={`BMI indicator at ${bmi}`}
+            />
           </View>
           <View style={styles.bmiLegend} accessible={true} accessibilityLabel={BMI_LEGEND_LABEL}>
             {BMI_LEGEND.map((b) => (
@@ -697,7 +718,7 @@ export default function ProgressScreen() {
         {/* Recent Weigh-ins */}
         {recentWeightEntries.length > 0 && (
           <View style={styles.weightEntriesCard}>
-            <Text style={styles.weightEntriesTitle}>Weigh-ins</Text>
+            <Text style={styles.weightEntriesTitle} accessibilityRole="header">Weigh-ins</Text>
             {recentWeightEntries.map((entry) => {
               const dateStr = formatShortDate(entry.date);
               return (
@@ -705,7 +726,6 @@ export default function ProgressScreen() {
                   key={entry.id}
                   style={styles.weightEntryRow}
                   accessibilityLabel={`${entry.weight.toFixed(1)} ${entry.unit} on ${dateStr}`}
-                  accessibilityRole="summary"
                 >
                   <View style={styles.weightEntryInfo} accessible={false}>
                     <Text style={styles.weightEntryValue}>
@@ -718,7 +738,8 @@ export default function ProgressScreen() {
                     <TouchableOpacity
                       onPress={() => handleEditWeight(entry)}
                       hitSlop={HIT_SLOP_ACTION}
-                      accessibilityLabel={`Edit ${entry.weight.toFixed(1)} ${entry.unit} entry`}
+                      activeOpacity={0.7}
+                      accessibilityLabel={`Edit ${entry.weight.toFixed(1)} ${entry.unit} entry from ${dateStr}`}
                       accessibilityRole="button"
                       style={styles.weightEntryActionBtn}
                     >
@@ -735,7 +756,8 @@ export default function ProgressScreen() {
                     <TouchableOpacity
                       onPress={() => handleDeleteWeight(entry)}
                       hitSlop={HIT_SLOP_ACTION}
-                      accessibilityLabel={`Delete ${entry.weight.toFixed(1)} ${entry.unit} entry`}
+                      activeOpacity={0.7}
+                      accessibilityLabel={`Delete ${entry.weight.toFixed(1)} ${entry.unit} entry from ${dateStr}`}
                       accessibilityRole="button"
                       style={styles.weightEntryActionBtn}
                     >
@@ -765,7 +787,7 @@ export default function ProgressScreen() {
                 <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" accessible={false}>
                   <Path
                     d="M9 18l6-6-6-6"
-                    stroke={Theme.colors.primary}
+                    stroke={Theme.colors.textDark}
                     strokeWidth={2.5}
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -820,14 +842,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04, shadowRadius: 15, elevation: 2,
   },
   progCardNoPadBottom: { paddingBottom: 0 },
-  cardLabel: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
+  cardLabel: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark },
   weightValue: { fontSize: 24, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark, marginVertical: 5 },
   weightProgressBg: {
     width: '100%', height: 6, backgroundColor: Theme.colors.accentBackground, borderRadius: 3,
     marginVertical: 8, overflow: 'hidden',
   },
   weightProgressFill: { height: '100%', backgroundColor: Theme.colors.primary, borderRadius: 3 },
-  goalText: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
+  goalText: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark },
   goalValueText: { color: Theme.colors.textDark },
   weightFooter: {
     marginHorizontal: -16, marginTop: 10, paddingVertical: 12,
@@ -836,7 +858,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: Theme.borderRadius.card - 2,
     alignItems: 'center',
   },
-  footerText: { fontSize: 11, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
+  footerText: { fontSize: 11, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark },
 
   streakIconWrap: {
     width: 44, height: 44, borderRadius: 22, backgroundColor: Theme.colors.warningLight,
@@ -852,19 +874,20 @@ const styles = StyleSheet.create({
 
   // Weight entries
   weightEntriesCard: {
-    backgroundColor: Theme.colors.surface, borderRadius: Theme.borderRadius.card, padding: 16,
+    backgroundColor: Theme.colors.surface, borderRadius: Theme.borderRadius.card, padding: 20,
     borderWidth: 2, borderColor: Theme.colors.border, marginBottom: 20,
     shadowColor: Theme.colors.textDark, shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.04, shadowRadius: 15, elevation: 2,
   },
   weightEntriesTitle: {
     fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark,
-    marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5,
+    marginBottom: 10,
   },
   weightEntryRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: Theme.colors.background, borderRadius: Theme.borderRadius.small,
-    paddingHorizontal: 16, paddingVertical: 14, marginBottom: 6,
+    backgroundColor: Theme.colors.surface, borderRadius: Theme.borderRadius.small,
+    borderWidth: 2, borderColor: Theme.colors.border,
+    paddingHorizontal: 16, paddingVertical: 14, marginBottom: 8,
   },
   weightEntryInfo: {
     flex: 1, flexDirection: 'row', alignItems: 'baseline', gap: 12,
@@ -879,17 +902,17 @@ const styles = StyleSheet.create({
     fontSize: 13, fontFamily: Theme.fonts.semiBold, color: Theme.colors.textDark,
   },
   weightEntryActions: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
   },
   weightEntryActionBtn: {
     width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
   },
   seeAllBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 4, paddingVertical: 10, marginTop: 4,
+    gap: 4, paddingVertical: 10, marginTop: 8, minHeight: 44,
   },
   seeAllText: {
-    fontSize: 14, fontFamily: Theme.fonts.bold, color: Theme.colors.primary,
+    fontSize: 14, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark,
   },
 
   // Tabs
@@ -912,7 +935,7 @@ const styles = StyleSheet.create({
   },
   chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   chartTitle: { fontSize: 18, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark, textAlign: 'left' },
-  chartTitleMb5: { marginBottom: 5 },
+  chartTitleMb5: { marginBottom: 8 },
   chartTitleMb10: { marginBottom: 10 },
   chartTitleMb15: { marginBottom: 15 },
   flagPill: {
@@ -941,14 +964,17 @@ const styles = StyleSheet.create({
   // Bar chart
   barChartArea: {
     position: 'absolute', left: 35, right: 0, top: 5, height: 130,
-    flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around',
-    paddingHorizontal: 4,
+    flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
   },
   barCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: '100%' },
   barStack: {
-    width: 18, borderRadius: Theme.borderRadius.tiny, overflow: 'hidden',
+    width: 14, borderRadius: 7, overflow: 'hidden',
   },
-  barSegment: { width: '100%' },
+  barSegment: { width: '100%', borderBottomWidth: 1.5, borderBottomColor: 'rgba(255,255,255,0.3)' },
+
+  // Calorie chart x-axis (matches barCol flex layout)
+  calXAxis: { flexDirection: 'row', marginLeft: 35, marginTop: 5 } as const,
+  calXLabel: { flex: 1, textAlign: 'center', fontSize: 9, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark } as const,
 
   // X axis & chart legend
   xAxis: { flexDirection: 'row', justifyContent: 'space-between', marginLeft: 35, marginTop: 5 },
@@ -962,7 +988,7 @@ const styles = StyleSheet.create({
     flex: 1, height: 90, borderRadius: Theme.borderRadius.small,
   },
   photoHint: {
-    fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted, textAlign: 'center',
+    fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark, textAlign: 'center',
   },
   photoCard: { flexDirection: 'row', gap: 15, alignItems: 'center' },
   photoPlaceholder: {
@@ -974,8 +1000,8 @@ const styles = StyleSheet.create({
   photoText: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark },
   // Calories
   calValue: { fontSize: 32, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark, marginBottom: 15 },
-  calUnit: { fontSize: 14, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
-  macroLegend: { flexDirection: 'row', justifyContent: 'center', gap: 15, marginTop: 20 },
+  calUnit: { fontSize: 14, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark },
+  macroLegend: { flexDirection: 'row', justifyContent: 'center', gap: 15, marginTop: 12 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot: { width: 14, height: 14, borderRadius: 7 },
   legendText: { fontSize: 11, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
@@ -987,32 +1013,37 @@ const styles = StyleSheet.create({
   },
 
   // BMI
-  bmiHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 15, flexWrap: 'wrap' },
+  bmiHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' },
   bmiValue: { fontSize: 28, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
-  bmiLabel: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
+  bmiLabel: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark },
   bmiBadge: {
-    backgroundColor: Theme.colors.calorieAlert, paddingHorizontal: 10, paddingVertical: 4, borderRadius: Theme.borderRadius.small,
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: Theme.borderRadius.small,
   },
   bmiBadgeText: {
     color: Theme.colors.white, fontSize: 10, fontFamily: Theme.fonts.extraBold, textTransform: 'uppercase',
   },
-  bmiBarContainer: { position: 'relative', height: 22, marginVertical: 15 },
+  bmiBadgeTextDark: {
+    color: Theme.colors.textDark,
+  },
+  bmiBarContainer: { position: 'relative', height: 24, marginVertical: 10 },
   bmiBar: {
-    flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden', position: 'absolute', top: 5,
+    flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden', position: 'absolute', top: 7,
     width: '100%',
   },
   bmiSegment: {
     height: '100%',
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(255,255,255,0.4)',
   },
   bmiIndicator: {
-    position: 'absolute', top: 3, width: 16, height: 16, borderRadius: 8,
+    position: 'absolute', top: 0, width: 24, height: 24, borderRadius: 12,
     backgroundColor: Theme.colors.textDark, borderWidth: 2.5, borderColor: Theme.colors.surface,
-    marginLeft: -8,
+    marginLeft: -12,
   },
-  bmiLegend: { flexDirection: 'row', justifyContent: 'space-between' },
-  bmiLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  bDot: { width: 6, height: 6, borderRadius: 3 },
-  bmiLegendText: { fontSize: 10, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
+  bmiLegend: { flexDirection: 'row', justifyContent: 'center', gap: 15, flexWrap: 'wrap', rowGap: 8 },
+  bmiLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  bDot: { width: 14, height: 14, borderRadius: 7 },
+  bmiLegendText: { fontSize: 11, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
 
   // Empty state
   emptyStateCenter: {

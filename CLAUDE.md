@@ -31,7 +31,7 @@ VS Code with `fixAll`, `organizeImports`, and `sortMembers` auto-fix on save (`.
 - `app/onboarding/_layout.tsx` — Stack with `slide_from_right` transitions; 26 screens across 3 phases (Basics, Body & Goals, Lifestyle) plus transitions, plan generation, account creation, and paywall
 - `app/(tabs)/_layout.tsx` — Bottom tabs (home, progress, profile) with `CustomTabBar`
 - Modal screens: `log-meal`, `food-search`, `log-weight`, `log-exercise`, `saved-foods` (slide from bottom)
-- Settings screens: `edit-profile`, `my-goals`, `reminders`, `units`, `help`, `subscription`, `progress-photos` (slide from right)
+- Settings screens: `edit-profile`, `my-goals`, `reminders`, `units`, `help`, `subscription`, `progress-photos`, `weight-history` (slide from right / fade from bottom)
 
 ### State Management
 
@@ -40,7 +40,7 @@ All persistent stores use Zustand with `persist` middleware backed by an in-memo
 - `store/onboarding-store.ts` — temporary onboarding data (`OnboardingPayload`). Notable fields: `weekendDays` is `string[]` (day names), `weeklyGoalSpeed` is number (kg/week), `activityLevel` is `ActivityLevel` type, `startWeight` equals `currentWeight` at time of entry.
 - `store/user-store.ts` — `UserProfile` (graduated from onboarding) + `AuthState`. Persist key: `calobite-user`.
 - `store/diary-store.ts` — meal entries keyed by `'YYYY-MM-DD'`. Has `getDailySummary()` for totals. `addMeal` auto-triggers streak recording. Persist key: `calobite-diary`.
-- `store/weight-store.ts` — weight log entries sorted by timestamp descending. Persist key: `calobite-weight`.
+- `store/weight-store.ts` — weight log entries sorted by timestamp descending. Methods: `updateEntry(id, patch)`, `getEntriesInRange(start, end)`, `convertAll(toUnit, convert)`. Persist key: `calobite-weight`.
 - `store/streak-store.ts` — tracks logging streaks via `recordActivity(todayKey)`. Persist key: `calobite-streak`.
 - `store/exercise-store.ts` — exercise entries keyed by date. Persist key: `calobite-exercise`.
 - `store/favorites-store.ts` — saved food IDs + cached `FoodItem` data for online foods. `toggle(id, food?)` caches online items. Persist key: `calobite-favorites`.
@@ -94,7 +94,7 @@ RevenueCat is fully stubbed for Expo Go — no native SDK is imported. `utils/re
 
 ### In-App Screens
 
-- **Home** (`app/(tabs)/index.tsx`): Animated `DonutChart` using `react-native-reanimated`. Exercise burned calories adjust target. Uses latest weigh-in for goal prediction. Empty state when no profile.
+- **Home** (`app/(tabs)/index.tsx`): Animated `DonutChart` using `react-native-reanimated`. Exercise burned calories adjust target. Uses latest weigh-in for goal prediction. Transformation card shows before/after progress photos (Day 1 vs Latest) with weight overlays matched by timestamp proximity; adapts to 0/1/2+ photo states. Empty state when no profile.
 - **Progress** (`app/(tabs)/progress.tsx`): Time-based weight chart (SVG polyline with `vectorEffect="non-scaling-stroke"`, points positioned by actual date not index, dots at each data point), calorie stacked bar chart, streak dots from actual logged days, progress photos preview (up to 3 thumbnails), recent weight entries with edit/delete, BMI visualization. Weight chart is backward-looking (past → today); time tabs control how far back to show (30/60/90/180/365 days); "All time" shows from earliest entry. Dashed green goal line at target weight for lose/gain goals. Single entry shows horizontal line from Y axis to data point with dot. Year suffix (`'27`) shown on labels crossing into a different year. Empty state when no profile.
 - **Profile** (`app/(tabs)/profile.tsx`): Settings list with `SettingItem` (wrapped in `memo()`). Dynamic subscription badge. Sign out with confirmation. Empty state has "Start Over" button that resets onboarding. All `SettingItem` onPress callbacks are extracted to `useCallback` to preserve `memo()` effectiveness.
 - **CustomTabBar** (`components/CustomTabBar.tsx`): Inline-notch FAB tab bar. Layout: Home | Progress | (+) | Profile. SVG-based curved notch path with dynamic safe-area height calculation. FAB animates 45° rotation on press. Overlay is a 2-column card grid with staggered slide-up animation — 5 actions: Food database, Log weight, Log exercise, Saved foods, Scan food. Icons use Lucide SVG paths (`iconPaths` array + optional `circle`). Notch geometry: `NOTCH_RADIUS = FAB_SIZE / 2 + 10`, `spread = r + 14`, `depth = r - 4`.
@@ -134,13 +134,13 @@ If you change the bar segments or percent mapping in one file, change both.
 
 Progress photos can **only** be added through the log-weight screen (`app/log-weight.tsx`). There is no upload button in the progress screen or progress-photos library — this is intentional to tie photos to the weigh-in habit.
 
-- `app/log-weight.tsx` — Photo thumbnail strip below the weight picker (hidden in edit mode). "Add Progress Photo" button triggers Alert with camera or library choice. Photo URI is stored in `sessionPhotoUri` state during the session — the photo is **deferred to the store** and only committed via `addPhoto()` inside `handleSave()` when the weight entry is actually saved. This prevents orphan photos if the user backs out. Haptic feedback fires on successful save.
+- `app/log-weight.tsx` — Date picker row (hidden in edit mode) lets users select the entry date using `@react-native-community/datetimepicker` (Android: native dialog, iOS: inline with Done button, max = today). Photo thumbnail strip below the weight picker (hidden in edit mode). "Add Progress Photo" button triggers Alert with camera or library choice. Photo URI is stored in `sessionPhotoUri` state during the session — the photo is **deferred to the store** and only committed via `addPhoto()` inside `handleSave()` when the weight entry is actually saved. This prevents orphan photos if the user backs out. Haptic feedback fires on successful save. Supports `editEntryId` route param to edit existing entries.
 - `app/progress-photos.tsx` — View-only gallery with FlatList grid. Each tile shows full date + weight from closest weight entry (matched by timestamp proximity, max 24h). Tap opens full-screen modal viewer with date, weight, and delete button. Long-press on grid also offers delete. Empty state includes a "Log Weight" navigation button.
 - `app/(tabs)/progress.tsx` — Photos card shows up to 3 recent thumbnails + "Tap to view all" text. No upload functionality.
 
 ### Weight Log Entries
 
-Today's weight entries with delete are shown in the progress screen (`progress.tsx`) below the top cards, not in the log-weight modal. Uses `todayWeightEntries` filtered from the weight store, with confirmation alert before deletion.
+Today's weight entries with edit/delete are shown in the progress screen (`progress.tsx`) below the top cards. "See all" button (visible when >3 entries) navigates to `weight-history.tsx` — a full chronological list of all weigh-ins with edit/delete. Editing navigates to `log-weight` with `editEntryId` param.
 
 ### Settings Screen Empty States
 
@@ -179,13 +179,15 @@ Calorie stacked bar chart renders macro ratios as flex percentages of the daily 
 - `generating.tsx` uses `router.replace` (not push) to navigate to `custom-plan` — prevents back-loop where the auto-timer re-fires
 - Back button touch targets must be at least 44x44px with `hitSlop`
 - Back buttons must have `accessibilityLabel="Go back"` and `accessibilityRole="button"`, with the `<` text marked `accessible={false}`
+- All `TouchableOpacity` elements should have explicit `activeOpacity` — use `0.7` for standard buttons and list items, `0.8` for primary action buttons
 - Bottom action padding: all onboarding screens use `paddingBottom: 36`
 
 ### Accessibility Standards
 
 - All decorative emojis, icons, and SVG backgrounds must have `accessible={false}`
 - Interactive elements need `accessibilityLabel`, `accessibilityRole`, and `accessibilityState` where applicable
-- `UnitToggle` uses `accessibilityRole="radiogroup"`, individual options use `accessibilityRole="radio"`
+- `UnitToggle` and pill selection groups (meal type, gender) use `accessibilityRole="radiogroup"` on the container, individual options use `accessibilityRole="radio"` with `accessibilityState={{ selected }}`
+- `TextInput` fields should have `accessibilityLabel` describing the field purpose (e.g., `accessibilityLabel="Food name"`)
 - `ScrollPicker` has `accessibilityRole="adjustable"` with value in the label (uses `?? ''` for bounds safety)
 - `ProgressHeader` bar uses `accessibilityRole="progressbar"` with `accessibilityValue`
 - Data cards (calories, macros, BMI) should have consolidated `accessibilityLabel` combining their values
@@ -207,10 +209,33 @@ const entries = useDiaryStore((s) => s.entries);
 const summary = useMemo(() => /* derive from entries */, [entries, date]);
 ```
 
+### Destructive Actions
+
+All destructive operations (delete meal, delete weight entry, delete photo) must use `Alert.alert()` with a confirmation dialog before executing. Pattern:
+```tsx
+Alert.alert('Delete Meal', `Delete "${meal.name}"?`, [
+  { text: 'Cancel', style: 'cancel' },
+  { text: 'Delete', style: 'destructive', onPress: () => { removeMeal(...); router.back(); } },
+]);
+```
+
+### Save Button Debounce
+
+Screens with save/submit actions (`log-meal`, `log-weight`) use a `useRef` guard to prevent double-tap duplicates:
+```tsx
+const isSavingRef = useRef(false);
+const handleSave = useCallback(() => {
+  if (isSavingRef.current) return;
+  isSavingRef.current = true;
+  // ... save logic, then router.back()
+}, [...]);
+```
+
 ### Performance Patterns
 
-- `CustomTabBar`, `SettingItem`, and `DonutChart` are wrapped in `memo()` — preserve this when editing
-- Callbacks passed to child components should use `useCallback` for stability
+- `CustomTabBar`, `SettingItem`, `DonutChart`, and `MealListItem` are wrapped in `memo()` — preserve this when editing
+- Callbacks passed to `memo()` child components must use `useCallback` — inline arrow functions break memoization (e.g., `onPress={(m) => ...}` inside a `.map()` defeats `MealListItem`'s `memo()`)
+- Derived lists used in render (e.g., sorted/filtered arrays) should be memoized with `useMemo`, not computed inline in JSX
 - Avoid inline style objects in render — extract to `StyleSheet.create` or module-level constants
 - Static data arrays used in `useMemo`-dependent rendering should themselves be memoized
 - Dynamic values derived from `useSafeAreaInsets` should be wrapped in `useMemo`
