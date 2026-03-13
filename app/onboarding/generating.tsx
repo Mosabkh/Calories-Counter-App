@@ -93,9 +93,9 @@ function StepRow({ label, index }: { label: string; index: number }) {
 
 export default function GeneratingScreen() {
   const router = useRouter();
-  const { currentWeight, targetWeight, weeklyGoalSpeed, goal } = useOnboardingStore((s) => s.payload);
+  const { currentWeight, targetWeight, weightUnit, weeklyGoalSpeed, goal } = useOnboardingStore((s) => s.payload);
   const isMaintain = goal === 'maintain';
-  const targetDate = isMaintain ? '' : getTargetDate(currentWeight || 0, targetWeight || 0, weeklyGoalSpeed || 0.5);
+  const targetDate = isMaintain ? '' : getTargetDate(currentWeight || 0, targetWeight || 0, weeklyGoalSpeed || 0.5, weightUnit || 'kg');
   const rotation = useSharedValue(0);
   const cardOpacity = useSharedValue(0);
   const cardTranslateY = useSharedValue(16);

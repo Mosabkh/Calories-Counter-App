@@ -48,7 +48,7 @@ export default function CustomPlanScreen() {
   const isMaintain = goal === 'maintain';
   const isGaining = goal === 'gain';
   const speed = weeklyGoalSpeed ?? 0.5;
-  const targetDate = isMaintain ? '' : getTargetDate(cw, tw, speed);
+  const targetDate = isMaintain ? '' : getTargetDate(cw, tw, speed, unit);
   const highDayCount = (eatsMoreOnWeekends && weekendDays) ? weekendDays.length : 0;
 
   // Celebrative animation for goal badge

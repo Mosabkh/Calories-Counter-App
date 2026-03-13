@@ -29,7 +29,7 @@ export default function ProjectionScreen() {
   const unit = weightUnit || 'kg';
   const speed = weeklyGoalSpeed || 0.5;
   const diff = Math.abs(cw - tw);
-  const targetDate = getTargetDate(cw, tw, speed);
+  const targetDate = getTargetDate(cw, tw, speed, unit);
   const isLosing = goal === 'lose';
   const isGaining = goal === 'gain';
 

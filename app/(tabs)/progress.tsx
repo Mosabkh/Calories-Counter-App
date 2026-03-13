@@ -16,8 +16,8 @@ import type { WeightEntry } from '@/types/data';
 
 // ── Constants ──────────────────────────────────────────────────────
 
-const TIME_TABS = ['Last 30d', 'Last 60d', 'Last 90d', '6 Months', '1 Year', 'All time'];
-const TIME_TAB_DAYS = [30, 60, 90, 180, 365, Infinity];
+const TIME_TABS = ['2 Weeks', 'Last 30d', 'Last 60d', 'Last 90d', '6 Months', '1 Year', 'All time'];
+const TIME_TAB_DAYS = [14, 30, 60, 90, 180, 365, Infinity];
 const WEEK_TABS = ['This Week', 'Last Week', '2 weeks ago', '3 weeks ago'];
 const STREAK_DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as const;
 
@@ -118,6 +118,18 @@ function toChartPoints(
       return `${x},${y}`;
     })
     .join(' ');
+
+  // If all points collapse to the same X (e.g., multiple entries on the same day),
+  // keep dots at the real X (aligned with date axis) and add a leading horizontal
+  // segment so the polyline is visible showing the weight progression vertically
+  const allSameX = dots.length > 1 && dots.every((d) => d.x === dots[0].x);
+  if (allSameX) {
+    const firstY = dots[0].y;
+    const leadPoint = `0,${firstY}`;
+    const realPoints = dots.map((d) => `${d.x},${d.y}`).join(' ');
+    return { points: `${leadPoint} ${realPoints}`, dots, singlePoint: null };
+  }
+
   return { points, dots, singlePoint: null };
 }
 

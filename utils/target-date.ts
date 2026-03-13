@@ -13,8 +13,11 @@ export function getTargetDate(
   currentWeight: number,
   targetWeight: number,
   weeklySpeed: number,
+  weightUnit: 'kg' | 'lb' = 'kg',
 ): string {
-  const diff = Math.abs(currentWeight - targetWeight);
+  const rawDiff = Math.abs(currentWeight - targetWeight);
+  // weeklySpeed is always kg/week — convert lb diff to kg so units match
+  const diff = weightUnit === 'lb' ? rawDiff / 2.20462 : rawDiff;
   const speed = weeklySpeed > 0 ? weeklySpeed : 0.5;
   const weeks = Math.ceil(diff / speed);
   const now = new Date();

@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect, memo } from 'react';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay } from 'react-native-reanimated';
 import {
   View,
   Text,
@@ -200,6 +201,20 @@ export default function LogWeightScreen() {
   const [sessionPhotoUri, setSessionPhotoUri] = useState<string | null>(null);
   const [isPickingPhoto, setIsPickingPhoto] = useState(false);
   const isSaving = useRef(false);
+
+  // Slide-in + bounce animation for photo strip
+  const photoStripY = useSharedValue(30);
+  const photoStripOpacity = useSharedValue(0);
+  useEffect(() => {
+    if (!isEditing) {
+      photoStripY.value = withDelay(300, withSpring(0, { damping: 12, stiffness: 120 }));
+      photoStripOpacity.value = withDelay(300, withSpring(1, { damping: 20, stiffness: 100 }));
+    }
+  }, [isEditing, photoStripY, photoStripOpacity]);
+  const photoStripAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: photoStripY.value }],
+    opacity: photoStripOpacity.value,
+  }));
 
   const [wholePart, setWholePart] = useState(
     Math.max(0, Math.min(wholeItems.length - 1, initialWhole - minWhole)),
@@ -481,6 +496,7 @@ export default function LogWeightScreen() {
 
         {/* Photo thumbnail strip (hidden in edit mode) */}
         {!isEditing && (
+        <Animated.View style={photoStripAnimStyle}>
         <TouchableOpacity
           style={styles.photoStrip}
           onPress={handleAddPhoto}
@@ -500,15 +516,15 @@ export default function LogWeightScreen() {
               />
             ) : (
               <View style={styles.photoPlaceholder}>
-                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" accessible={false}>
+                <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
                   <Path
                     d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
-                    stroke={Theme.colors.primary}
+                    stroke={Theme.colors.white}
                     strokeWidth={2}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
-                  <Circle cx="12" cy="13" r="4" stroke={Theme.colors.primary} strokeWidth={2} />
+                  <Circle cx="12" cy="13" r="4" stroke={Theme.colors.white} strokeWidth={2} />
                 </Svg>
               </View>
             )}
@@ -544,6 +560,7 @@ export default function LogWeightScreen() {
             />
           </Svg>
         </TouchableOpacity>
+        </Animated.View>
       )}
       </ScrollView>
 
@@ -613,7 +630,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 32,
+    paddingBottom: 12,
   },
   datePickerWrap: {
     marginBottom: 16,
@@ -692,12 +709,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderWidth: 2,
-    borderColor: Theme.colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(226, 133, 110, 0.35)',
     borderRadius: Theme.borderRadius.card,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: Theme.colors.primaryActive,
     gap: 12,
   },
   photoThumbWrap: {
@@ -709,15 +726,12 @@ const styles = StyleSheet.create({
     borderRadius: Theme.borderRadius.small,
   },
   photoPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: Theme.borderRadius.small,
-    borderWidth: 2,
-    borderColor: Theme.colors.border,
-    borderStyle: 'dashed',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Theme.colors.background,
+    backgroundColor: Theme.colors.primary,
   },
   photoCheckBadge: {
     position: 'absolute',
@@ -744,7 +758,7 @@ const styles = StyleSheet.create({
   photoStripHint: {
     fontSize: 12,
     fontFamily: Theme.fonts.regular,
-    color: Theme.colors.textDark,
+    color: Theme.colors.textMuted,
   },
 
   footer: {

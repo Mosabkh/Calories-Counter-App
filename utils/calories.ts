@@ -85,13 +85,18 @@ export function calculateMacros(
     : activity === 'moderate' ? 1.6
     : activity === 'active' ? 1.8
     : 2.2; // very_active (ISSN position stand, Jager et al. 2017)
-  const protein = Math.round(weightKg * proteinPerKg);
-  const proteinCal = protein * 4;
-
+  let protein = Math.round(weightKg * proteinPerKg);
   const fatCal = Math.round(dailyCalories * 0.25);
   const fat = Math.round(fatCal / 9);
-
   const actualFatCal = fat * 9;
+
+  // Cap protein so protein + fat never exceeds 90% of calories, leaving a carb floor
+  const maxProteinCal = Math.floor(dailyCalories * 0.9) - actualFatCal;
+  if (protein * 4 > maxProteinCal) {
+    protein = Math.max(0, Math.round(maxProteinCal / 4));
+  }
+  const proteinCal = protein * 4;
+
   const remainingCal = dailyCalories - proteinCal - actualFatCal;
   const carbs = Math.max(0, Math.round(remainingCal / 4));
 
