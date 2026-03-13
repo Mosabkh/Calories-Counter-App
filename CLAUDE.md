@@ -30,19 +30,19 @@ VS Code with `fixAll`, `organizeImports`, and `sortMembers` auto-fix on save (`.
 - `app/index.tsx` — Entry redirect: sends to `/(tabs)` if onboarding complete, else `/onboarding`
 - `app/onboarding/_layout.tsx` — Stack with `slide_from_right` transitions; 26 screens across 3 phases (Basics, Body & Goals, Lifestyle) plus transitions, plan generation, account creation, and paywall
 - `app/(tabs)/_layout.tsx` — Bottom tabs (home, progress, profile) with `CustomTabBar`
-- Modal screens: `log-meal`, `food-search`, `log-weight`, `log-exercise`, `saved-foods` (slide from bottom)
+- Modal screens: `log-meal`, `food-search`, `log-weight`, `log-exercise` (supports edit via `editEntryId` + `date` params), `saved-foods` (slide from bottom)
 - Settings screens: `edit-profile`, `my-goals`, `reminders`, `units`, `help`, `subscription`, `progress-photos`, `weight-history` (slide from right / fade from bottom)
 
 ### State Management
 
 All persistent stores use Zustand with `persist` middleware backed by an in-memory `Map` (`store/storage.ts`). Data does **not** persist across app restarts in current Expo Go setup.
 
-- `store/onboarding-store.ts` — temporary onboarding data (`OnboardingPayload`). Notable fields: `weekendDays` is `string[]` (day names), `weeklyGoalSpeed` is number (kg/week), `activityLevel` is `ActivityLevel` type, `startWeight` equals `currentWeight` at time of entry.
+- `store/onboarding-store.ts` — temporary onboarding data (`OnboardingPayload`). Notable fields: `weekendDays` is `string[]` (day names), `weeklyGoalSpeed` is number (kg/week), `activityLevel` is `ActivityLevel` type (represents daily occupation, not exercise), `startWeight` equals `currentWeight` at time of entry.
 - `store/user-store.ts` — `UserProfile` (graduated from onboarding) + `AuthState`. Persist key: `calobite-user`.
 - `store/diary-store.ts` — meal entries keyed by `'YYYY-MM-DD'`. Has `getDailySummary()` for totals. `addMeal` auto-triggers streak recording. Persist key: `calobite-diary`.
 - `store/weight-store.ts` — weight log entries sorted by timestamp descending. Methods: `updateEntry(id, patch)`, `getEntriesInRange(start, end)`, `convertAll(toUnit, convert)`. Persist key: `calobite-weight`.
 - `store/streak-store.ts` — tracks logging streaks via `recordActivity(todayKey)`. Persist key: `calobite-streak`.
-- `store/exercise-store.ts` — exercise entries keyed by date. Persist key: `calobite-exercise`.
+- `store/exercise-store.ts` — exercise entries keyed by date. Methods: `addExercise`, `updateExercise(date, id, patch)`, `removeExercise`. Persist key: `calobite-exercise`.
 - `store/favorites-store.ts` — saved food IDs + cached `FoodItem` data for online foods. `toggle(id, food?)` caches online items. Persist key: `calobite-favorites`.
 - `store/photo-store.ts` — progress photos sorted by timestamp. Persist key: `calobite-photos`.
 - `store/subscription-store.ts` — subscription state (plan, isActive, expiresAt). Persist key: `calobite-subscription`.
@@ -97,7 +97,7 @@ RevenueCat is fully stubbed for Expo Go — no native SDK is imported. `utils/re
 - **Home** (`app/(tabs)/index.tsx`): Animated `DonutChart` using `react-native-reanimated`. Exercise burned calories adjust target. Uses latest weigh-in for goal prediction. Transformation card shows before/after progress photos (Day 1 vs Latest) with weight overlays matched by timestamp proximity; adapts to 0/1/2+ photo states. Empty state when no profile.
 - **Progress** (`app/(tabs)/progress.tsx`): Time-based weight chart (SVG polyline with `vectorEffect="non-scaling-stroke"`, points positioned by actual date not index, dots at each data point), calorie stacked bar chart, streak dots from actual logged days, progress photos preview (up to 3 thumbnails), recent weight entries with edit/delete, BMI visualization. Weight chart is backward-looking (past → today); time tabs control how far back to show (30/60/90/180/365 days); "All time" shows from earliest entry. Dashed green goal line at target weight for lose/gain goals. Single entry shows horizontal line from Y axis to data point with dot. Year suffix (`'27`) shown on labels crossing into a different year. Empty state when no profile.
 - **Profile** (`app/(tabs)/profile.tsx`): Settings list with `SettingItem` (wrapped in `memo()`). Dynamic subscription badge. Sign out with confirmation. Empty state has "Start Over" button that resets onboarding. All `SettingItem` onPress callbacks are extracted to `useCallback` to preserve `memo()` effectiveness.
-- **CustomTabBar** (`components/CustomTabBar.tsx`): Inline-notch FAB tab bar. Layout: Home | Progress | (+) | Profile. SVG-based curved notch path with dynamic safe-area height calculation. FAB animates 45° rotation on press. Overlay is a 2-column card grid with staggered slide-up animation — 5 actions: Food database, Log weight, Log exercise, Saved foods, Scan food. Icons use Lucide SVG paths (`iconPaths` array + optional `circle`). Notch geometry: `NOTCH_RADIUS = FAB_SIZE / 2 + 10`, `spread = r + 14`, `depth = r - 4`.
+- **CustomTabBar** (`components/CustomTabBar.tsx`): Inline-notch FAB tab bar. Layout: Home | Progress | (+) | Profile. SVG-based curved notch path with dynamic safe-area height calculation. FAB animates 45° rotation on press. Overlay is a 2-column card grid with staggered slide-up animation — 5 actions: Food database, Log weight, Log exercise, Saved foods, Scan food. Scan food shows a "Quick Tip" alert before launching the camera. Icons use Lucide SVG paths (`iconPaths` array + optional `circle`). Notch geometry: `NOTCH_RADIUS = FAB_SIZE / 2 + 10`, `spread = r + 14`, `depth = r - 4`.
 
 ### BMI Bar Alignment
 
@@ -119,7 +119,7 @@ If you change the bar segments or percent mapping in one file, change both.
 - New Architecture enabled (`newArchEnabled: true`)
 - Reusable onboarding components in `components/onboarding/` (ProgressHeader, OnboardingButton, ListButton, CardOption, UnitToggle, ScrollPicker, BouncyView, OnboardingIcon)
 - Shared utilities in `utils/`:
-  - `calories.ts` — Mifflin-St Jeor BMR, TDEE, daily calorie target, macro split (activity-scaled protein: 1.2-2.2 g/kg), BMI, age calculation. `calculateDailyCalories` enforces a safety floor (`minCal`) for all goals including maintain.
+  - `calories.ts` — Mifflin-St Jeor BMR, TDEE (NEAT-only multipliers based on daily occupation, not exercise), daily calorie target, macro split (occupation-scaled protein: 1.2-1.9 g/kg), BMI, age calculation. `calculateDailyCalories` enforces a safety floor (`minCal`) for all goals including maintain. Exercise calories are logged separately and added on top — no double-counting.
   - `date.ts` — date key helpers (`toDateKey`, `yesterdayKey`, `daysAgoKey`, `weekKeys`, `dayLabel`, `inferMealType`). All use local timezone.
   - `target-date.ts` — `getTargetDate(currentWeight, targetWeight, weeklySpeed)` → formatted target date string. Used by onboarding `custom-plan` and home screen goal prediction.
   - `recalculate-targets.ts` — takes current `UserProfile` + partial patch, merges, recalculates BMR→TDEE→daily calories→macros, returns the patch with recalculated fields. Used by `edit-profile.tsx` and `my-goals.tsx` to keep targets in sync after profile edits.
@@ -163,6 +163,14 @@ The onboarding path and in-app text adapt based on `goal` (lose/gain/maintain):
 - **Gain**: `goal-weight` picker starts at currentWeight+1, text adapted across screens, goal prediction says "reach" target.
 - **Lose**: default path, picker capped at currentWeight-1.
 - Encouragement messages in progress screen adapt per goal.
+
+### Activity & Energy Model (NEAT + Exercise)
+
+The app splits daily energy expenditure into two components to avoid double-counting:
+- **NEAT (Non-Exercise Activity Thermogenesis)** — captured by the onboarding "What does your day look like?" screen. Reflects daily occupation/lifestyle (desk job → heavy labor). TDEE multipliers (1.2–1.75) are lower than traditional Mifflin-St Jeor because they exclude intentional exercise.
+- **EAT (Exercise Activity Thermogenesis)** — logged by the user via `log-exercise`. Burns are added on top of NEAT-based TDEE on the home screen.
+
+The onboarding screen and edit-profile "Daily Occupation" section show concrete job examples (e.g., "Office worker, programmer, accountant" for desk job). Keep labels in sync between `app/onboarding/activity-level.tsx` and `app/edit-profile.tsx`.
 
 ### In-App Goal Editing (`my-goals.tsx`)
 
@@ -221,7 +229,7 @@ Alert.alert('Delete Meal', `Delete "${meal.name}"?`, [
 
 ### Save Button Debounce
 
-Screens with save/submit actions (`log-meal`, `log-weight`) use a `useRef` guard to prevent double-tap duplicates:
+Screens with save/submit actions (`log-meal`, `log-weight`, `log-exercise`) use a `useRef` guard to prevent double-tap duplicates:
 ```tsx
 const isSavingRef = useRef(false);
 const handleSave = useCallback(() => {
