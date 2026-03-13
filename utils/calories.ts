@@ -12,12 +12,21 @@
 
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
 
+/**
+ * NEAT-only multipliers (Non-Exercise Activity Thermogenesis).
+ * These reflect daily occupation/lifestyle movement — NOT intentional exercise.
+ * Intentional exercise is tracked separately via the exercise log and added on top.
+ *
+ * Based on adjusted Mifflin-St Jeor multipliers with exercise component removed:
+ * - Original 1.2 (sedentary) stays — baseline with minimal NEAT
+ * - Higher tiers lowered ~0.1-0.2 vs traditional multipliers since exercise is logged separately
+ */
 const ACTIVITY_MULTIPLIERS: Readonly<Record<ActivityLevel, number>> = {
-  sedentary: 1.2,     // Little or no exercise
-  light: 1.375,       // Light exercise 1-3 days/week
-  moderate: 1.55,     // Moderate exercise 3-5 days/week
-  active: 1.725,      // Hard exercise 6-7 days/week
-  very_active: 1.9,   // Very hard exercise, physical job
+  sedentary: 1.2,     // Desk job, mostly sitting
+  light: 1.3,         // Mostly standing (teacher, retail)
+  moderate: 1.45,     // On your feet most of the day (nurse, waiter)
+  active: 1.6,        // Physical labor (construction, warehouse)
+  very_active: 1.75,  // Very physical job (farming, heavy labor)
 };
 
 /**
@@ -80,11 +89,13 @@ export function calculateMacros(
   weightKg: number,
   activity: ActivityLevel = 'moderate',
 ): { protein: number; fat: number; carbs: number; calories: number } {
+  // Protein scaled by occupation activity; users who exercise heavily
+  // will naturally eat more via the exercise calorie budget
   const proteinPerKg = activity === 'sedentary' ? 1.2
-    : activity === 'light' ? 1.4
-    : activity === 'moderate' ? 1.6
-    : activity === 'active' ? 1.8
-    : 2.2; // very_active (ISSN position stand, Jager et al. 2017)
+    : activity === 'light' ? 1.3
+    : activity === 'moderate' ? 1.5
+    : activity === 'active' ? 1.7
+    : 1.9; // very_active — high physical labor (ISSN position stand, Jager et al. 2017)
   let protein = Math.round(weightKg * proteinPerKg);
   const fatCal = Math.round(dailyCalories * 0.25);
   const fat = Math.round(fatCal / 9);

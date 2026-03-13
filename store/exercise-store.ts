@@ -7,6 +7,7 @@ interface ExerciseState {
   entries: Record<string, ExerciseEntry[]>; // keyed by 'YYYY-MM-DD'
 
   addExercise: (entry: ExerciseEntry) => void;
+  updateExercise: (date: string, id: string, patch: Partial<Omit<ExerciseEntry, 'id' | 'date'>>) => void;
   removeExercise: (date: string, id: string) => void;
   getForDate: (date: string) => ExerciseEntry[];
   getTotalBurnedForDate: (date: string) => number;
@@ -22,6 +23,14 @@ export const useExerciseStore = create<ExerciseState>()(
         set((s) => {
           const dayEntries = [...(s.entries[entry.date] || []), entry];
           return { entries: { ...s.entries, [entry.date]: dayEntries } };
+        }),
+
+      updateExercise: (date, id, patch) =>
+        set((s) => {
+          const dayEntries = (s.entries[date] || []).map((e) =>
+            e.id === id ? { ...e, ...patch } : e,
+          );
+          return { entries: { ...s.entries, [date]: dayEntries } };
         }),
 
       removeExercise: (date, id) =>

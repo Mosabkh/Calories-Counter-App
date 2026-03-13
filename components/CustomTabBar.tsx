@@ -1,5 +1,5 @@
 import { useState, useRef, memo, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Pressable, useWindowDimensions, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Svg, { Path, Line, Circle } from 'react-native-svg';
@@ -139,16 +139,30 @@ export const CustomTabBar = memo(function CustomTabBar({ state, descriptors, nav
     isNavigatingRef.current = true;
 
     if (label === 'Scan food') {
-      // Keep overlay open during camera — close only on success
-      try {
-        const uri = await launchMealCamera();
-        if (uri) {
-          toggleOverlay();
-          router.push({ pathname: '/log-meal', params: { imageUri: uri } });
-        }
-      } catch {
-        // Camera failed — overlay stays open, user can retry
-      }
+      // Show tip before launching camera
+      Alert.alert(
+        'Quick Tip',
+        'Place your meal on a flat surface with good lighting for best results.',
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => { isNavigatingRef.current = false; } },
+          {
+            text: 'Open Camera',
+            onPress: async () => {
+              try {
+                const uri = await launchMealCamera();
+                if (uri) {
+                  toggleOverlay();
+                  router.push({ pathname: '/log-meal', params: { imageUri: uri } });
+                }
+              } catch {
+                // Camera failed — overlay stays open, user can retry
+              }
+              isNavigatingRef.current = false;
+            },
+          },
+        ],
+      );
+      return;
     } else {
       toggleOverlay();
       if (label === 'Food database') {

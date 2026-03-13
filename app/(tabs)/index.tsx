@@ -29,7 +29,7 @@ import { getTargetDate } from '@/utils/target-date';
 import { calculateDaySplit } from '@/utils/calories';
 import { launchMealCamera } from '@/utils/camera';
 import { MealListItem } from '@/components/MealListItem';
-import type { MealEntry } from '@/types/data';
+import type { MealEntry, ExerciseEntry } from '@/types/data';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -39,7 +39,7 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 const FULL_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
 
 const EMPTY_MEALS: MealEntry[] = [];
-const EMPTY_EXERCISES: never[] = [];
+const EMPTY_EXERCISES: ExerciseEntry[] = [];
 
 function getWeekDays() {
   const today = new Date();
@@ -62,7 +62,7 @@ function getWeekDays() {
 }
 
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-function formatPhotoDate(dateKey: string): string {
+function formatDisplayDate(dateKey: string): string {
   const d = new Date(dateKey + 'T00:00:00');
   const base = `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}`;
   const currentYear = new Date().getFullYear();
@@ -234,12 +234,23 @@ export default function HomeScreen() {
   const handleDayPress = useCallback((dateKey: string) => {
     setSelectedDateKey(dateKey);
   }, []);
+  const isLaunchingCameraRef = useRef(false);
+  const isSelectedPast = selectedDateKey < todayKey;
   const handleEmptyMealPress = useCallback(async () => {
-    const uri = await launchMealCamera();
-    if (uri) {
-      router.push({ pathname: '/log-meal', params: { imageUri: uri, date: selectedDateKey } });
+    if (isLaunchingCameraRef.current) return;
+    isLaunchingCameraRef.current = true;
+    try {
+      const uri = await launchMealCamera();
+      if (uri) {
+        router.push({ pathname: '/log-meal', params: { imageUri: uri, date: selectedDateKey } });
+      }
+    } finally {
+      isLaunchingCameraRef.current = false;
     }
   }, [router, selectedDateKey]);
+  const handleGoalBarPress = useCallback(() => {
+    router.push('/my-goals');
+  }, [router]);
   const daySummary = useMemo(() => {
     const meals = dayMeals;
     if (meals.length === 0) return { totalCalories: 0, totalProtein: 0, totalCarbs: 0, totalFat: 0, mealCount: 0 };
@@ -336,14 +347,16 @@ export default function HomeScreen() {
   const goalScale = useSharedValue(0);
   const goalGlow = useSharedValue(0);
   const goalShimmer = useSharedValue(0);
+  const goalHasAnimated = useRef(false);
 
   useEffect(() => {
-    if (goalDateLabel) {
-      // 1. Bounce in from below
-      goalScale.value = withDelay(1200, withSpring(1, { damping: 10, stiffness: 120, mass: 0.8 }));
-      goalEntry.value = withDelay(1200, withSpring(1, { damping: 12, stiffness: 100 }));
+    if (goalDateLabel && !goalHasAnimated.current) {
+      goalHasAnimated.current = true;
+      // 1. Fade in with scale
+      goalScale.value = withDelay(800, withSpring(1, { damping: 10, stiffness: 120, mass: 0.8 }));
+      goalEntry.value = withDelay(800, withSpring(1, { damping: 12, stiffness: 100 }));
       // 2. Glow pulse after arrival
-      goalGlow.value = withDelay(1800,
+      goalGlow.value = withDelay(1400,
         withSequence(
           withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) }),
           withTiming(0.3, { duration: 600, easing: Easing.inOut(Easing.ease) }),
@@ -352,7 +365,7 @@ export default function HomeScreen() {
         ),
       );
       // 3. Shimmer sweep across text
-      goalShimmer.value = withDelay(2000,
+      goalShimmer.value = withDelay(1600,
         withRepeat(
           withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
           2,
@@ -365,7 +378,6 @@ export default function HomeScreen() {
   const goalBarStyle = useAnimatedStyle(() => ({
     opacity: interpolate(goalEntry.value, [0, 0.5, 1], [0, 0.8, 1]),
     transform: [
-      { translateY: interpolate(goalEntry.value, [0, 1], [30, 0]) },
       { scale: interpolate(goalScale.value, [0, 1], [0.9, 1]) },
     ],
   }));
@@ -376,12 +388,12 @@ export default function HomeScreen() {
   }));
   const goalTextStyle = useAnimatedStyle(() => ({
     color: interpolateColor(goalShimmer.value, [0, 0.4, 0.6, 1], [
-      Theme.colors.textDark, Theme.colors.primary, Theme.colors.primary, Theme.colors.textDark,
+      Theme.colors.textDark, Theme.colors.primaryHover, Theme.colors.primaryHover, Theme.colors.textDark,
     ]),
   }));
   const goalBoldTextStyle = useAnimatedStyle(() => ({
     color: interpolateColor(goalShimmer.value, [0, 0.4, 0.6, 1], [
-      Theme.colors.textDark, Theme.colors.urgentRed, Theme.colors.urgentRed, Theme.colors.textDark,
+      Theme.colors.textDark, Theme.colors.primaryHover, Theme.colors.primaryHover, Theme.colors.textDark,
     ]),
   }));
 
@@ -414,6 +426,9 @@ export default function HomeScreen() {
     () => (latestPhoto ? getWeightForPhoto(latestPhoto.timestamp) : null),
     [latestPhoto, getWeightForPhoto],
   );
+  const handleTransformPress = useCallback(() => {
+    router.push(photoCount >= 2 ? '/progress-photos' : '/log-weight');
+  }, [router, photoCount]);
 
   const greeting = profile?.name ? `Hi, ${profile.name}` : 'Hi there';
 
@@ -605,15 +620,17 @@ export default function HomeScreen() {
 
         {/* Goal Prediction */}
         {goalDateLabel && (
-          <Animated.View style={[styles.goalPredictionBar, goalBarStyle, goalGlowStyle]} accessible={true} accessibilityLabel={`Target: ${goalDateLabel.action} ${goalDateLabel.diff} ${goalDateLabel.unit} by ${goalDateLabel.date}`}>
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
-              <Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" stroke={Theme.colors.calorieAlert} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-              <Line x1={4} y1={22} x2={4} y2={15} stroke={Theme.colors.calorieAlert} strokeWidth={2.5} strokeLinecap="round" />
-            </Svg>
-            <Animated.Text style={[styles.goalPredictionText, goalTextStyle]}>
-              Target: {goalDateLabel.action} <Animated.Text style={[styles.goalPredictionBold, goalBoldTextStyle]}>{goalDateLabel.diff} {goalDateLabel.unit}</Animated.Text> by <Animated.Text style={[styles.goalPredictionBold, goalBoldTextStyle]}>{goalDateLabel.date}</Animated.Text>
-            </Animated.Text>
-          </Animated.View>
+          <TouchableOpacity activeOpacity={0.7} onPress={handleGoalBarPress} accessibilityRole="button" accessibilityLabel={`Target: ${goalDateLabel.action} ${goalDateLabel.diff} ${goalDateLabel.unit} by ${goalDateLabel.date}`}>
+            <Animated.View style={[styles.goalPredictionBar, goalBarStyle, goalGlowStyle]} accessible={false}>
+              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
+                <Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" stroke={Theme.colors.calorieAlert} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                <Line x1={4} y1={22} x2={4} y2={15} stroke={Theme.colors.calorieAlert} strokeWidth={2.5} strokeLinecap="round" />
+              </Svg>
+              <Animated.Text style={[styles.goalPredictionText, goalTextStyle]}>
+                Target: {goalDateLabel.action} <Animated.Text style={[styles.goalPredictionBold, goalBoldTextStyle]} accessible={false}>{goalDateLabel.diff} {goalDateLabel.unit}</Animated.Text> by <Animated.Text style={[styles.goalPredictionBold, goalBoldTextStyle]} accessible={false}>{goalDateLabel.date}</Animated.Text>
+              </Animated.Text>
+            </Animated.View>
+          </TouchableOpacity>
         )}
 
         {/* Before & After card — hidden for maintain goal */}
@@ -621,21 +638,21 @@ export default function HomeScreen() {
           <TouchableOpacity
             style={styles.thenNowCard}
             activeOpacity={0.7}
-            onPress={() => router.push(photoCount >= 2 ? '/progress-photos' : '/log-weight')}
+            onPress={handleTransformPress}
             accessibilityLabel={
               photoCount >= 2
                 ? 'View your progress photos, day 1 versus latest'
                 : photoCount === 1
-                  ? 'Weigh in to add another progress photo'
-                  : 'Weigh in to capture your starting point'
+                  ? 'Add another progress photo'
+                  : 'Log your weight and snap your first photo'
             }
             accessibilityRole="button"
           >
             {/* Title row */}
             <View style={styles.thenNowTitleRow} accessible={false}>
-              <Text style={styles.thenNowTitle}>Your Transformation</Text>
-              {photoCount < 5 && (
-                <Text style={styles.thenNowSubtitle}>Latest side updates automatically with each new photo</Text>
+              <Text style={styles.thenNowTitle}>{photoCount >= 2 ? 'Your Transformation' : 'Track Your Transformation'}</Text>
+              {photoCount >= 2 && photoCount < 5 && (
+                <Text style={styles.thenNowSubtitle}>The latest photo updates automatically with each weigh-in</Text>
               )}
             </View>
 
@@ -647,7 +664,7 @@ export default function HomeScreen() {
                   <View style={styles.thenNowPhotoContainer}>
                     <Image source={{ uri: firstPhoto.uri }} style={styles.thenNowPhoto} contentFit="cover" transition={200} accessible={false} />
                     <View style={styles.thenNowDateBadge}>
-                      <Text style={styles.thenNowDateText}>{formatPhotoDate(firstPhoto.date)}</Text>
+                      <Text style={styles.thenNowDateText}>{formatDisplayDate(firstPhoto.date)}</Text>
                       {firstPhotoWeight && <Text style={styles.thenNowWeightText}>{firstPhotoWeight.weight.toFixed(1)} {firstPhotoWeight.unit}</Text>}
                     </View>
                   </View>
@@ -680,7 +697,7 @@ export default function HomeScreen() {
                   <View style={styles.thenNowPhotoContainer}>
                     <Image source={{ uri: latestPhoto.uri }} style={styles.thenNowPhoto} contentFit="cover" transition={200} accessible={false} />
                     <View style={styles.thenNowDateBadge}>
-                      <Text style={styles.thenNowDateText}>{formatPhotoDate(latestPhoto.date)}</Text>
+                      <Text style={styles.thenNowDateText}>{formatDisplayDate(latestPhoto.date)}</Text>
                       {latestPhotoWeight && <Text style={styles.thenNowWeightText}>{latestPhotoWeight.weight.toFixed(1)} {latestPhotoWeight.unit}</Text>}
                     </View>
                   </View>
@@ -706,18 +723,18 @@ export default function HomeScreen() {
             {/* Hint for empty/partial states */}
             {photoCount < 2 && (
               <Text style={styles.thenNowHint}>
-                {photoCount === 0 ? 'Weigh in today to capture your starting point' : 'Add one more photo to unlock your progress view'}
+                {photoCount === 0 ? 'Log your weight and snap your first photo' : 'Add one more photo to unlock your progress view'}
               </Text>
             )}
           </TouchableOpacity>
         )}
 
         {/* Meals list or empty state */}
-        <Text style={styles.sectionTitle} accessibilityRole="header">
-          {selectedDateKey === todayKey ? 'Recently uploaded' : `Meals on ${formatPhotoDate(selectedDateKey)}`}
+        <Text style={styles.sectionTitle} accessibilityRole="header" accessibilityLiveRegion="polite">
+          {selectedDateKey === todayKey ? "Today's Meals" : `Meals on ${formatDisplayDate(selectedDateKey)}`}
         </Text>
         {sortedMeals.length > 0 ? (
-          <View style={styles.mealsListWrap}>
+          <View style={styles.mealsListWrap} accessibilityRole="list">
             {sortedMeals.map((meal) => (
                 <MealListItem
                   key={meal.id}
@@ -726,22 +743,28 @@ export default function HomeScreen() {
                 />
               ))}
           </View>
+        ) : isSelectedPast ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle} accessible={false}>No meals logged</Text>
+            <Text style={styles.emptySubtitle} accessible={false}>No meals were logged on this day</Text>
+          </View>
         ) : (
           <TouchableOpacity
             style={styles.emptyCard}
             activeOpacity={0.7}
-            accessibilityLabel="Snap your first meal"
+            accessibilityLabel="Log your first meal. Opens the camera"
             accessibilityRole="button"
+            accessibilityHint="Opens the camera to photograph your meal"
             onPress={handleEmptyMealPress}
           >
-            <View style={styles.cameraIconWrap}>
+            <View style={styles.cameraIconWrap} accessible={false}>
               <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" accessible={false}>
                 <Path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke={Theme.colors.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
                 <Circle cx={12} cy={13} r={4} stroke={Theme.colors.primary} strokeWidth={2} />
               </Svg>
             </View>
-            <Text style={styles.emptyTitle}>Snap your first meal</Text>
-            <Text style={styles.emptySubtitle}>Take a photo of your food to start tracking</Text>
+            <Text style={styles.emptyTitle} accessible={false}>Snap your first meal</Text>
+            <Text style={styles.emptySubtitle} accessible={false}>Take a photo of your food to start tracking</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -918,20 +941,20 @@ const styles = StyleSheet.create({
   // Goal Prediction
   goalPredictionBar: {
     backgroundColor: Theme.colors.surface, borderRadius: Theme.borderRadius.card, paddingVertical: 14,
-    paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20,
+    paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20,
     borderWidth: 2, borderColor: Theme.colors.border,
     shadowColor: Theme.colors.textDark, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.03, shadowRadius: 10, elevation: 1,
   },
   goalPredictionText: {
-    flex: 1, fontSize: 14, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted, lineHeight: 20,
+    flex: 1, fontSize: 14, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark, lineHeight: 20,
   },
   goalPredictionBold: { fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
 
   // Before & After
   thenNowCard: {
     backgroundColor: Theme.colors.surface, borderRadius: Theme.borderRadius.card,
-    paddingVertical: 16, paddingHorizontal: 18, marginBottom: 20,
+    paddingVertical: 16, paddingHorizontal: 20, marginBottom: 20,
     borderWidth: 2, borderColor: Theme.colors.border,
     shadowColor: Theme.colors.textDark, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.03, shadowRadius: 10, elevation: 1,
@@ -962,7 +985,7 @@ const styles = StyleSheet.create({
   thenNowAddBadge: {
     position: 'absolute', top: 8, right: 8,
     width: 22, height: 22, borderRadius: 11,
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: Theme.colors.primaryHover,
     alignItems: 'center', justifyContent: 'center',
   },
   thenNowDateBadge: {
@@ -972,43 +995,46 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 4,
   },
   thenNowDateText: {
-    fontSize: 8, fontFamily: Theme.fonts.bold, color: Theme.colors.white,
+    fontSize: 10, fontFamily: Theme.fonts.bold, color: Theme.colors.white,
   },
   thenNowWeightText: {
-    fontSize: 8, fontFamily: Theme.fonts.extraBold, color: Theme.colors.white,
+    fontSize: 10, fontFamily: Theme.fonts.extraBold, color: Theme.colors.white,
   },
   thenNowLabel: {
     fontSize: 12, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
   },
-  thenNowArrow: { paddingHorizontal: 2 },
+  thenNowArrow: {},
   thenNowHint: {
     fontSize: 12, fontFamily: Theme.fonts.semiBold, color: Theme.colors.textDark,
     textAlign: 'center', marginTop: 12,
   },
 
-  // Recently uploaded — empty state
+  // Meals section
   sectionTitle: {
     fontSize: 18, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
-    marginBottom: 15, textAlign: 'left',
+    marginTop: 24, marginBottom: 16, textAlign: 'left',
   },
   mealsListWrap: {
-    gap: 10,
+    gap: 12,
   },
   emptyCard: {
-    backgroundColor: Theme.colors.surface, borderRadius: Theme.borderRadius.card, padding: 30,
-    alignItems: 'center', borderWidth: 2, borderColor: Theme.colors.border,
+    backgroundColor: Theme.colors.surface, borderRadius: Theme.borderRadius.card,
+    paddingVertical: 28, paddingHorizontal: 24,
+    alignItems: 'center', borderWidth: 2, borderColor: 'rgba(84, 49, 40, 0.18)',
     borderStyle: 'dashed',
+    shadowColor: Theme.colors.textDark, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03, shadowRadius: 10, elevation: 1,
   },
   cameraIconWrap: {
-    width: 60, height: 60, borderRadius: 30, backgroundColor: Theme.colors.primaryActive,
+    width: 60, height: 60, borderRadius: 60 / 2, backgroundColor: Theme.colors.accentBackground,
     alignItems: 'center', justifyContent: 'center', marginBottom: 12,
   },
   emptyTitle: {
-    fontSize: 17, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
+    fontSize: 16, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark,
   },
   emptySubtitle: {
     fontSize: 13, fontFamily: Theme.fonts.regular, color: Theme.colors.textDark,
-    textAlign: 'center', marginTop: 4,
+    textAlign: 'center', marginTop: 8,
   },
 
   // No-profile empty state

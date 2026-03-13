@@ -20,11 +20,11 @@ import type { ActivityLevel } from '@/utils/calories';
 
 const GENDER_OPTIONS = ['male', 'female'] as const;
 const ACTIVITY_OPTIONS: { value: ActivityLevel; label: string; desc: string }[] = [
-  { value: 'sedentary', label: 'Sedentary', desc: 'Little to no exercise' },
-  { value: 'light', label: 'Lightly Active', desc: 'Light exercise 1–3 days/week' },
-  { value: 'moderate', label: 'Moderately Active', desc: 'Moderate exercise 3–5 days/week' },
-  { value: 'active', label: 'Active', desc: 'Hard exercise 6–7 days/week' },
-  { value: 'very_active', label: 'Very Active', desc: 'Very hard exercise, physical job' },
+  { value: 'sedentary', label: 'Desk Job', desc: 'Office worker, programmer, accountant' },
+  { value: 'light', label: 'Mostly Standing', desc: 'Teacher, cashier, receptionist, barber' },
+  { value: 'moderate', label: 'On Your Feet', desc: 'Nurse, waiter, chef, retail sales' },
+  { value: 'active', label: 'Physical Labor', desc: 'Construction, warehouse, mechanic, plumber' },
+  { value: 'very_active', label: 'Heavy Labor', desc: 'Farmer, miner, lumberjack, military' },
 ];
 
 const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };
@@ -264,9 +264,9 @@ export default function EditProfileScreen() {
             <Text style={styles.inputErrorText}>{heightError}</Text>
           )}
 
-          {/* Activity Level */}
-          <Text style={styles.label}>Activity Level</Text>
-          <View style={styles.activityList} accessibilityRole="radiogroup" accessibilityLabel="Activity level">
+          {/* Daily Occupation */}
+          <Text style={styles.label}>Daily Occupation</Text>
+          <View style={styles.activityList} accessibilityRole="radiogroup" accessibilityLabel="Daily occupation activity">
             {ACTIVITY_OPTIONS.map((opt) => (
               <TouchableOpacity
                 key={opt.value}
