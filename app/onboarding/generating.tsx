@@ -2,9 +2,11 @@ import { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Circle, Path, Ellipse } from 'react-native-svg';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedProps,
   withTiming,
   withDelay,
   withRepeat,
@@ -15,6 +17,8 @@ import { Theme } from '@/constants/theme';
 import { OnboardingIcon } from '@/components/onboarding/OnboardingIcon';
 import { useOnboardingStore } from '@/store/onboarding-store';
 import { getTargetDate } from '@/utils/target-date';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const STEPS = [
   'Calculating your BMR',
@@ -97,10 +101,14 @@ export default function GeneratingScreen() {
   const isMaintain = goal === 'maintain';
   const targetDate = isMaintain ? '' : getTargetDate(currentWeight || 0, targetWeight || 0, weeklyGoalSpeed || 0.5, weightUnit || 'kg');
   const rotation = useSharedValue(0);
+  const ringProgress = useSharedValue(0);
   const cardOpacity = useSharedValue(0);
   const cardTranslateY = useSharedValue(16);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const navigatedRef = useRef(false);
+
+  const RING_R = 40;
+  const RING_CIRC = 2 * Math.PI * RING_R;
 
   const totalTime = STEPS.length * STEP_INTERVAL + CHECK_DELAY + 600;
 
@@ -115,10 +123,16 @@ export default function GeneratingScreen() {
   useEffect(() => {
     navigatedRef.current = false;
     rotation.value = withRepeat(
-      withTiming(360, { duration: 1000, easing: Easing.linear }),
+      withTiming(360, { duration: 1800, easing: Easing.linear }),
       -1,
       false
     );
+
+    // Animate ring progress from 0 to ~90% over the loading duration
+    ringProgress.value = withTiming(0.9, {
+      duration: totalTime - 400,
+      easing: Easing.out(Easing.quad),
+    });
 
     // Show card after last step checks off
     const cardShowAt = (STEPS.length - 1) * STEP_INTERVAL + CHECK_DELAY + 200;
@@ -140,6 +154,10 @@ export default function GeneratingScreen() {
     transform: [{ rotate: `${rotation.value}deg` }],
   }));
 
+  const ringProps = useAnimatedProps(() => ({
+    strokeDashoffset: RING_CIRC * (1 - ringProgress.value),
+  }));
+
   const cardStyle = useAnimatedStyle(() => ({
     opacity: cardOpacity.value,
     transform: [{ translateY: cardTranslateY.value }],
@@ -148,7 +166,42 @@ export default function GeneratingScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.content}>
-        <Animated.View style={[styles.spinner, spinnerStyle]} />
+        <View style={styles.logoWrap}>
+          {/* Spinning ring */}
+          <Animated.View style={[styles.ringWrap, spinnerStyle]}>
+            <Svg width={100} height={100} viewBox="0 0 100 100" accessible={false}>
+              <Circle cx={50} cy={50} r={RING_R} fill="none" stroke={Theme.colors.border} strokeWidth={6} />
+            </Svg>
+          </Animated.View>
+          {/* Progress ring (fills up) */}
+          <View style={styles.progressRingWrap}>
+            <Svg width={100} height={100} viewBox="0 0 100 100" accessible={false}>
+              <AnimatedCircle
+                cx={50}
+                cy={50}
+                r={RING_R}
+                fill="none"
+                stroke={Theme.colors.primary}
+                strokeWidth={6}
+                strokeLinecap="round"
+                strokeDasharray={RING_CIRC}
+                animatedProps={ringProps}
+                transform="rotate(-90 50 50)"
+              />
+            </Svg>
+          </View>
+          {/* Bowl (static in center) */}
+          <View style={styles.bowlWrap}>
+            <Svg width={64} height={64} viewBox="0 0 100 100" accessible={false}>
+              <Path d="M24 50 Q24 74, 50 74 Q76 74, 76 50Z" fill={Theme.colors.primary} />
+              <Ellipse cx={50} cy={50} rx={28} ry={7} fill={Theme.colors.primary} />
+              {/* Steam */}
+              <Path d="M40 40 Q42 34, 40 28" fill="none" stroke={Theme.colors.secondary} strokeWidth={3} strokeLinecap="round" opacity={0.6} />
+              <Path d="M50 38 Q52 32, 50 26" fill="none" stroke={Theme.colors.secondary} strokeWidth={3} strokeLinecap="round" opacity={0.6} />
+              <Path d="M60 40 Q62 34, 60 28" fill="none" stroke={Theme.colors.secondary} strokeWidth={3} strokeLinecap="round" opacity={0.6} />
+            </Svg>
+          </View>
+        </View>
         <Text style={styles.title}>Creating your custom blueprint...</Text>
 
         <View style={styles.stepsList}>
@@ -185,10 +238,18 @@ const styles = StyleSheet.create({
   content: {
     flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24,
   },
-  spinner: {
-    width: 70, height: 70, borderRadius: 35,
-    borderWidth: 5, borderColor: Theme.colors.border,
-    borderTopColor: Theme.colors.primary, marginBottom: 24,
+  logoWrap: {
+    width: 100, height: 100, marginBottom: 24,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  ringWrap: {
+    position: 'absolute',
+  },
+  progressRingWrap: {
+    position: 'absolute',
+  },
+  bowlWrap: {
+    alignItems: 'center', justifyContent: 'center',
   },
   title: {
     fontSize: 22, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
