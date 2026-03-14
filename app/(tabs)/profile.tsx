@@ -59,7 +59,7 @@ const SettingItem = memo(function SettingItem({ iconPath, label, badge, badgeCol
   return (
     <TouchableOpacity
       style={[styles.settingItem, isLast && styles.settingItemLast]}
-      activeOpacity={0.6}
+      activeOpacity={0.7}
       accessibilityLabel={badge ? `${label}, ${badge}` : label}
       accessibilityRole="button"
       onPress={onPress}

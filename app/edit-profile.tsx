@@ -101,8 +101,8 @@ export default function EditProfileScreen() {
           setHeightError('Inches must be 0\u201311');
           return;
         }
-        if (ft < 3 || ft > 8) {
-          setHeightError('Height must be between 3\'0" and 8\'0"');
+        if (ft < 4 || ft > 8) {
+          setHeightError('Height must be between 4\'0" and 8\'0"');
           return;
         }
         heightCm = Math.round(ft * 30.48 + inches * 2.54);

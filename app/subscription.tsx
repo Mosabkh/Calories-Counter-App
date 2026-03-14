@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginBottom: 12,
   },
-  cardLabel: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textMuted },
+  cardLabel: { fontSize: 13, fontFamily: Theme.fonts.bold, color: Theme.colors.textDark },
   statusBadge: {
     backgroundColor: Theme.colors.textDark, paddingHorizontal: 10, paddingVertical: 4,
     borderRadius: Theme.borderRadius.tiny,
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     fontSize: 22, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark,
     marginBottom: 6,
   },
-  renewalText: { fontSize: 13, fontFamily: Theme.fonts.semiBold, color: Theme.colors.textMuted },
+  renewalText: { fontSize: 13, fontFamily: Theme.fonts.semiBold, color: Theme.colors.textDark },
 
   manageBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
   restoreBtnTextDisabled: { opacity: 0.4 },
 
   infoText: {
-    fontSize: 12, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted,
+    fontSize: 12, fontFamily: Theme.fonts.regular, color: Theme.colors.textDark,
     textAlign: 'center', lineHeight: 18,
   },
 });

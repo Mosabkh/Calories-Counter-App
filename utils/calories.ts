@@ -78,7 +78,7 @@ export function calculateDailyCalories(
 
 /**
  * Macro split (evidence-based, activity-adjusted):
- * - Protein: 1.2 g/kg (sedentary) to 2.0 g/kg (active) — ISSN position stand
+ * - Protein: 1.2 g/kg (sedentary) to 1.9 g/kg (very active) — ISSN position stand
  * - Fat: 25% of total calories (minimum for hormonal health)
  * - Carbs: remaining calories
  *

@@ -85,10 +85,12 @@ export default function LogExerciseScreen() {
   }, [duration]);
 
   const updateDuration = useCallback((text: string) => {
-    setDuration(text);
+    const num = parseInt(text, 10);
+    const clamped = !isNaN(num) && num > 1440 ? '1440' : text;
+    setDuration(clamped);
     const match = QUICK_EXERCISES.find((e) => e.name === name);
     if (match) {
-      const mins = parseInt(text, 10) || 0;
+      const mins = parseInt(clamped, 10) || 0;
       if (mins > 0) {
         const estimated = Math.min(MAX_CALORIES, Math.round(match.calsPerMin * mins));
         setCalories(String(estimated));
@@ -110,8 +112,14 @@ export default function LogExerciseScreen() {
     if (date) setSelectedDate(toDateKey(date));
   }, []);
 
+  const editHasChanges = isEditing && existingEntry && (
+    name !== existingEntry.name ||
+    duration !== String(existingEntry.durationMin) ||
+    calories !== String(existingEntry.caloriesBurned)
+  );
+
   const handleBack = useCallback(() => {
-    if (!isEditing && hasChanges) {
+    if (hasChanges || editHasChanges) {
       Alert.alert('Discard Changes?', 'You have unsaved changes.', [
         { text: 'Keep Editing', style: 'cancel' },
         { text: 'Discard', style: 'destructive', onPress: () => router.back() },
@@ -119,7 +127,7 @@ export default function LogExerciseScreen() {
     } else {
       router.back();
     }
-  }, [isEditing, hasChanges, router]);
+  }, [hasChanges, editHasChanges, router]);
 
   const handleSave = useCallback(async () => {
     if (isSavingRef.current) return;

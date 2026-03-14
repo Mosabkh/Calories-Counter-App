@@ -674,7 +674,7 @@ const styles = StyleSheet.create({
     marginTop: 20, marginBottom: 0, marginLeft: 4,
   },
   sectionHint: {
-    fontSize: 12, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted,
+    fontSize: 12, fontFamily: Theme.fonts.regular, color: Theme.colors.textDark,
     marginTop: 2, marginLeft: 4,
   },
 
@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
   },
   cardLabels: { flex: 1 },
   cardLabel: { fontSize: 15, fontFamily: Theme.fonts.extraBold, color: Theme.colors.textDark },
-  cardSubtitle: { fontSize: 12, fontFamily: Theme.fonts.regular, color: Theme.colors.textMuted, marginTop: 1 },
+  cardSubtitle: { fontSize: 12, fontFamily: Theme.fonts.regular, color: Theme.colors.textDark, marginTop: 1 },
 
   timeDisplay: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,

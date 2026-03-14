@@ -186,7 +186,7 @@ export default function FoodSearchScreen() {
             accessibilityRole="button"
             style={styles.backBtn}
           >
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" accessible={false}>
               <Path
                 d="M19 12H5M12 19l-7-7 7-7"
                 stroke={Theme.colors.textDark}
@@ -197,7 +197,7 @@ export default function FoodSearchScreen() {
             </Svg>
           </TouchableOpacity>
           <Text style={styles.headerTitle} accessibilityRole="header">Food Database</Text>
-          <View style={styles.backBtn} />
+          <View style={styles.backBtn} accessible={false} />
         </View>
 
         {/* Search bar */}

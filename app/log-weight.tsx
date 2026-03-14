@@ -712,7 +712,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderWidth: 1.5,
-    borderColor: 'rgba(226, 133, 110, 0.35)',
+    borderColor: Theme.colors.border,
     borderRadius: Theme.borderRadius.card,
     backgroundColor: Theme.colors.primaryActive,
     gap: 12,
@@ -758,7 +758,7 @@ const styles = StyleSheet.create({
   photoStripHint: {
     fontSize: 12,
     fontFamily: Theme.fonts.regular,
-    color: Theme.colors.textMuted,
+    color: Theme.colors.textDark,
   },
 
   footer: {

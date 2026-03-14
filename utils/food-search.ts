@@ -68,7 +68,7 @@ export async function searchOnline(query: string, limit = 10): Promise<FoodItem[
   try {
     const url = `${OFF_BASE}?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&fields=code,product_name,nutriments,serving_size,serving_quantity&page_size=${limit}&json=1`;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
+    const timeout = setTimeout(() => controller.abort(), 10000);
 
     const res = await fetch(url, {
       signal: controller.signal,
