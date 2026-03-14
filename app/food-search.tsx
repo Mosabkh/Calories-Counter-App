@@ -87,7 +87,11 @@ export default function FoodSearchScreen() {
     (food: FoodItem) => {
       router.push({
         pathname: '/log-meal',
-        params: { foodId: food.id, date: params.date },
+        params: {
+          foodId: food.id,
+          date: params.date,
+          foodData: food.id.startsWith('off_') ? JSON.stringify(food) : undefined,
+        },
       });
     },
     [router, params.date],

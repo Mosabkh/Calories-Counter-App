@@ -20,11 +20,11 @@ import type { UserProfile } from '@/types/data';
 export function graduateOnboarding(): void {
   const payload = useOnboardingStore.getState().payload;
 
-  const heightCm = payload.heightUnit === 'ft'
-    ? Math.round((payload.height ?? 170) * 30.48)
-    : (payload.height ?? 170);
+  // height.tsx already converts ft/in to cm before storing, so use directly
+  const heightCm = payload.height ?? 170;
 
-  const cw = payload.currentWeight ?? 70;
+  // Combine whole number + decimal (stored as picker index 0-9)
+  const cw = (payload.currentWeight ?? 70) + (payload.weightDecimal ?? 0) / 10;
   const unit = payload.weightUnit ?? 'kg';
   const weightKg = unit === 'lb' ? cw / 2.20462 : cw;
   const gender = payload.gender ?? 'male';
@@ -53,7 +53,7 @@ export function graduateOnboarding(): void {
     weightUnit: unit,
     activityLevel: activity,
     goal,
-    targetWeight: payload.targetWeight ?? cw,
+    targetWeight: (payload.targetWeight ?? payload.currentWeight ?? 70) + (payload.targetWeightDecimal ?? 0) / 10,
     weeklyGoalSpeed: speed,
     eatsMoreOnWeekends: payload.eatsMoreOnWeekends ?? false,
     weekendDays: payload.weekendDays ?? [],

@@ -26,29 +26,40 @@ export default function GoalWeightScreen() {
   const [unit, setUnit] = useState<'kg' | 'lb'>(weightUnit);
   const [decimalIndex, setDecimalIndex] = useState(0);
 
+  // Convert currentWeight to both kg and lb for picker range computation
+  const cwKg = useMemo(() => {
+    if (currentWeight == null) return null;
+    return weightUnit === 'lb' ? Math.round(currentWeight / 2.20462) : currentWeight;
+  }, [currentWeight, weightUnit]);
+
+  const cwLb = useMemo(() => {
+    if (currentWeight == null) return null;
+    return weightUnit === 'kg' ? Math.round(currentWeight * 2.20462) : currentWeight;
+  }, [currentWeight, weightUnit]);
+
   const kgValues = useMemo(() => {
-    if (goal === 'lose' && currentWeight != null) {
-      const max = Math.max(KG_MIN, Math.min(currentWeight - 1, KG_MAX));
+    if (goal === 'lose' && cwKg != null) {
+      const max = Math.max(KG_MIN, Math.min(cwKg - 1, KG_MAX));
       return Array.from({ length: max - KG_MIN + 1 }, (_, i) => i + KG_MIN);
     }
-    if (goal === 'gain' && currentWeight != null) {
-      const min = Math.max(KG_MIN, Math.min(currentWeight + 1, KG_MAX));
+    if (goal === 'gain' && cwKg != null) {
+      const min = Math.max(KG_MIN, Math.min(cwKg + 1, KG_MAX));
       return Array.from({ length: KG_MAX - min + 1 }, (_, i) => i + min);
     }
     return Array.from({ length: KG_MAX - KG_MIN + 1 }, (_, i) => i + KG_MIN);
-  }, [goal, currentWeight]);
+  }, [goal, cwKg]);
 
   const lbValues = useMemo(() => {
-    if (goal === 'lose' && currentWeight) {
-      const max = Math.max(LB_MIN, Math.min(Math.round(currentWeight * 2.20462) - 1, LB_MAX));
+    if (goal === 'lose' && cwLb != null) {
+      const max = Math.max(LB_MIN, Math.min(cwLb - 1, LB_MAX));
       return Array.from({ length: max - LB_MIN + 1 }, (_, i) => i + LB_MIN);
     }
-    if (goal === 'gain' && currentWeight) {
-      const min = Math.max(LB_MIN, Math.min(Math.round(currentWeight * 2.20462) + 1, LB_MAX));
+    if (goal === 'gain' && cwLb != null) {
+      const min = Math.max(LB_MIN, Math.min(cwLb + 1, LB_MAX));
       return Array.from({ length: LB_MAX - min + 1 }, (_, i) => i + min);
     }
     return Array.from({ length: LB_MAX - LB_MIN + 1 }, (_, i) => i + LB_MIN);
-  }, [goal, currentWeight]);
+  }, [goal, cwLb]);
 
   const defaultKgIdx = Math.min(20, kgValues.length - 1);
   const defaultLbIdx = Math.min(44, lbValues.length - 1);

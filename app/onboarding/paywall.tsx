@@ -12,6 +12,7 @@ import { OnboardingIcon } from '@/components/onboarding/OnboardingIcon';
 import { useOnboardingStore } from '@/store/onboarding-store';
 import { BouncyView } from '@/components/onboarding/BouncyView';
 import { graduateOnboarding } from '@/utils/graduate-onboarding';
+import { useUserStore } from '@/store/user-store';
 import { fetchOfferings, purchase, type StubPackage } from '@/utils/revenue-cat';
 
 const TIMER_DURATION = 15 * 60; // 15 minutes in seconds
@@ -81,13 +82,20 @@ export default function PaywallScreen() {
     return `${m}:${sec.toString().padStart(2, '0')}`;
   };
 
+  const safeGraduate = () => {
+    // Only run graduation if profile doesn't exist yet (prevents overwriting on re-subscribe)
+    if (!useUserStore.getState().profile) {
+      graduateOnboarding();
+    }
+    completeOnboarding();
+  };
+
   const handleSubscribe = async () => {
     const pkg = selectedPlan === 'yearly' ? packages.yearly : packages.monthly;
 
     // If no packages loaded (no RevenueCat keys yet), fall through to free access
     if (!pkg) {
-      graduateOnboarding();
-      completeOnboarding();
+      safeGraduate();
       router.replace('/(tabs)');
       return;
     }
@@ -96,8 +104,7 @@ export default function PaywallScreen() {
     try {
       const success = await purchase(pkg);
       if (success) {
-        graduateOnboarding();
-        completeOnboarding();
+        safeGraduate();
         router.replace('/(tabs)');
       }
       // If !success, user cancelled — stay on screen
@@ -124,8 +131,7 @@ export default function PaywallScreen() {
   };
 
   const handleSkipToApp = () => {
-    graduateOnboarding();
-    completeOnboarding();
+    safeGraduate();
     router.replace('/(tabs)');
   };
 

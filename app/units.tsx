@@ -13,6 +13,7 @@ import Svg, { Path } from 'react-native-svg';
 import { Theme } from '@/constants/theme';
 import { useUserStore } from '@/store/user-store';
 import { useWeightStore } from '@/store/weight-store';
+import { recalculateTargets } from '@/utils/recalculate-targets';
 
 const WEIGHT_UNITS = ['kg', 'lb'] as const;
 type WeightUnit = (typeof WEIGHT_UNITS)[number];
@@ -60,12 +61,15 @@ export default function UnitsScreen() {
         ? (v: number) => Math.round(v * KG_TO_LB * 10) / 10
         : (v: number) => Math.round((v / KG_TO_LB) * 10) / 10;
 
-      updateProfile({
+      const convertedPatch = {
         weightUnit,
         heightUnit,
         startWeight: convert(profile.startWeight),
         targetWeight: convert(profile.targetWeight),
-      });
+      };
+      // Recalculate BMR/TDEE/macros with the converted weights
+      const recalculated = recalculateTargets(profile, convertedPatch);
+      updateProfile(recalculated);
       convertAll(weightUnit, convert);
     } else {
       updateProfile({ heightUnit });

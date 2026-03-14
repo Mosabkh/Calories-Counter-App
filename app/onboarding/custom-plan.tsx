@@ -41,8 +41,9 @@ export default function CustomPlanScreen() {
     eatsMoreOnWeekends, weekendDays,
   } = useOnboardingStore((s) => s.payload);
 
-  const cw = currentWeight || 70;
-  const tw = targetWeight || cw;
+  const { weightDecimal, targetWeightDecimal } = useOnboardingStore((s) => s.payload);
+  const cw = (currentWeight || 70) + (weightDecimal ?? 0) / 10;
+  const tw = (targetWeight || currentWeight || 70) + (targetWeightDecimal ?? 0) / 10;
   const unit = weightUnit || 'kg';
   const diff = Math.abs(cw - tw);
   const isMaintain = goal === 'maintain';

@@ -33,6 +33,7 @@ export default function LogMealScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
     foodId?: string;
+    foodData?: string;
     date?: string;
     imageUri?: string;
     editMealId?: string;
@@ -52,11 +53,13 @@ export default function LogMealScreen() {
 
   const isEditing = existingMeal !== null;
 
-  // Pre-fill from food database if foodId provided
-  const prefillFood = useMemo(
-    () => (params.foodId ? getFoodById(params.foodId) : null),
-    [params.foodId],
-  );
+  // Pre-fill from food database if foodId provided (online foods passed via foodData)
+  const prefillFood = useMemo(() => {
+    if (params.foodData) {
+      try { return JSON.parse(params.foodData) as import('@/types/food').FoodItem; } catch { return null; }
+    }
+    return params.foodId ? getFoodById(params.foodId) : null;
+  }, [params.foodId, params.foodData]);
 
   const defaultMacros = useMemo(() => {
     if (!prefillFood) return null;
