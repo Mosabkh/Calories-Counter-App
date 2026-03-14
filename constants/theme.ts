@@ -1,9 +1,8 @@
 export const Theme = {
   colors: {
-    background: '#FFFAF5',
+    background: '#FEFCF9',
     surface: '#FFFFFF',
-    navBar: '#FFF7F0',
-    surfaceAlt: '#F5F0EB',
+    surfaceAlt: '#F3F2F0',
     primary: '#E2856E',
     primaryHover: '#C76750',
     primaryActive: 'rgba(226, 133, 110, 0.05)',
