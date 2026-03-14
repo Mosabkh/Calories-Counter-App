@@ -634,7 +634,7 @@ export default function RemindersScreen() {
             <Path d="M19 12H5M12 19l-7-7 7-7" stroke={Theme.colors.textDark} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Reminders</Text>
+        <Text style={styles.headerTitle} accessibilityRole="header">Reminders</Text>
         <View style={styles.backBtn} />
       </View>
 

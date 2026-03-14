@@ -156,7 +156,7 @@ export default function EditProfileScreen() {
               <Path d="M19 12H5M12 19l-7-7 7-7" stroke={Theme.colors.textDark} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Profile</Text>
+          <Text style={styles.headerTitle} accessibilityRole="header">Edit Profile</Text>
           <View style={styles.backBtn} />
         </View>
         <View style={styles.emptyState}>
@@ -189,7 +189,7 @@ export default function EditProfileScreen() {
               <Path d="M19 12H5M12 19l-7-7 7-7" stroke={Theme.colors.textDark} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Profile</Text>
+          <Text style={styles.headerTitle} accessibilityRole="header">Edit Profile</Text>
           <TouchableOpacity
             onPress={handleSave}
             disabled={!hasChanged}

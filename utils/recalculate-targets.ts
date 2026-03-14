@@ -19,10 +19,12 @@ export function recalculateTargets(
 ): Partial<UserProfile> {
   const merged = { ...current, ...patch };
 
+  // Use currentWeight override (latest weigh-in) if provided, else fall back to startWeight
+  const rawWeight = (patch as any).currentWeight ?? merged.startWeight;
   const weightKg =
     merged.weightUnit === 'lb'
-      ? merged.startWeight / 2.20462
-      : merged.startWeight;
+      ? rawWeight / 2.20462
+      : rawWeight;
 
   const age =
     merged.birthYear && merged.birthMonth && merged.birthDay

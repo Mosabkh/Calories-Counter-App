@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, AppState } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
@@ -10,7 +10,7 @@ import { useWeightStore } from '@/store/weight-store';
 import { useStreakStore } from '@/store/streak-store';
 import { useDiaryStore } from '@/store/diary-store';
 import { usePhotoStore } from '@/store/photo-store';
-import { toDateKey, weekKeys, dayLabel, daysBetween } from '@/utils/date';
+import { toDateKey, weekKeys, dayLabel, daysBetween, yesterdayKey } from '@/utils/date';
 import { calculateBMI, getBMICategory } from '@/utils/calories';
 import type { WeightEntry } from '@/types/data';
 
@@ -152,13 +152,30 @@ export default function ProgressScreen() {
   const profile = useUserStore((s) => s.profile);
   const allWeightEntries = useWeightStore((s) => s.entries);
   const streakData = useStreakStore((s) => s.streak);
+  // Validate streak is still current (not stale from days ago)
+  const validatedStreak = useMemo(() => {
+    const { currentStreak, lastLoggedDate } = streakData;
+    if (currentStreak === 0 || !lastLoggedDate) return 0;
+    if (lastLoggedDate === todayKey || lastLoggedDate === yesterdayKey()) return currentStreak;
+    return 0;
+  }, [streakData, todayKey]);
   const diaryEntries = useDiaryStore((s) => s.entries);
   const photos = usePhotoStore((s) => s.photos);
 
   const removeWeightEntry = useWeightStore((s) => s.removeEntry);
   const latestWeight = allWeightEntries[0] ?? null;
 
-  const todayKey = useMemo(() => toDateKey(), []);
+  // M13: Refresh todayKey when app comes to foreground (handles midnight crossing)
+  const [todayKey, setTodayKey] = useState(() => toDateKey());
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        const newToday = toDateKey();
+        setTodayKey((prev) => (prev !== newToday ? newToday : prev));
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   // Which days this week have logged meals (for streak dots)
   const thisWeekKeys = useMemo(() => currentWeekKeys(todayKey), [todayKey]);
@@ -452,7 +469,7 @@ export default function ProgressScreen() {
           <View
             style={styles.progCard}
             accessible={true}
-            accessibilityLabel={`${streakData.currentStreak > 0 ? `${streakData.currentStreak} day streak` : 'No streak yet'}. This week: ${STREAK_DAYS.map((d, i) => `${d} ${weekLogged[i] ? 'logged' : 'not logged'}`).join(', ')}.`}
+            accessibilityLabel={`${validatedStreak > 0 ? `${validatedStreak} day streak` : 'No streak yet'}. This week: ${STREAK_DAYS.map((d, i) => `${d} ${weekLogged[i] ? 'logged' : 'not logged'}`).join(', ')}.`}
           >
             <View style={styles.streakIconWrap} accessible={false}>
               <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
@@ -461,9 +478,9 @@ export default function ProgressScreen() {
                 <Path d="M12 5v6M9 8h6" stroke={Theme.colors.warning} strokeWidth={2} strokeLinecap="round" />
               </Svg>
             </View>
-            <Text style={streakData.currentStreak > 0 ? styles.streakTitle : styles.streakTitleEmpty}>
-              {streakData.currentStreak > 0
-                ? `${streakData.currentStreak}-day streak`
+            <Text style={validatedStreak > 0 ? styles.streakTitle : styles.streakTitleEmpty}>
+              {validatedStreak > 0
+                ? `${validatedStreak}-day streak`
                 : 'Log a meal to start!'}
             </Text>
             <View style={styles.streakDays}>

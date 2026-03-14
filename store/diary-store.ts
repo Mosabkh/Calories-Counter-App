@@ -36,7 +36,7 @@ export const useDiaryStore = create<DiaryState>()(
           const dayMeals = [...(s.entries[meal.date] || []), meal];
           return { entries: { ...s.entries, [meal.date]: dayMeals } };
         });
-        useStreakStore.getState().recordActivity(toDateKey());
+        useStreakStore.getState().recordActivity(meal.date);
       },
 
       removeMeal: (date, mealId) =>

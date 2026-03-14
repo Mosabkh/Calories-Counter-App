@@ -270,19 +270,27 @@ export default function HomeScreen() {
 
   // Targets from profile (pre-calculated at graduation)
   const profileCalorieTarget = profile?.dailyCalorieTarget ?? 2000;
-  const proteinTarget = profile?.proteinTarget ?? 150;
-  const carbsTarget = profile?.carbsTarget ?? 200;
-  const fatTarget = profile?.fatTarget ?? 55;
+  const profileProteinTarget = profile?.proteinTarget ?? 150;
+  const profileCarbsTarget = profile?.carbsTarget ?? 200;
+  const profileFatTarget = profile?.fatTarget ?? 55;
 
   // B9: Apply day-split (zigzag) if user chose high days in onboarding
-  const baseCalorieTarget = useMemo(() => {
+  const { baseCalorieTarget, proteinTarget, carbsTarget, fatTarget } = useMemo(() => {
     const hasHighDays = profile?.eatsMoreOnWeekends && profile.weekendDays.length > 0 && profile.weekendDays.length < 7;
-    if (!hasHighDays) return profileCalorieTarget;
+    if (!hasHighDays) return { baseCalorieTarget: profileCalorieTarget, proteinTarget: profileProteinTarget, carbsTarget: profileCarbsTarget, fatTarget: profileFatTarget };
     const { normalDayCal, highDayCal } = calculateDaySplit(profileCalorieTarget, profile.weekendDays.length);
     const selectedDay = new Date(selectedDateKey + 'T00:00:00').getDay();
     const dayName = FULL_DAY_NAMES[selectedDay];
-    return profile.weekendDays.includes(dayName) ? highDayCal : normalDayCal;
-  }, [profileCalorieTarget, profile?.eatsMoreOnWeekends, profile?.weekendDays, selectedDateKey]);
+    const dayCal = profile.weekendDays.includes(dayName) ? highDayCal : normalDayCal;
+    // Scale macros proportionally with the day-split ratio
+    const ratio = profileCalorieTarget > 0 ? dayCal / profileCalorieTarget : 1;
+    return {
+      baseCalorieTarget: dayCal,
+      proteinTarget: Math.round(profileProteinTarget * ratio),
+      carbsTarget: Math.round(profileCarbsTarget * ratio),
+      fatTarget: Math.round(profileFatTarget * ratio),
+    };
+  }, [profileCalorieTarget, profileProteinTarget, profileCarbsTarget, profileFatTarget, profile?.eatsMoreOnWeekends, profile?.weekendDays, selectedDateKey]);
 
   const burnAdjustedTarget = addBurnedCalories ? baseCalorieTarget + caloriesBurned : baseCalorieTarget;
 
@@ -293,6 +301,7 @@ export default function HomeScreen() {
   const yesterdayMeals = useDiaryStore((s) => s.entries[yesterdayKey] ?? EMPTY_MEALS);
   const twoDaysAgoMeals = useDiaryStore((s) => s.entries[twoDaysAgoKey] ?? EMPTY_MEALS);
   const { calorieTarget, budgetReduction } = useMemo(() => {
+    if (!profile?.rolloverCalories) return { calorieTarget: burnAdjustedTarget, budgetReduction: 0 };
     let deficit = 0;
     for (const meals of [yesterdayMeals, twoDaysAgoMeals]) {
       if (meals.length > 0) {
@@ -305,7 +314,7 @@ export default function HomeScreen() {
     const minCal = profile?.gender === 'female' ? 1200 : 1500;
     const adjusted = Math.max(minCal, burnAdjustedTarget - deficit);
     return { calorieTarget: adjusted, budgetReduction: deficit > 0 ? burnAdjustedTarget - adjusted : 0 };
-  }, [yesterdayMeals, twoDaysAgoMeals, burnAdjustedTarget, profile?.gender]);
+  }, [yesterdayMeals, twoDaysAgoMeals, burnAdjustedTarget, profile?.gender, profile?.rolloverCalories]);
 
   // Over-budget detection
   const isOverBudget = daySummary.totalCalories > calorieTarget;

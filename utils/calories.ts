@@ -73,7 +73,7 @@ export function calculateDailyCalories(
   const dailyDelta = Math.round((weeklySpeedKg * 7700) / 7);
 
   if (goal === 'lose') return Math.max(minCal, tdee - dailyDelta);
-  return Math.min(tdee + maxGainSurplus, tdee + dailyDelta); // gain, capped
+  return Math.max(minCal, Math.min(tdee + maxGainSurplus, tdee + dailyDelta)); // gain, capped + floored
 }
 
 /**
@@ -132,9 +132,14 @@ export function calculateDaySplit(
     return { normalDayCal: dailyCalories, highDayCal: dailyCalories };
   }
   const weeklyTotal = dailyCalories * 7;
-  const BUMP = 0.20; // 20% extra on high days
+  // Scale bump down when many high days to prevent negative normal-day calories
+  const maxBump = (7 - highDayCount) / (highDayCount + (7 - highDayCount));
+  const BUMP = Math.min(0.20, maxBump);
   const highDayCal = Math.round(dailyCalories * (1 + BUMP));
-  const normalDayCal = Math.round((weeklyTotal - highDayCal * highDayCount) / (7 - highDayCount));
+  const normalDayCal = Math.max(
+    Math.round(dailyCalories * 0.8),
+    Math.round((weeklyTotal - highDayCal * highDayCount) / (7 - highDayCount)),
+  );
   return { normalDayCal, highDayCal };
 }
 

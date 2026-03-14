@@ -99,7 +99,7 @@ export default function SavedFoodsScreen() {
             />
           </Svg>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Saved Foods</Text>
+        <Text style={styles.headerTitle} accessibilityRole="header">Saved Foods</Text>
         <View style={styles.backBtn} />
       </View>
 

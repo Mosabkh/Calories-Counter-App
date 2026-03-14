@@ -41,7 +41,8 @@ export default function FoodSearchScreen() {
     return [];
   }, [query, selectedCategory]);
 
-  // Debounced online search
+  // Debounced online search with stale-result prevention
+  const abortRef = useRef<AbortController | null>(null);
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const q = query.trim();
@@ -52,12 +53,18 @@ export default function FoodSearchScreen() {
     }
     setOnlineLoading(true);
     debounceRef.current = setTimeout(async () => {
+      if (abortRef.current) abortRef.current.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
       const results = await searchOnline(q);
-      setOnlineResults(results);
-      setOnlineLoading(false);
+      if (!controller.signal.aborted) {
+        setOnlineResults(results);
+        setOnlineLoading(false);
+      }
     }, 500);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (abortRef.current) abortRef.current.abort();
     };
   }, [query]);
 
@@ -189,7 +196,7 @@ export default function FoodSearchScreen() {
               />
             </Svg>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Food Database</Text>
+          <Text style={styles.headerTitle} accessibilityRole="header">Food Database</Text>
           <View style={styles.backBtn} />
         </View>
 

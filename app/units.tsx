@@ -112,7 +112,7 @@ export default function UnitsScreen() {
               <Path d="M19 12H5M12 19l-7-7 7-7" stroke={Theme.colors.textDark} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Units & Formatting</Text>
+          <Text style={styles.headerTitle} accessibilityRole="header">Units & Formatting</Text>
           <View style={styles.backBtn} />
         </View>
         <View style={styles.emptyState}>
@@ -137,7 +137,7 @@ export default function UnitsScreen() {
             <Path d="M19 12H5M12 19l-7-7 7-7" stroke={Theme.colors.textDark} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Units & Formatting</Text>
+        <Text style={styles.headerTitle} accessibilityRole="header">Units & Formatting</Text>
         <TouchableOpacity
           onPress={handleSave}
           disabled={!hasChanged}

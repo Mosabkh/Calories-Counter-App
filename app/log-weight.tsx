@@ -287,7 +287,7 @@ export default function LogWeightScreen() {
         return;
       }
       updateEntry(currentEntry.id, { weight: selectedWeight, unit });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
       isSaving.current = false;
       router.back();
       return;
@@ -302,7 +302,7 @@ export default function LogWeightScreen() {
     };
     addEntry(entry);
     useStreakStore.getState().recordActivity(toDateKey());
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
 
     if (sessionPhotoUri) {
       addPhoto({
